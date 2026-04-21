@@ -6,64 +6,13 @@ from datetime import datetime, timezone
 
 import psycopg
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from psycopg import Connection
+
+from ingestion.contracts import build_envelope, is_message_processed, parse_json_bytes, record_message_processed
+from ingestion.domain import minute_bucket, parse_ts
 
 
 def env(name: str, default: str) -> str:
     return os.getenv(name, default)
-
-
-def parse_ts(value: str) -> datetime:
-    return datetime.fromisoformat(value.replace("Z", "+00:00"))
-
-
-def minute_bucket(ts: datetime) -> datetime:
-    return ts.replace(second=0, microsecond=0, tzinfo=timezone.utc)
-
-
-def envelope(payload: dict) -> dict:
-    return {
-        "message_id": str(uuid.uuid4()),
-        "emitted_at": datetime.now(timezone.utc).isoformat(),
-        "schema_version": 1,
-        "headers": {},
-        "payload": payload,
-        "retry": None,
-    }
-
-
-def is_message_processed(conn: Connection, service_name: str, message_id: str) -> bool:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT 1
-            FROM processed_message_ledger
-            WHERE service_name = %s AND message_id = %s::uuid
-            """,
-            (service_name, message_id),
-        )
-        return cur.fetchone() is not None
-
-
-def record_message_processed(
-    conn: Connection,
-    service_name: str,
-    message_id: str,
-    source_topic: str,
-    source_partition: int,
-    source_offset: int,
-) -> None:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO processed_message_ledger (
-              service_name, message_id, source_topic, source_partition, source_offset
-            ) VALUES (%s, %s::uuid, %s, %s, %s)
-            ON CONFLICT (service_name, message_id) DO NOTHING
-            """,
-            (service_name, message_id, source_topic, source_partition, source_offset),
-        )
-    conn.commit()
 
 
 async def main() -> None:
@@ -93,7 +42,7 @@ async def main() -> None:
             source_partition = msg.partition
             source_offset = msg.offset
 
-            outer = json.loads(msg.value.decode("utf-8"))
+            outer = parse_json_bytes(msg.value)
             message_id = outer.get("message_id") or str(uuid.uuid4())
             if is_message_processed(conn, service_name, message_id):
                 await consumer.commit()
@@ -163,7 +112,7 @@ async def main() -> None:
                     "trade_count": flush["trade_count"],
                     "last_event_ts": flush["last_event_ts"].isoformat(),
                 }
-                await producer.send_and_wait(output_topic, json.dumps(envelope(bar_event)).encode("utf-8"))
+                await producer.send_and_wait(output_topic, json.dumps(build_envelope(bar_event)).encode("utf-8"))
 
             if not current or current["bucket_start"] != bucket:
                 state[key] = {

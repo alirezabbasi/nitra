@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "mappings": [
+    {
+      "venue": "oanda",
+      "broker_symbol": "EUR_USD",
+      "canonical_symbol": "EURUSD"
+    },
+    {
+      "venue": "capital",
+      "broker_symbol": "CS.D.EURUSD.MINI.IP",
+      "canonical_symbol": "EURUSD"
+    },
+    {
+      "venue": "coinbase",
+      "broker_symbol": "EUR-USD",
+      "canonical_symbol": "EURUSD"
+    }
+  ]
+}

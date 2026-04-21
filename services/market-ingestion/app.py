@@ -7,20 +7,11 @@ from datetime import datetime, timezone
 
 from aiokafka import AIOKafkaProducer
 
+from ingestion.contracts import build_envelope
+
 
 def env(name: str, default: str) -> str:
     return os.getenv(name, default)
-
-
-def envelope(payload: dict, schema_version: int = 1) -> dict:
-    return {
-        "message_id": str(uuid.uuid4()),
-        "emitted_at": datetime.now(timezone.utc).isoformat(),
-        "schema_version": schema_version,
-        "headers": {},
-        "payload": payload,
-        "retry": None,
-    }
 
 
 async def main() -> None:
@@ -62,8 +53,8 @@ async def main() -> None:
                 "ts": datetime.now(timezone.utc).isoformat(),
             }
 
-            await producer.send_and_wait(raw_topic, json.dumps(envelope(raw_payload)).encode("utf-8"))
-            await producer.send_and_wait(health_topic, json.dumps(envelope(health_payload)).encode("utf-8"))
+            await producer.send_and_wait(raw_topic, json.dumps(build_envelope(raw_payload)).encode("utf-8"))
+            await producer.send_and_wait(health_topic, json.dumps(build_envelope(health_payload)).encode("utf-8"))
             await asyncio.sleep(interval_secs)
     finally:
         await producer.stop()
