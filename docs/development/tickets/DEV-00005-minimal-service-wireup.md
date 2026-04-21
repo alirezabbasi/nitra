@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done
 
 ## Summary
 
@@ -35,3 +35,14 @@ Wire the minimum viable ingestion services into NITRA compose and service folder
 - Raw events flow to canonical entities.
 - Compose remains concise and maintainable for dev usage.
 
+## Evidence
+
+- Services:
+  - `services/market-ingestion/`
+  - `services/market-normalization/`
+  - `services/bar-aggregation/`
+  - `services/gap-detection/`
+  - `services/backfill-worker/`
+- Compose wiring: `docker-compose.yml`
+- Env var schema docs: `docs/ingestion_docs/07-devdocs/01-development-environment/ingestion-service-env.md`
+- Verification: `tests/dev-00005/run.sh`
