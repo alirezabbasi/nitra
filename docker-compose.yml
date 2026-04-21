@@ -1,0 +1,231 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg17
+    container_name: timescaledb
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka:
+    image: apache/kafka:4.2.0
+    container_name: kafka
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_NODE_ID: ${KAFKA_NODE_ID}
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+      KAFKA_ADVERTISED_LISTENERS: ${KAFKA_ADVERTISED_LISTENERS}
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  createbuckets:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      mc mb -p local/mlflow || true;
+      exit 0;
+      "
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v3.11.1
+    container_name: mlflow
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      createbuckets:
+        condition: service_completed_successfully
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      MLFLOW_S3_ENDPOINT_URL: ${MLFLOW_S3_ENDPOINT_URL}
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri ${MLFLOW_BACKEND_STORE_URI}
+      --artifacts-destination ${MLFLOW_ARTIFACT_ROOT}
+    ports:
+      - "5000:5000"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+  structure-engine:
+    build:
+      context: ./services/structure-engine
+      dockerfile: Dockerfile
+    container_name: structure-engine
+    environment:
+      RUST_LOG: info
+      DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
+      KAFKA_BROKERS: kafka:9092
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/structure-engine:/app
+      - cargo_cache:/usr/local/cargo/registry
+      - target_structure:/app/target
+    command: ["sleep", "infinity"]
+
+  risk-engine:
+    build:
+      context: ./services/risk-engine
+      dockerfile: Dockerfile
+    container_name: risk-engine
+    environment:
+      RUST_LOG: info
+      DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./services/risk-engine:/app
+      - cargo_cache:/usr/local/cargo/registry
+      - target_risk:/app/target
+    command: ["sleep", "infinity"]
+
+  execution-gateway:
+    build:
+      context: ./services/execution-gateway
+      dockerfile: Dockerfile
+    container_name: execution-gateway
+    environment:
+      RUST_LOG: info
+      DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./services/execution-gateway:/app
+      - cargo_cache:/usr/local/cargo/registry
+      - target_exec:/app/target
+    command: ["sleep", "infinity"]
+
+  inference-gateway:
+    build:
+      context: ./services/inference-gateway
+      dockerfile: Dockerfile
+    container_name: inference-gateway
+    environment:
+      DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/inference-gateway:/app
+    command: ["sleep", "infinity"]
+
+  llm-analyst:
+    build:
+      context: ./services/llm-analyst
+      dockerfile: Dockerfile
+    container_name: llm-analyst
+    environment:
+      DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/llm-analyst:/app
+    command: ["sleep", "infinity"]
+
+volumes:
+  timescaledb_data:
+  minio_data:
+  cargo_cache:
+  target_structure:
+  target_risk:
+  target_exec:
