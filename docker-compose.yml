@@ -223,6 +223,100 @@ services:
       - ./services/llm-analyst:/app
     command: ["sleep", "infinity"]
 
+  market-ingestion:
+    build:
+      context: ./services/market-ingestion
+      dockerfile: Dockerfile
+    container_name: market-ingestion
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      INGESTION_RAW_TOPIC: raw.market.oanda
+      INGESTION_HEALTH_TOPIC: connector.health
+      INGESTION_VENUE: oanda
+      INGESTION_SYMBOL: EUR_USD
+      INGESTION_INTERVAL_SECS: 1.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./services/market-ingestion:/app
+    restart: unless-stopped
+
+  market-normalization:
+    build:
+      context: ./services/market-normalization
+      dockerfile: Dockerfile
+    container_name: market-normalization
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      NORMALIZER_INPUT_TOPICS: raw.market.oanda,raw.market.capital,raw.market.coinbase
+      NORMALIZER_OUTPUT_TOPIC: normalized.quote.fx
+      NORMALIZER_GROUP_ID: nitra-market-normalization-v1
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+    volumes:
+      - ./services/market-normalization:/app
+    restart: unless-stopped
+
+  bar-aggregation:
+    build:
+      context: ./services/bar-aggregation
+      dockerfile: Dockerfile
+    container_name: bar-aggregation
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      BAR_INPUT_TOPIC: normalized.quote.fx
+      BAR_OUTPUT_TOPIC: bar.1m
+      BAR_GROUP_ID: nitra-bar-aggregation-v1
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+    volumes:
+      - ./services/bar-aggregation:/app
+    restart: unless-stopped
+
+  gap-detection:
+    build:
+      context: ./services/gap-detection
+      dockerfile: Dockerfile
+    container_name: gap-detection
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      GAP_INPUT_TOPIC: bar.1m
+      GAP_OUTPUT_TOPIC: gap.events
+      GAP_GROUP_ID: nitra-gap-detection-v1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./services/gap-detection:/app
+    restart: unless-stopped
+
+  backfill-worker:
+    build:
+      context: ./services/backfill-worker
+      dockerfile: Dockerfile
+    container_name: backfill-worker
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      BACKFILL_INPUT_TOPIC: gap.events
+      BACKFILL_REPLAY_TOPIC: replay.commands
+      BACKFILL_GROUP_ID: nitra-backfill-worker-v1
+      BACKFILL_TARGET_GROUP: nitra-market-normalization-v1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./services/backfill-worker:/app
+    restart: unless-stopped
+
 volumes:
   timescaledb_data:
   minio_data:
