@@ -1,0 +1,9 @@
+# name,partitions,replication_factor,cleanup_policy,retention_ms,consumer_group
+raw.market.oanda,6,1,delete,-1,nitra-market-normalization-v1
+raw.market.capital,6,1,delete,-1,nitra-market-normalization-v1
+raw.market.coinbase,6,1,delete,-1,nitra-market-normalization-v1
+normalized.quote.fx,12,1,delete,-1,nitra-bar-aggregation-v1
+bar.1m,12,1,delete,-1,nitra-gap-detection-v1
+gap.events,6,1,delete,-1,nitra-backfill-worker-v1
+replay.commands,3,1,delete,-1,nitra-replay-controller-v1
+connector.health,3,1,delete,604800000,nitra-ops-monitor-v1

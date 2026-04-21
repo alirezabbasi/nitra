@@ -24,5 +24,11 @@ reset:
 kafka-topics:
 	docker compose exec kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list
 
+kafka-bootstrap:
+	scripts/kafka/bootstrap-topics.sh
+
+test-dev-00003:
+	tests/dev-00003/run.sh
+
 db:
 	docker compose exec timescaledb psql -U $$POSTGRES_USER -d $$POSTGRES_DB
