@@ -7,7 +7,6 @@ Last updated: 2026-04-22
 
 ## Backlog
 
-- [ ] `DEV-00004` Canonical ingestion schema and idempotency ledger migrations.
 - [ ] `DEV-00005` Minimal ingestion service wire-up in NITRA compose.
 - [ ] `DEV-00006` Replay and idempotency verification tests.
 - [ ] `DEV-00007` Dev runbook for live market ingestion startup/validation.
@@ -23,6 +22,7 @@ Last updated: 2026-04-22
 - [x] Created `docs/development/` workspace and registered `DEV-00001` ticket.
 - [x] `DEV-00002` Ingestion reuse mapping (`../barsfp` -> `nitra`) with strict reject list.
 - [x] `DEV-00003` Kafka contracts and topic bootstrap for NITRA ingestion.
+- [x] `DEV-00004` Canonical ingestion schema and idempotency ledger migrations.
 
 ## Blocked
 
