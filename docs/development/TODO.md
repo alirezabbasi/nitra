@@ -7,11 +7,11 @@ Last updated: 2026-04-22
 
 ## Backlog
 
-- [ ] `DEV-00007` Dev runbook for live market ingestion startup/validation.
+- [ ] (No open backlog items)
 
 ## In Progress
 
-- [ ] `DEV-00001` Program ticket: wire useful BarsFP ingestion parts into NITRA with simple dev env only.
+- [ ] (No active in-progress items)
 
 ## Done
 
@@ -23,6 +23,8 @@ Last updated: 2026-04-22
 - [x] `DEV-00004` Canonical ingestion schema and idempotency ledger migrations.
 - [x] `DEV-00005` Minimal ingestion service wire-up in NITRA compose.
 - [x] `DEV-00006` Replay and idempotency verification tests.
+- [x] `DEV-00007` Dev runbook for live market ingestion startup/validation.
+- [x] `DEV-00001` Program ticket: wire useful BarsFP ingestion parts into NITRA with simple dev env only.
 
 ## Blocked
 

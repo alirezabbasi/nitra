@@ -30,3 +30,4 @@ This folder tracks implementation planning and execution tickets for NITRA devel
 ## Project Tracking
 
 - [Kanban TODO Board](/home/alireza/Projects/nitra/docs/development/TODO.md)
+- [Live Ingestion Dev Runbook](/home/alireza/Projects/nitra/docs/development/DEV-00007-live-ingestion-runbook.md)

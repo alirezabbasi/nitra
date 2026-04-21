@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress
+Done
 
 ## Summary
 
@@ -58,6 +58,15 @@ Rationale:
 - Duplicate/replay behavior is guarded (no silent loss, no duplicate side effects).
 - Monitoring defaults remain lightweight in baseline dev profile.
 - All changes are traceable with step-based commits and updated docs.
+
+## Evidence
+
+- `DEV-00002` reuse mapping completed
+- `DEV-00003` Kafka contract/bootstrap completed
+- `DEV-00004` canonical schema + ledger completed
+- `DEV-00005` minimal ingestion wire-up completed
+- `DEV-00006` replay/idempotency checks completed
+- `DEV-00007` dev runbook completed
 
 ## Risks
 

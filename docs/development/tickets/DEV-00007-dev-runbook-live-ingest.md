@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done
 
 ## Summary
 
@@ -31,3 +31,8 @@ Create the operator/developer runbook for starting NITRA ingestion in dev and va
 - Live data ingestion validation steps are explicit and reproducible.
 - Safe stop/restart procedure preserves data and aligns with no-deletion policy.
 
+## Evidence
+
+- Runbook: `docs/development/DEV-00007-live-ingestion-runbook.md`
+- Validation checklist included for raw -> normalized -> persisted path
+- Troubleshooting and safe stop/restart/rollback sections included
