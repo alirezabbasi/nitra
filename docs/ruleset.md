@@ -82,7 +82,8 @@ All contributors and AI agents must read and follow this file before planning or
 - At the start of each session (or after pause/handoff/context switch), reload:
   - repository instructions (`AGENTS.md` when present),
   - this global ruleset (`docs/ruleset.md`),
-  - authoritative HLD (`docs/design/AI-enabled_trading_decision_platform.md`),
+  - authoritative HLD (`docs/design/nitra_system_hld.md` and guide lines from `AI-enabled_trading_decision_platform.md`),
+  - authoritative LLD Folder (`docs/design/nitra_system_lld`)
   - relevant domain docs/rulesets for the active scope.
 
 ## Rule 12: Mandatory Bug Registry
