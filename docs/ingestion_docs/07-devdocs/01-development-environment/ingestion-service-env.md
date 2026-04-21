@@ -33,6 +33,7 @@ This page defines environment variables for the minimal ingestion runtime wired 
 - `GAP_INPUT_TOPIC` default `bar.1m`
 - `GAP_OUTPUT_TOPIC` default `gap.events`
 - `GAP_GROUP_ID` default `nitra-gap-detection-v1`
+- `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 ## backfill-worker
 
@@ -41,3 +42,4 @@ This page defines environment variables for the minimal ingestion runtime wired 
 - `BACKFILL_REPLAY_TOPIC` default `replay.commands`
 - `BACKFILL_GROUP_ID` default `nitra-backfill-worker-v1`
 - `BACKFILL_TARGET_GROUP` default `nitra-market-normalization-v1`
+- `DATABASE_URL` required (compose sets from `POSTGRES_*`)

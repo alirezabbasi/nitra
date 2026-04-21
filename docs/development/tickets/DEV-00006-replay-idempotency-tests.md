@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done
 
 ## Summary
 
@@ -33,3 +33,13 @@ Add step-scoped tests in NITRA to verify explicit commit lifecycle, replay safet
 - No silent message loss in tested failure/replay scenarios.
 - Tests are runnable in dev setup and support pre-commit verification.
 
+## Evidence
+
+- Test pack: `tests/dev-00006/run.sh`
+- Optional duplicate integration drill: `tests/dev-00006/run-integration.sh`
+- Runtime guards implemented in:
+  - `services/market-normalization/app.py`
+  - `services/bar-aggregation/app.py`
+  - `services/gap-detection/app.py`
+  - `services/backfill-worker/app.py`
+- Guarantee doc: `docs/ingestion_docs/02-data-platform/stream-replay-idempotency.md`
