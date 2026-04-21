@@ -30,5 +30,8 @@ kafka-bootstrap:
 test-dev-00003:
 	tests/dev-00003/run.sh
 
+test-dev-00004:
+	tests/dev-00004/run.sh
+
 db:
 	docker compose exec timescaledb psql -U $$POSTGRES_USER -d $$POSTGRES_DB
