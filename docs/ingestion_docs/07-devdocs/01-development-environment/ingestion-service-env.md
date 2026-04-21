@@ -17,6 +17,7 @@ This page defines environment variables for the minimal ingestion runtime wired 
 - `NORMALIZER_INPUT_TOPICS` default `raw.market.oanda,raw.market.capital,raw.market.coinbase`
 - `NORMALIZER_OUTPUT_TOPIC` default `normalized.quote.fx`
 - `NORMALIZER_GROUP_ID` default `nitra-market-normalization-v1`
+- `NORMALIZER_SYMBOL_REGISTRY_PATH` default `/app/ingestion/registry.v1.json`
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 ## bar-aggregation
