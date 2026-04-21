@@ -2,6 +2,8 @@
 set -euo pipefail
 
 for f in \
+  services/ingestion/contracts.py \
+  services/ingestion/domain.py \
   services/market-ingestion/app.py \
   services/market-normalization/app.py \
   services/bar-aggregation/app.py \
@@ -24,5 +26,6 @@ rg -n 'GAP_OUTPUT_TOPIC: gap.events' docker-compose.yml >/dev/null
 rg -n 'BACKFILL_REPLAY_TOPIC: replay.commands' docker-compose.yml >/dev/null
 
 [[ -f docs/ingestion_docs/07-devdocs/01-development-environment/ingestion-service-env.md ]]
+[[ -f infra/symbols/registry.v1.json ]]
 
 echo "[dev-00005] checks passed"
