@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 import psycopg
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
+from psycopg import Connection
 
 
 def env(name: str, default: str) -> str:
@@ -33,6 +34,40 @@ def envelope(payload: dict, schema_version: int = 1) -> dict:
     }
 
 
+def is_message_processed(conn: Connection, service_name: str, message_id: str) -> bool:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1
+            FROM processed_message_ledger
+            WHERE service_name = %s AND message_id = %s::uuid
+            """,
+            (service_name, message_id),
+        )
+        return cur.fetchone() is not None
+
+
+def record_message_processed(
+    conn: Connection,
+    service_name: str,
+    message_id: str,
+    source_topic: str,
+    source_partition: int,
+    source_offset: int,
+) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO processed_message_ledger (
+              service_name, message_id, source_topic, source_partition, source_offset
+            ) VALUES (%s, %s::uuid, %s, %s, %s)
+            ON CONFLICT (service_name, message_id) DO NOTHING
+            """,
+            (service_name, message_id, source_topic, source_partition, source_offset),
+        )
+    conn.commit()
+
+
 def classify(payload: dict) -> str:
     if payload.get("bid") is not None or payload.get("ask") is not None:
         return "raw_tick"
@@ -43,7 +78,7 @@ def classify(payload: dict) -> str:
     return "raw_tick"
 
 
-def persist_market_entity(conn: psycopg.Connection, entity_type: str, message_id: str, raw_event: dict) -> None:
+def persist_market_entity(conn: Connection, entity_type: str, message_id: str, raw_event: dict) -> None:
     venue = raw_event["venue"]
     broker_symbol = raw_event["broker_symbol"]
     event_ts_received = parse_ts(raw_event.get("event_ts_received"))
@@ -59,7 +94,7 @@ def persist_market_entity(conn: psycopg.Connection, entity_type: str, message_id
                 INSERT INTO trade_print (
                   message_id, venue, broker_symbol, event_ts_exchange, event_ts_received,
                   source, price, size, side, sequence_id, payload
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                ) VALUES (%s::uuid,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
                 ON CONFLICT (message_id, event_ts_received) DO NOTHING
                 """,
                 (
@@ -82,7 +117,7 @@ def persist_market_entity(conn: psycopg.Connection, entity_type: str, message_id
                 INSERT INTO book_event (
                   message_id, venue, broker_symbol, event_ts_exchange, event_ts_received,
                   source, best_bid, best_ask, sequence_id, payload
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                ) VALUES (%s::uuid,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
                 ON CONFLICT (message_id, event_ts_received) DO NOTHING
                 """,
                 (
@@ -104,7 +139,7 @@ def persist_market_entity(conn: psycopg.Connection, entity_type: str, message_id
                 INSERT INTO raw_tick (
                   message_id, venue, broker_symbol, event_ts_exchange, event_ts_received,
                   source, bid, ask, mid, last, sequence_id, payload
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
+                ) VALUES (%s::uuid,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s::jsonb)
                 ON CONFLICT (message_id, event_ts_received) DO NOTHING
                 """,
                 (
@@ -126,6 +161,7 @@ def persist_market_entity(conn: psycopg.Connection, entity_type: str, message_id
 
 
 async def main() -> None:
+    service_name = "market_normalization"
     brokers = env("KAFKA_BROKERS", "kafka:9092")
     input_topics = env("NORMALIZER_INPUT_TOPICS", "raw.market.oanda,raw.market.capital,raw.market.coinbase").split(",")
     output_topic = env("NORMALIZER_OUTPUT_TOPIC", "normalized.quote.fx")
@@ -146,10 +182,18 @@ async def main() -> None:
     await producer.start()
     try:
         async for msg in consumer:
+            source_topic = msg.topic
+            source_partition = msg.partition
+            source_offset = msg.offset
+
             outer = json.loads(msg.value.decode("utf-8"))
-            message_id = outer.get("message_id", str(uuid.uuid4()))
+            message_id = outer.get("message_id") or str(uuid.uuid4())
             raw_event = outer.get("payload", {})
             if not raw_event:
+                await consumer.commit()
+                continue
+
+            if is_message_processed(conn, service_name, message_id):
                 await consumer.commit()
                 continue
 
@@ -184,6 +228,14 @@ async def main() -> None:
             }
 
             await producer.send_and_wait(output_topic, json.dumps(envelope(normalized)).encode("utf-8"))
+            record_message_processed(
+                conn,
+                service_name,
+                message_id,
+                source_topic,
+                source_partition,
+                source_offset,
+            )
             await consumer.commit()
     finally:
         await consumer.stop()

@@ -292,8 +292,11 @@ services:
       GAP_INPUT_TOPIC: bar.1m
       GAP_OUTPUT_TOPIC: gap.events
       GAP_GROUP_ID: nitra-gap-detection-v1
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
     depends_on:
       kafka:
+        condition: service_healthy
+      timescaledb:
         condition: service_healthy
     volumes:
       - ./services/gap-detection:/app
@@ -310,8 +313,11 @@ services:
       BACKFILL_REPLAY_TOPIC: replay.commands
       BACKFILL_GROUP_ID: nitra-backfill-worker-v1
       BACKFILL_TARGET_GROUP: nitra-market-normalization-v1
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
     depends_on:
       kafka:
+        condition: service_healthy
+      timescaledb:
         condition: service_healthy
     volumes:
       - ./services/backfill-worker:/app
