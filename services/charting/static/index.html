@@ -13,9 +13,6 @@
         --line: #2b3245;
         --text: #d1d4dc;
         --muted: #7f8697;
-        --accent: #2962ff;
-        --green: #26a69a;
-        --red: #ef5350;
       }
 
       * {
@@ -71,7 +68,8 @@
       }
 
       .tool-btn,
-      .tf-btn {
+      .tf-btn,
+      .select {
         border: 1px solid transparent;
         color: var(--muted);
         background: transparent;
@@ -80,7 +78,18 @@
         min-width: 30px;
         padding: 0 10px;
         font-size: 12px;
+      }
+
+      .tool-btn,
+      .tf-btn {
         cursor: pointer;
+      }
+
+      .select {
+        min-width: 220px;
+        border-color: #3a4660;
+        background: #27324a;
+        color: #e3e7f0;
       }
 
       .tool-btn:hover,
@@ -96,107 +105,16 @@
         border-color: #3a4660;
       }
 
-      .content {
-        min-height: 0;
-        display: grid;
-        grid-template-columns: 280px 1fr;
-      }
-
-      .sidebar {
-        min-height: 0;
-        border-right: 1px solid var(--line);
-        background: var(--panel);
-        display: flex;
-        flex-direction: column;
-      }
-
-      .sidebar-head {
-        padding: 12px;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .search {
-        width: 100%;
-        height: 34px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--panel-soft);
-        color: var(--text);
-        padding: 0 10px;
-        font-size: 12px;
-      }
-
-      .market-list {
-        min-height: 0;
-        overflow: auto;
-      }
-
-      .market-item {
-        width: 100%;
-        border: 0;
-        border-bottom: 1px solid #232a3a;
-        background: transparent;
-        color: var(--text);
-        text-align: left;
-        padding: 10px 12px;
-        cursor: pointer;
-      }
-
-      .market-item:hover {
-        background: #232b3c;
-      }
-
-      .market-item.active {
-        background: #28344f;
-      }
-
-      .symbol-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-
-      .symbol {
-        font-size: 13px;
-        font-weight: 600;
-        color: #e5e9f2;
-      }
-
-      .venue {
-        font-size: 11px;
-        color: var(--muted);
-        text-transform: uppercase;
-      }
-
-      .meta {
-        margin-top: 4px;
-        font-size: 11px;
-        color: var(--muted);
-      }
-
       .chart-wrap {
         min-height: 0;
-        display: grid;
-        grid-template-rows: 40px 1fr;
+        display: block;
       }
 
-      .chart-head {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 14px;
-        border-bottom: 1px solid var(--line);
-        background: #161d2a;
-        font-size: 12px;
-      }
-
-      #active-market {
-        font-size: 13px;
-        color: #e4e8f1;
-      }
-
-      #status {
+      .live-status {
+        margin-left: auto;
         color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
       }
 
       #kline {
@@ -205,14 +123,13 @@
       }
 
       @media (max-width: 980px) {
-        .content {
-          grid-template-columns: 1fr;
-          grid-template-rows: 190px 1fr;
+        .brand {
+          display: none;
         }
 
-        .sidebar {
-          border-right: 0;
-          border-bottom: 1px solid var(--line);
+        .select {
+          min-width: 150px;
+          max-width: 170px;
         }
       }
     </style>
@@ -221,6 +138,18 @@
     <div class="app">
       <div class="topbar">
         <div class="brand">NITRA · KLine</div>
+        <div class="divider"></div>
+        <div class="tool-group">
+          <input
+            id="market-search"
+            class="select"
+            list="market-options"
+            title="Search Venue · Instrument"
+            placeholder="Search venue/instrument"
+            autocomplete="off"
+          />
+          <datalist id="market-options"></datalist>
+        </div>
         <div class="divider"></div>
         <div class="tool-group" id="timeframes">
           <button class="tf-btn active" data-tf="1m">1m</button>
@@ -233,30 +162,17 @@
           <button class="tool-btn" id="reload-btn">Reload</button>
           <button class="tool-btn" id="fit-btn">Fit</button>
         </div>
+        <div id="status" class="live-status">Loading...</div>
       </div>
 
-      <div class="content">
-        <aside class="sidebar">
-          <div class="sidebar-head">
-            <input id="search" class="search" type="text" placeholder="Search instruments" />
-          </div>
-          <div id="market-list" class="market-list"></div>
-        </aside>
-
-        <section class="chart-wrap">
-          <div class="chart-head">
-            <div id="active-market">Select instrument</div>
-            <div id="status">Loading...</div>
-          </div>
-          <div id="kline"></div>
-        </section>
-      </div>
+      <section class="chart-wrap">
+        <div id="kline"></div>
+      </section>
     </div>
 
     <script>
-      const marketListEl = document.getElementById("market-list");
-      const searchEl = document.getElementById("search");
-      const activeMarketEl = document.getElementById("active-market");
+      const marketSearchEl = document.getElementById("market-search");
+      const marketOptionsEl = document.getElementById("market-options");
       const statusEl = document.getElementById("status");
       const reloadBtn = document.getElementById("reload-btn");
       const fitBtn = document.getElementById("fit-btn");
@@ -266,7 +182,9 @@
         timeframe: "1m",
         markets: [],
         selected: null,
+        marketLabelToKey: new Map(),
         persistedBars: [],
+        liveBars: [],
         liveCursorMs: null,
         liveTimer: null,
         liveInFlight: false,
@@ -354,6 +272,55 @@
         return Math.floor(tsMs / tfMs) * tfMs;
       }
 
+      function aggregateBarsFromLowerTf(bars, targetTf) {
+        if (!bars.length || targetTf === "1m") {
+          return bars.map((b) => ({ ...b }));
+        }
+        const tfMs = timeframeToMs(targetTf);
+        const grouped = [];
+        let current = null;
+
+        for (const bar of bars) {
+          const bucketTs = bucketStartMs(bar.timestamp, tfMs);
+          if (!current || current.timestamp !== bucketTs) {
+            if (current) {
+              grouped.push(current);
+            }
+            current = {
+              timestamp: bucketTs,
+              open: bar.open,
+              high: bar.high,
+              low: bar.low,
+              close: bar.close,
+              volume: Number(bar.volume || 0),
+            };
+            continue;
+          }
+
+          current.high = Math.max(current.high, bar.high);
+          current.low = Math.min(current.low, bar.low);
+          current.close = bar.close;
+          current.volume += Number(bar.volume || 0);
+        }
+
+        if (current) {
+          grouped.push(current);
+        }
+        return grouped;
+      }
+
+      function fitChart() {
+        if (!chart) {
+          return;
+        }
+        if (typeof chart.resize === "function") {
+          chart.resize();
+        }
+        if (typeof chart.scrollToRealTime === "function") {
+          chart.scrollToRealTime();
+        }
+      }
+
       function stopLivePolling() {
         if (state.liveTimer) {
           clearInterval(state.liveTimer);
@@ -362,7 +329,7 @@
         state.liveInFlight = false;
       }
 
-      function mergeBarsWithTicks(baseBars, ticks, tfMs) {
+      function mergeBarsWithTicks(baseBars, ticks, tfMs, persistedLastTs) {
         const bars = baseBars.map((b) => ({ ...b }));
         if (!ticks.length) {
           return bars;
@@ -376,6 +343,11 @@
           }
 
           const bucketTs = bucketStartMs(tickTs, tfMs);
+
+          if (persistedLastTs !== null && bucketTs < persistedLastTs) {
+            continue;
+          }
+
           if (!bars.length) {
             bars.push({
               timestamp: bucketTs,
@@ -388,21 +360,9 @@
             continue;
           }
 
-          let last = bars[bars.length - 1];
+          const last = bars[bars.length - 1];
           if (bucketTs < last.timestamp) {
             continue;
-          }
-
-          while (bucketTs > last.timestamp + tfMs) {
-            bars.push({
-              timestamp: last.timestamp + tfMs,
-              open: last.close,
-              high: last.close,
-              low: last.close,
-              close: last.close,
-              volume: 0,
-            });
-            last = bars[bars.length - 1];
           }
 
           if (bucketTs === last.timestamp) {
@@ -421,6 +381,7 @@
             volume: 0,
           });
         }
+
         return bars;
       }
 
@@ -433,8 +394,9 @@
           const params = new URLSearchParams({
             venue: state.selected.venue,
             symbol: state.selected.symbol,
-            limit: "1500",
+            limit: "2000",
           });
+
           if (state.liveCursorMs !== null) {
             params.set("since_ms", String(state.liveCursorMs));
           }
@@ -447,9 +409,12 @@
 
           state.liveCursorMs = Number(ticks[ticks.length - 1].ts_ms);
           const tfMs = timeframeToMs(state.timeframe);
-          const mergedBars = mergeBarsWithTicks(state.persistedBars, ticks, tfMs);
-          if (replaceChartData(mergedBars)) {
-            chart.scrollToRealTime();
+          const persistedLastTs = state.persistedBars.length ? state.persistedBars[state.persistedBars.length - 1].timestamp : null;
+
+          state.liveBars = mergeBarsWithTicks(state.liveBars, ticks, tfMs, persistedLastTs);
+
+          if (replaceChartData(state.liveBars)) {
+            fitChart();
             setStatus(`live ticks:${ticks.length} · ${new Date().toLocaleTimeString()}`);
           }
         } catch (error) {
@@ -461,6 +426,7 @@
 
       function startLivePolling() {
         stopLivePolling();
+        pollLiveTicks();
         state.liveTimer = setInterval(pollLiveTicks, 1000);
       }
 
@@ -472,94 +438,15 @@
         return response.json();
       }
 
-      function setActiveTimeframe(tf) {
-        state.timeframe = tf;
-        Array.from(timeframeRoot.querySelectorAll(".tf-btn")).forEach((btn) => {
-          btn.classList.toggle("active", btn.dataset.tf === tf);
-        });
-      }
-
-      function renderMarketList() {
-        const query = searchEl.value.trim().toUpperCase();
-        const filtered = state.markets.filter((m) => {
-          if (!query) return true;
-          return (`${m.symbol} ${m.venue}`).toUpperCase().includes(query);
-        });
-
-        marketListEl.innerHTML = "";
-        if (!filtered.length) {
-          const empty = document.createElement("div");
-          empty.className = "meta";
-          empty.style.padding = "10px 12px";
-          empty.textContent = "No instrument matches your search.";
-          marketListEl.appendChild(empty);
-          return;
-        }
-
-        for (const market of filtered) {
-          const key = `${market.venue}:${market.symbol}`;
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "market-item";
-          btn.classList.toggle("active", state.selected && key === `${state.selected.venue}:${state.selected.symbol}`);
-
-          const symbolRow = document.createElement("div");
-          symbolRow.className = "symbol-row";
-          symbolRow.innerHTML = `<span class="symbol">${market.symbol}</span><span class="venue">${market.venue}</span>`;
-
-          const meta = document.createElement("div");
-          meta.className = "meta";
-          meta.textContent = `${market.bar_count} bars · last ${new Date(market.last_bar_ts).toLocaleTimeString()}`;
-
-          btn.appendChild(symbolRow);
-          btn.appendChild(meta);
-          btn.addEventListener("click", async () => {
-            state.selected = market;
-            renderMarketList();
-            await loadBars();
-            startLivePolling();
-          });
-          marketListEl.appendChild(btn);
-        }
-      }
-
-      async function loadMarkets() {
-        setStatus("Loading instruments...");
-        const payload = await getJson(`/api/v1/markets/available?timeframe=${encodeURIComponent(state.timeframe)}`);
-        state.markets = payload.markets || [];
-        if (!state.selected && state.markets.length) {
-          state.selected = state.markets[0];
-        } else if (state.selected) {
-          const exists = state.markets.find((m) => m.venue === state.selected.venue && m.symbol === state.selected.symbol);
-          if (!exists) {
-            state.selected = state.markets[0] || null;
-          }
-        }
-        renderMarketList();
-      }
-
-      async function loadBars() {
-        if (!state.selected) {
-          activeMarketEl.textContent = "No instrument available";
-          if (chart) {
-            replaceChartData([]);
-          }
-          setStatus("No data");
-          return;
-        }
-
-        activeMarketEl.textContent = formatMarket(state.selected);
-        setStatus("Loading candles...");
-
+      async function fetchBars(venue, symbol, timeframe, limit) {
         const params = new URLSearchParams({
-          venue: state.selected.venue,
-          symbol: state.selected.symbol,
-          timeframe: state.timeframe,
-          limit: "500",
+          venue,
+          symbol,
+          timeframe,
+          limit: String(limit),
         });
-
         const payload = await getJson(`/api/v1/bars/hot?${params.toString()}`);
-        const bars = (payload.bars || []).map((b) => ({
+        return (payload.bars || []).map((b) => ({
           timestamp: Number(b.time) * 1000,
           open: Number(b.open),
           high: Number(b.high),
@@ -567,22 +454,135 @@
           close: Number(b.close),
           volume: Number(b.volume || 0),
         }));
+      }
+
+      function setActiveTimeframe(tf) {
+        state.timeframe = tf;
+        Array.from(timeframeRoot.querySelectorAll(".tf-btn")).forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.tf === tf);
+        });
+      }
+
+      function getSelectedMarket(venue, symbol) {
+        return state.markets.find((m) => m.venue === venue && m.symbol === symbol) || null;
+      }
+
+      function marketKey(market) {
+        return `${market.venue}::${market.symbol}`;
+      }
+
+      function getSelectedMarketByKey(key) {
+        if (!key) return null;
+        const [venue, symbol] = key.split("::");
+        if (!venue || !symbol) return null;
+        return getSelectedMarket(venue, symbol);
+      }
+
+      function renderMarketSelector() {
+        marketOptionsEl.innerHTML = "";
+        state.marketLabelToKey = new Map();
+
+        if (!state.markets.length) {
+          marketSearchEl.value = "";
+          marketSearchEl.placeholder = "No market";
+          state.selected = null;
+          return;
+        }
+
+        marketSearchEl.placeholder = "Search venue/instrument";
+
+        const markets = [...state.markets].sort((a, b) => {
+          const s = a.symbol.localeCompare(b.symbol);
+          if (s !== 0) return s;
+          return a.venue.localeCompare(b.venue);
+        });
+
+        for (const market of markets) {
+          const option = document.createElement("option");
+          const label = formatMarket(market);
+          option.value = label;
+          marketOptionsEl.appendChild(option);
+          state.marketLabelToKey.set(label.toLowerCase(), marketKey(market));
+        }
+
+        const existing = state.selected ? getSelectedMarket(state.selected.venue, state.selected.symbol) : null;
+        state.selected = existing || markets[0];
+        marketSearchEl.value = state.selected ? formatMarket(state.selected) : "";
+      }
+
+      function selectedMarketFromInput() {
+        const label = marketSearchEl.value.trim().toLowerCase();
+        if (!label) return null;
+        const key = state.marketLabelToKey.get(label);
+        if (!key) return null;
+        return getSelectedMarketByKey(key);
+      }
+
+      async function loadMarkets() {
+        setStatus("Loading instruments...");
+        let payload = await getJson(`/api/v1/markets/available?timeframe=${encodeURIComponent(state.timeframe)}`);
+        let markets = payload.markets || [];
+
+        if (!markets.length && state.timeframe !== "1m") {
+          payload = await getJson("/api/v1/markets/available?timeframe=1m");
+          markets = payload.markets || [];
+        }
+
+        state.markets = markets;
+
+        if (state.selected) {
+          state.selected = getSelectedMarket(state.selected.venue, state.selected.symbol);
+        }
+
+        renderMarketSelector();
+      }
+
+      async function loadBars() {
+        if (!state.selected) {
+          if (chart) {
+            replaceChartData([]);
+          }
+          setStatus("No data");
+          return;
+        }
+
+        setStatus("Loading candles...");
+        let bars = await fetchBars(state.selected.venue, state.selected.symbol, state.timeframe, 500);
+        let derivedFromOneMinute = false;
+        if (!bars.length && state.timeframe !== "1m") {
+          const ratio = Math.max(1, Math.round(timeframeToMs(state.timeframe) / 60_000));
+          const oneMinuteLimit = Math.min(3000, 500 * ratio);
+          const oneMinuteBars = await fetchBars(state.selected.venue, state.selected.symbol, "1m", oneMinuteLimit);
+          bars = aggregateBarsFromLowerTf(oneMinuteBars, state.timeframe).slice(-500);
+          derivedFromOneMinute = bars.length > 0;
+        }
+
         state.persistedBars = bars;
+        state.liveBars = bars.map((b) => ({ ...b }));
+
         const tfMs = timeframeToMs(state.timeframe);
-        const lastBarTs = bars.length ? bars[bars.length - 1].timestamp : Date.now();
-        state.liveCursorMs = Math.max(0, lastBarTs - tfMs);
+        if (bars.length) {
+          state.liveCursorMs = bars[bars.length - 1].timestamp;
+        } else {
+          state.liveCursorMs = Date.now() - tfMs;
+        }
 
         if (!chart) {
           setStatus("Chart is not initialized");
           return;
         }
 
-        if (!replaceChartData(bars)) {
+        if (!replaceChartData(state.liveBars)) {
           setStatus("Chart data API unavailable");
           return;
         }
-        chart.scrollToRealTime();
-        setStatus(`${bars.length} candles · live on`);
+
+        fitChart();
+        if (derivedFromOneMinute) {
+          setStatus(`${state.liveBars.length} candles · live on · derived from 1m`);
+        } else {
+          setStatus(`${state.liveBars.length} candles · live on`);
+        }
       }
 
       async function reloadAll() {
@@ -594,6 +594,17 @@
         }
       }
 
+      marketSearchEl.addEventListener("change", async () => {
+        const next = selectedMarketFromInput();
+        if (!next) {
+          marketSearchEl.value = state.selected ? formatMarket(state.selected) : "";
+          return;
+        }
+        state.selected = next;
+        await loadBars();
+        startLivePolling();
+      });
+
       timeframeRoot.addEventListener("click", async (event) => {
         const btn = event.target.closest(".tf-btn");
         if (!btn) return;
@@ -604,24 +615,22 @@
         startLivePolling();
       });
 
-      reloadBtn.addEventListener("click", reloadAll);
-      fitBtn.addEventListener("click", () => {
-        if (chart) {
-          chart.scrollToRealTime();
-        }
+      reloadBtn.addEventListener("click", async () => {
+        await reloadAll();
+        startLivePolling();
       });
 
-      searchEl.addEventListener("input", renderMarketList);
+      fitBtn.addEventListener("click", () => {
+        fitChart();
+      });
+
       window.addEventListener("resize", () => {
-        if (chart) {
-          chart.resize();
-        }
+        fitChart();
       });
 
       setActiveTimeframe("1m");
       if (initChart()) {
-        reloadAll();
-        startLivePolling();
+        reloadAll().then(startLivePolling);
       }
     </script>
   </body>

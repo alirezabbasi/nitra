@@ -134,3 +134,39 @@ Append one entry at the end of each substantial session.
   - `make enforce-section-5-1` passes.
 - Next recommended action:
   - begin deterministic runtime implementation for `structure-engine`, then `risk-engine` and `execution-gateway`.
+
+---
+
+## 2026-04-23 — Session Entry 007
+
+- Objective:
+  - fix charting live-candle correctness and UI usability before next deterministic core planning slice.
+- Work completed:
+  - patched `/api/v1/ticks/hot` query strategy to fetch freshest ticks (DESC query with ASC response order for client merge).
+  - rewrote chart frontend live-merge logic to prevent historical candle mutation and remove synthetic flat-gap candles.
+  - adjusted live cursor handling to anchor after last persisted bar, improving current-candle alignment.
+  - added chart fit routine on live updates/resizes for consistent visible-range scaling behavior.
+  - removed sidebar market picker and implemented header dropdown selectors (venue + instrument).
+- Verification:
+  - structural checks of updated charting API/UI paths.
+  - python syntax check attempted for `services/charting/app.py`; local pycache permission constraint observed (same environment limitation as prior sessions).
+- Next recommended action:
+  - run live chart smoke validation via compose and confirm candle OHLC parity against `raw_tick`/`ohlcv_bar` in DB.
+
+---
+
+## 2026-04-23 — Session Entry 008
+
+- Objective:
+  - make chart market selection searchable and restore working multi-timeframe rendering.
+- Work completed:
+  - replaced fixed market `<select>` with searchable input+datalist (`venue · instrument`).
+  - restored timeframe controls (`1m`, `5m`, `15m`, `1h`) and click handler flow.
+  - fixed timeframe switch behavior to keep prior market when available and fallback to first available market for the new timeframe.
+  - added fallback loading path: when higher timeframe bars are unavailable in storage, fetch `1m` bars and aggregate client-side to requested timeframe.
+  - added market list fallback: if `markets/available` is empty for higher timeframe, use `1m` availability to keep selector usable.
+- Verification:
+  - live check (inside charting container) confirmed current data shape: `1m` markets available, `5m/15m/1h` markets empty in DB-backed endpoint.
+  - source sanity checks passed for updated UI/event/fallback paths in `services/charting/static/index.html`.
+- Next recommended action:
+  - decide whether to persist native `5m/15m/1h` bars in backend aggregation, or keep client-side derivation as intended runtime behavior.

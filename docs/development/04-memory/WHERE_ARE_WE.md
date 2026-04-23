@@ -15,6 +15,7 @@ Last updated: 2026-04-23
 - `DEV-00010` completed: `market-ingestion` connector runtime migrated to Rust.
 - `DEV-00011` completed: `market-normalization` runtime migrated to Rust.
 - `DEV-00012` completed: bar/gap/backfill deterministic runtimes migrated to Rust.
+- Charting fix session completed: corrected live candle merge logic, improved live-fit behavior, and moved market selection to header dropdowns.
 
 ## Current
 

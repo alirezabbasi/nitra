@@ -19,6 +19,8 @@ Last updated: 2026-04-23
 - Completed `DEV-00010` cutover: `market-ingestion` moved from Python to Rust runtime.
 - Completed `DEV-00011` cutover: `market-normalization` moved from Python to Rust runtime.
 - Completed `DEV-00012` cutover: bar/gap/backfill services moved from Python to Rust runtime.
+- Charting stabilization patch applied for live candle integrity, auto-fit behavior, and header-based venue/instrument selection.
+- Charting selector upgraded to searchable input and timeframe switching restored with 1m-derived fallback for `5m/15m/1h` when native bars are absent.
 
 ### Current
 

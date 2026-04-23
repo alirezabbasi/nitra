@@ -165,7 +165,7 @@ def ticks_hot(
     venue: str = Query(min_length=1, max_length=64),
     symbol: str = Query(min_length=1, max_length=64),
     since_ms: int | None = Query(default=None, ge=0),
-    limit: int = Query(default=500, ge=1, le=5000),
+    limit: int = Query(default=2000, ge=1, le=5000),
 ) -> dict:
     since_seconds = (since_ms / 1000.0) if since_ms is not None else None
     query = """
@@ -177,7 +177,7 @@ def ticks_hot(
       AND broker_symbol = %s
       AND COALESCE(mid, (bid + ask) / 2.0, last) IS NOT NULL
       AND (%s::double precision IS NULL OR event_ts_received > to_timestamp(%s::double precision))
-    ORDER BY event_ts_received ASC
+    ORDER BY event_ts_received DESC
     LIMIT %s
     """
     with psycopg.connect(db_url()) as conn:
@@ -186,7 +186,8 @@ def ticks_hot(
             rows = cur.fetchall()
 
     ticks = []
-    for ts_ms, price in rows:
+    # Query is DESC for freshness; client expects ASC time order.
+    for ts_ms, price in reversed(rows):
         if ts_ms is None or price is None:
             continue
         ticks.append(
