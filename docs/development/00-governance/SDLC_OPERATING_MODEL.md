@@ -83,3 +83,24 @@ Pause and escalate to owner before implementing when:
 - architecture contract changes are required
 - cross-module tradeoff is non-obvious
 - production safety/risk controls are impacted
+
+## Enforcement Workflow (Section 5.1)
+
+All PR-ready changes must pass:
+
+1. `make enforce-section-5-1`
+
+This command runs hard policy gates:
+
+- technology allocation enforcement
+- contract policy enforcement
+
+Exception process:
+
+- temporary exceptions require ADR-linked waiver entries with explicit expiry
+- no waiver means no merge for non-compliant scope
+
+Pre-commit sequence (standard):
+
+1. `make policy-check`
+2. relevant `tests/dev-*` packs for changed scope

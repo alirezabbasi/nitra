@@ -4,15 +4,26 @@ set -euo pipefail
 for f in \
   services/ingestion/contracts.py \
   services/ingestion/domain.py \
-  services/ingestion/mock_pricing.py \
-  services/market-ingestion/app.py \
-  services/market-normalization/app.py \
-  services/bar-aggregation/app.py \
-  services/gap-detection/app.py \
-  services/backfill-worker/app.py; do
+  services/ingestion/mock_pricing.py; do
   [[ -f "$f" ]]
   python -m py_compile "$f"
 done
+
+[[ -f services/market-ingestion/Cargo.toml ]]
+[[ -f services/market-ingestion/src/main.rs ]]
+cargo check --manifest-path services/market-ingestion/Cargo.toml >/dev/null
+[[ -f services/market-normalization/Cargo.toml ]]
+[[ -f services/market-normalization/src/main.rs ]]
+cargo check --manifest-path services/market-normalization/Cargo.toml >/dev/null
+[[ -f services/bar-aggregation/Cargo.toml ]]
+[[ -f services/bar-aggregation/src/main.rs ]]
+cargo check --manifest-path services/bar-aggregation/Cargo.toml >/dev/null
+[[ -f services/gap-detection/Cargo.toml ]]
+[[ -f services/gap-detection/src/main.rs ]]
+cargo check --manifest-path services/gap-detection/Cargo.toml >/dev/null
+[[ -f services/backfill-worker/Cargo.toml ]]
+[[ -f services/backfill-worker/src/main.rs ]]
+cargo check --manifest-path services/backfill-worker/Cargo.toml >/dev/null
 
 rg -n 'market-ingestion:' docker-compose.yml >/dev/null
 rg -n 'market-ingestion-capital:' docker-compose.yml >/dev/null

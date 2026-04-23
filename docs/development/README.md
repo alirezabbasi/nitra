@@ -15,7 +15,7 @@ This layout prevents context loss and keeps execution aligned with business goal
 - `02-execution/`: active kanban and immediate execution focus.
 - `03-delivery/`: delivered scope, module-by-module records, and implementation evidence.
 - `04-memory/`: persistent project memory system (state snapshots, decisions, risks, handoff ledger).
-- `tickets/`: existing ingestion ticket files (`DEV-00001..DEV-00007`) retained for continuity.
+- `tickets/`: project ticket files retained for continuity and migration tracking.
 
 ## Mandatory read order at each resume
 

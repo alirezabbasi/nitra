@@ -21,6 +21,7 @@ All contributors and AI agents must read and follow this file before planning or
 
 - `docs/design/nitra_system_hld.md` is the execution-facing HLD for implementation tracking.
 - `docs/design/AI-enabled_trading_decision_platform.md` is the strategic architecture baseline and principle source.
+- `docs/design/ARCHITECTURE_DECISIONS.md` ADR-0001 is the mandatory runtime technology allocation policy.
 - All epics/stories must include an HLD alignment check before implementation and before closure.
 - Any divergence requires ADR + migration/update notes and synchronized HLD updates.
 
@@ -46,6 +47,7 @@ All contributors and AI agents must read and follow this file before planning or
 ## Rule 6: Respect Existing Contracts
 
 - Do not break architecture, API, schema, or data contracts without explicit ADR and migration notes.
+- Section 5.1 technology allocation policy must pass hard gates via `make enforce-section-5-1`.
 
 ## Rule 7: Small, Traceable, Step-Based Delivery
 

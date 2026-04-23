@@ -30,6 +30,12 @@ kafka-topics:
 kafka-bootstrap:
 	scripts/kafka/bootstrap-topics.sh
 
+policy-check:
+	scripts/policy/check_technology_enforcement.sh
+	scripts/policy/check_contract_policy.sh
+
+enforce-section-5-1: policy-check
+
 test-dev-00003:
 	tests/dev-00003/run.sh
 
@@ -47,6 +53,12 @@ test-dev-00008:
 
 test-dev-00009:
 	tests/dev-00009/run.sh
+
+test-dev-0010:
+	tests/dev-0010/run.sh
+
+test-dev-0012:
+	tests/dev-0012/run.sh
 
 db:
 	docker compose exec timescaledb psql -U $$POSTGRES_USER -d $$POSTGRES_DB

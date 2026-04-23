@@ -38,8 +38,8 @@ Add step-scoped tests in NITRA to verify explicit commit lifecycle, replay safet
 - Test pack: `tests/dev-00006/run.sh`
 - Optional duplicate integration drill: `tests/dev-00006/run-integration.sh`
 - Runtime guards implemented in:
-  - `services/market-normalization/app.py`
-  - `services/bar-aggregation/app.py`
-  - `services/gap-detection/app.py`
-  - `services/backfill-worker/app.py`
+  - `services/market-normalization/src/main.rs`
+  - `services/bar-aggregation/src/main.rs`
+  - `services/gap-detection/src/main.rs`
+  - `services/backfill-worker/src/main.rs`
 - Guarantee doc: `docs/design/ingestion/02-data-platform/stream-replay-idempotency.md`

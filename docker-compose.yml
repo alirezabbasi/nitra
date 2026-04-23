@@ -274,9 +274,6 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-    volumes:
-      - ./services/market-ingestion:/app
-      - ./services/ingestion:/app/ingestion
     restart: unless-stopped
 
   market-ingestion-capital:
@@ -307,9 +304,6 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-    volumes:
-      - ./services/market-ingestion:/app
-      - ./services/ingestion:/app/ingestion
     restart: unless-stopped
 
   market-ingestion-coinbase:
@@ -340,9 +334,6 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-    volumes:
-      - ./services/market-ingestion:/app
-      - ./services/ingestion:/app/ingestion
     restart: unless-stopped
 
   market-normalization:
@@ -355,7 +346,7 @@ services:
       NORMALIZER_INPUT_TOPICS: raw.market.oanda,raw.market.capital,raw.market.coinbase
       NORMALIZER_OUTPUT_TOPIC: normalized.quote.fx
       NORMALIZER_GROUP_ID: nitra-market-normalization-v1
-      NORMALIZER_SYMBOL_REGISTRY_PATH: /app/ingestion/registry.v1.json
+      NORMALIZER_SYMBOL_REGISTRY_PATH: /etc/nitra/registry.v1.json
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
     depends_on:
       kafka:
@@ -363,9 +354,7 @@ services:
       timescaledb:
         condition: service_healthy
     volumes:
-      - ./services/market-normalization:/app
-      - ./services/ingestion:/app/ingestion
-      - ./infra/symbols/registry.v1.json:/app/ingestion/registry.v1.json:ro
+      - ./infra/symbols/registry.v1.json:/etc/nitra/registry.v1.json:ro
     restart: unless-stopped
 
   bar-aggregation:
@@ -384,9 +373,6 @@ services:
         condition: service_healthy
       timescaledb:
         condition: service_healthy
-    volumes:
-      - ./services/bar-aggregation:/app
-      - ./services/ingestion:/app/ingestion
     restart: unless-stopped
 
   gap-detection:
@@ -405,9 +391,6 @@ services:
         condition: service_healthy
       timescaledb:
         condition: service_healthy
-    volumes:
-      - ./services/gap-detection:/app
-      - ./services/ingestion:/app/ingestion
     restart: unless-stopped
 
   backfill-worker:
@@ -427,9 +410,6 @@ services:
         condition: service_healthy
       timescaledb:
         condition: service_healthy
-    volumes:
-      - ./services/backfill-worker:/app
-      - ./services/ingestion:/app/ingestion
     restart: unless-stopped
 
 volumes:

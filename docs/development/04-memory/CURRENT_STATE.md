@@ -16,16 +16,20 @@ Last updated: 2026-04-23
 - Committed baseline delivery set: `f51c5f5`.
 - Reorganized `docs/development/` into governance, roadmap, execution, delivery, and memory sections.
 - Added project-wide docs entrypoint and ruleset-level "Where are we?" requirement.
+- Completed `DEV-00010` cutover: `market-ingestion` moved from Python to Rust runtime.
+- Completed `DEV-00011` cutover: `market-normalization` moved from Python to Rust runtime.
+- Completed `DEV-00012` cutover: bar/gap/backfill services moved from Python to Rust runtime.
 
 ### Current
 
 - Transition planning from ingestion-only delivery to deterministic core modules.
+- Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Define and register next ticket batch for `structure-engine`, `risk-engine`, and `execution-gateway`.
-2. Lock minimal contracts and test scaffolds for those modules before implementation.
-3. Implement replay-controller consumer for `replay.commands`.
+1. Enforce `make enforce-section-5-1` as mandatory gate in pre-merge workflow.
+2. Implement deterministic structure-engine runtime baseline.
+3. Implement deterministic risk-engine and execution-gateway runtime baselines.
 
 ### Risks/Blocks
 
@@ -44,3 +48,11 @@ Last updated: 2026-04-23
 - Partial: normalization/replay path, raw data lake archival, MLflow/research infra, observability basics.
 - Scaffold only: structure engine, risk engine, execution gateway, llm-analyst.
 - Not started: feature platform (Feast), portfolio engine, full online inference layer (Ray Serve).
+
+## Section 5.1 Compliance Snapshot
+
+- Enforcement mode: hard-gate now (`make enforce-section-5-1`).
+- Gate runner: local scripts + Make targets (CI-ready).
+- Deterministic-core non-compliant migrating services:
+  - none
+- Blocked rule active: no net-new deterministic Python feature scope.

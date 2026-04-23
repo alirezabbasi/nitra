@@ -1,21 +1,65 @@
-	# 01 — Service Catalog
+# 01 — Service Catalog
+
+## 0. Global Enforcement Policy
+
+This catalog is governed by ADR-0001 (`docs/design/ARCHITECTURE_DECISIONS.md`) and HLD Section 5.1.
+
+Mandatory technology allocation:
+
+- deterministic trading core: Rust-only
+- probabilistic/ML/AI layer: Python-only
+- operator/charting UI: TypeScript frontend
+
+Mandatory control boundaries:
+
+- LLM layer is advisory only
+- only deterministic Rust execution path can place/modify/cancel orders
+- if AI fails, deterministic path continues
+- if risk/execution integrity is uncertain, trading fails closed
+
+Anti-duplication rule:
+
+- no parallel Python/Rust implementation of the same production core component
+
+Migration state model:
+
+- `compliant`
+- `non_compliant_migrating` (requires ticket + waiver)
+- `blocked` (no net-new feature scope while non-compliant)
+
+Waiver process:
+
+- temporary exceptions must be declared in `policy/waivers.yaml`
+- each exception requires ADR reference and expiry date
+- expired waivers are policy violations
+
+Contract policy:
+
+- external APIs: OpenAPI
+- event streams: AsyncAPI + versioned schemas
+- AI I/O: Pydantic/JSON Schema validation
+
+Enforcement command:
+
+- `make enforce-section-5-1`
+
+---
 
 ## 1. Market Ingestion Service
+
 **Purpose**
-- Connect to exchanges, brokers, and market data providers.
-- Normalize transport-level payloads into raw internal event envelopes.
+- Connect to exchanges/brokers and publish raw events.
 
 **Responsibilities**
-- WebSocket/REST feed handling
-- heartbeat supervision
-- sequence integrity checks
+- feed handling (WebSocket/REST)
+- heartbeat and sequence supervision
 - source timestamping
-- publish raw events to Kafka
-- persist raw copies to object storage
+- publish raw events to stream backbone
+- persist raw copies to immutable archive
 
 **Consumes**
-- Exchange feeds
-- Broker market-data feeds
+- exchange feeds
+- broker market-data feeds
 
 **Produces**
 - `md.raw.ticks.v1`
@@ -23,32 +67,29 @@
 - `md.raw.orderbook.v1`
 - `ops.feed_health.v1`
 
-**Tech**
+**Technology (mandatory)**
 - Rust
 - Tokio
-- Kafka producer
+- Kafka/Redpanda producer
 - object storage client
-
-**Scaling**
-- partition by venue + symbol group
 
 ---
 
-## 2. Market Normalization Service
+## 2. Market Normalization and Replay Service
+
 **Purpose**
-- Convert raw events into canonical market data structures.
+- Normalize raw events into canonical structures and control deterministic replay.
 
 **Responsibilities**
-- symbol mapping
-- timestamp normalization
-- deduplication
+- symbol/time normalization
+- deduplication/idempotency
 - schema validation
-- gap detection
 - out-of-order handling
-- canonical event emission
+- replay command execution and offset-safe reprocessing
 
 **Consumes**
 - `md.raw.*`
+- replay commands
 
 **Produces**
 - `md.norm.ticks.v1`
@@ -56,22 +97,22 @@
 - `md.norm.orderbook.v1`
 - `ops.data_quality.v1`
 
-**Tech**
+**Technology (mandatory)**
 - Rust
-- Kafka consumer groups
+- Kafka/Redpanda consumer groups
 - schema validator
 
 ---
 
 ## 3. Bar Aggregation Service
+
 **Purpose**
-- Build OHLCV and derived bars from normalized market events.
+- Build OHLCV bars from normalized events.
 
 **Responsibilities**
-- bucket ticks into bars
-- handle session rollover
-- publish multi-timeframe bars
-- emit bar-finalization events
+- bucket aggregation
+- session rollover behavior
+- bar finalization events
 
 **Consumes**
 - `md.norm.ticks.v1`
@@ -84,27 +125,48 @@
 - `md.bars.15m.v1`
 
 **Storage**
-- TimescaleDB
+- TimescaleDB/Postgres
+
+**Technology (mandatory)**
+- Rust
 
 ---
 
-## 4. Structure Engine
+## 4. Gap Detection and Backfill Controller
+
+**Purpose**
+- Detect missing data windows and issue deterministic backfill actions.
+
+**Responsibilities**
+- gap detection
+- backfill command emission
+- replay completion monitoring
+
+**Consumes**
+- `md.bars.*`
+
+**Produces**
+- `md.gap_detected.v1`
+- `md.backfill_requested.v1`
+
+**Technology (mandatory)**
+- Rust
+
+---
+
+## 5. Structure Engine
+
 **Purpose**
 - Implement liquidity-driven market structure deterministically.
 
 **Responsibilities**
 - directional liquidity objective
-- reference candle tracking
-- pullback start/extension/termination
+- pullback/extension lifecycle
 - inside/outside bar handling
-- minor structure archive
-- major structure activation
-- fractal footprint markers
-- structure-state snapshots
+- structure snapshots and confirmations
 
 **Consumes**
 - `md.bars.*`
-- optional tick stream for intrabar termination validation
 
 **Produces**
 - `structure.snapshot.v1`
@@ -112,98 +174,87 @@
 - `structure.minor_confirmed.v1`
 - `structure.major_confirmed.v1`
 
-**Tech**
+**Technology (mandatory)**
 - Rust
-- explicit state machine
-- snapshot persistence
+- explicit deterministic state machine
 
-**Hard Rule**
-- This service is the single source of truth for structure state.
+**Hard rule**
+- single source of truth for structure state
 
 ---
 
-## 5. Feature Service
+## 6. Feature Service
+
 **Purpose**
-- Materialize online and offline features.
+- Materialize online/offline features.
 
 **Responsibilities**
 - feature view definitions
 - point-in-time joins
-- online serving
-- offline dataset generation
-- feature versioning
-- feature freshness supervision
+- freshness supervision
+- online/offline feature publishing
 
 **Consumes**
-- market data
-- structure snapshots
-- portfolio state
-- external data (optional)
+- market/structure/portfolio streams
 
 **Produces**
 - online feature responses
-- feature materialization batches
 - `features.snapshot.v1`
 
-**Tech**
+**Technology (mandatory)**
+- Python (service/jobs)
 - Feast
-- PostgreSQL/Redis depending on latency tier
 
 ---
 
-## 6. Research Orchestrator
+## 7. Research Orchestrator
+
 **Purpose**
 - Manage dataset creation, labeling, backtests, and experiments.
 
 **Responsibilities**
-- replay job orchestration
-- strategy evaluation
+- replay jobs
 - walk-forward validation
-- labeling pipeline
-- train/test split governance
-- experiment tracking
+- experiment orchestration and tracking
 
-**Tech**
+**Technology (mandatory)**
 - Python
 - MLflow
-- orchestration jobs on Kubernetes
 
 **Boundary**
-- No direct write path into live execution services.
+- no direct write path into live execution services
 
 ---
 
-## 7. Model Training Service
+## 8. Model Training Service
+
 **Purpose**
-- Train and register signal/regime/anomaly models.
+- Train and register models.
 
 **Responsibilities**
-- data pulls from feature store
-- train/evaluate models
-- log metrics/artifacts
-- register models
-- attach signatures and metadata
-- publish promotion candidates
+- train/evaluate
+- log artifacts/metrics
+- register versions/signatures
 
 **Produces**
-- MLflow model versions
+- model versions
 - `ml.model_registered.v1`
+
+**Technology (mandatory)**
+- Python
+- MLflow
 
 ---
 
-## 8. Online Inference Gateway
+## 9. Online Inference Gateway
+
 **Purpose**
-- Serve signal models and aggregate inference results.
+- Serve signal/regime/anomaly inference and aggregate decisions.
 
 **Responsibilities**
-- score entry/exit candidates
-- regime classification
-- anomaly detection
+- scoring and aggregation
 - confidence calibration
 - response schema enforcement
-
-**Tech**
-- Ray Serve
 
 **Consumes**
 - structure snapshots
@@ -213,67 +264,68 @@
 **Produces**
 - `decision.signal_scored.v1`
 
+**Technology (mandatory)**
+- Python
+- Ray Serve
+
 ---
 
-## 9. Risk Engine
+## 10. Risk Engine
+
 **Purpose**
-- Enforce all hard risk and compliance policies.
+- Enforce hard risk and compliance policies.
 
 **Responsibilities**
 - pre-trade checks
-- position limits
-- max loss / drawdown
-- notional caps
-- venue availability checks
-- duplicate-order prevention
+- exposure/notional/drawdown controls
 - kill-switch enforcement
 
 **Consumes**
 - signal events
 - portfolio state
-- account balances
-- venue status
+- account and venue status
 
 **Produces**
 - `decision.risk_checked.v1`
 - `ops.policy_violation.v1`
 
-**Hard Rule**
-- If this service is unavailable, trading fails closed.
+**Technology (mandatory)**
+- Rust
+
+**Hard rule**
+- if unavailable, trading fails closed
 
 ---
 
-## 10. Portfolio Engine
+## 11. Portfolio Engine
+
 **Purpose**
 - Maintain live portfolio and strategy state.
 
 **Responsibilities**
-- positions
-- realized/unrealized PnL
-- exposures
-- cash and margin tracking
-- strategy allocation state
+- positions, PnL, exposure, cash/margin, allocation state
 
 **Produces**
 - `portfolio.snapshot.v1`
 
+**Technology (mandatory)**
+- Rust
+
 ---
 
-## 11. Execution Gateway
+## 12. Execution Gateway (OMS)
+
 **Purpose**
 - Convert approved intents into broker/exchange orders.
 
 **Responsibilities**
-- order creation
-- amend/cancel
-- lifecycle tracking
-- partial fill handling
-- reconciliation
-- timeout / retry logic
-- slippage metrics
+- create/amend/cancel
+- lifecycle state machine
+- fill handling and reconciliation
+- timeout/retry and slippage telemetry
 
 **Consumes**
-- approved trade intents
+- approved intents
 - broker/exchange ack/fill streams
 
 **Produces**
@@ -282,53 +334,74 @@
 - `exec.fill_received.v1`
 - `exec.reconciliation_issue.v1`
 
-**Hard Rule**
-- This is the only service allowed to place or modify orders.
+**Technology (mandatory)**
+- Rust
+
+**Hard rule**
+- this is the only service allowed to place/modify/cancel orders
 
 ---
 
-## 12. RAG Indexer
+## 13. RAG Indexer
+
 **Purpose**
-- Index framework docs, examples, journals, and postmortems.
+- Index framework docs/journals/postmortems for retrieval.
 
 **Responsibilities**
-- chunking
-- embedding
-- metadata tagging
-- retention policies
-- similarity-search indexing
+- chunking, embedding, metadata tagging, retention/index maintenance
 
-**Storage**
-- pgvector initially
+**Technology (mandatory)**
+- Python
+- pgvector first (Qdrant only if scale requires)
 
 ---
 
-## 13. LLM Analyst Service
+## 14. LLM Analyst and Critic Service
+
 **Purpose**
-- Interpret structured state and retrieved context.
+- Produce structured advisory analysis from system state and retrieved context.
 
 **Responsibilities**
-- build prompts from state + retrieved context
-- output schema-bound analysis
-- produce critique and explanation
-- flag ambiguity
-- generate post-trade review drafts
+- prompt/context assembly
+- schema-bound analysis and critique output
+- ambiguity/contradiction flags
 
-**Hard Limits**
-- cannot create orders
+**Technology (mandatory)**
+- Python
+
+**Hard limits**
+- cannot create/amend/cancel orders
 - cannot override risk
-- cannot invent structure state
+- cannot invent deterministic structure state
 
 ---
 
-## 14. Audit and Observability Service
+## 15. Audit and Observability Pipeline
+
 **Purpose**
-- Persist audit trails and expose telemetry.
+- Provide full traceability, telemetry, and incident-forensics support.
 
 **Responsibilities**
-- decision lineage
-- trace correlation
-- metrics export
-- alert routing
-- policy incident capture
-- immutable event journaling
+- end-to-end traces
+- metrics/log collection
+- decision/risk/execution audit trail persistence
+
+**Technology (mandatory)**
+- OpenTelemetry
+- Prometheus + Grafana
+- Loki/Tempo as required by scale/operations
+
+---
+
+## 16. Operator and Charting UI
+
+**Purpose**
+- Provide operator controls, charting, and runtime supervision.
+
+**Responsibilities**
+- market/portfolio/risk visibility
+- controls and operational actions
+- incident triage views
+
+**Technology (mandatory)**
+- TypeScript frontend (React preferred)

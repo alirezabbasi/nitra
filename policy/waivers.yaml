@@ -1,0 +1,38 @@
+{
+  "waivers": [
+    {
+      "id": "WVR-0001",
+      "service_id": "market_ingestion_connectors",
+      "reason": "legacy Python deterministic connector runtime existed before Rust rewrite (retired by DEV-00010 cutover)",
+      "adr_id": "ADR-0001",
+      "expires_on": "2026-12-31",
+      "retired_on": "2026-04-23",
+      "replacement_commit_scope": "DEV-00010"
+    },
+    {
+      "id": "WVR-0002",
+      "service_id": "market_normalization_replay",
+      "reason": "legacy Python normalization/replay runtime existed before Rust rewrite (retired by DEV-00011 cutover)",
+      "adr_id": "ADR-0001",
+      "expires_on": "2026-12-31",
+      "retired_on": "2026-04-23",
+      "replacement_commit_scope": "DEV-00011"
+    },
+    {
+      "id": "WVR-0003",
+      "service_id": "bar_gap_backfill",
+      "reason": "legacy Python deterministic aggregation/gap/backfill runtime existed before Rust rewrite (retired by DEV-00012 cutover)",
+      "adr_id": "ADR-0001",
+      "expires_on": "2026-12-31",
+      "retired_on": "2026-04-23",
+      "replacement_commit_scope": "DEV-00012"
+    },
+    {
+      "id": "WVR-0004",
+      "service_id": "operator_ui",
+      "reason": "temporary Python charting service retained until TypeScript UI migration plan is approved",
+      "adr_id": "ADR-0001",
+      "expires_on": "2026-09-30"
+    }
+  ]
+}

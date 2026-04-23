@@ -1,2 +1,0 @@
-aiokafka==0.10.0
-psycopg[binary]==3.2.9

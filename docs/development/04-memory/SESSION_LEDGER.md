@@ -38,3 +38,99 @@ Append one entry at the end of each substantial session.
   - status reporting protocol is standardized and now enforceable from rulesets + memory system.
 - Next recommended action:
   - open and execute the next deterministic-core ticket batch (structure/risk/execution/replay controller).
+
+---
+
+## 2026-04-23 — Session Entry 003
+
+- Objective:
+  - implement hard-gate Section 5.1 technology enforcement as executable project policy.
+- Work completed:
+  - added policy manifests under `policy/` for technology allocation and waiver lifecycle.
+  - added hard gate scripts: `check_technology_enforcement.sh`, `check_contract_policy.sh`.
+  - wired enforcement into Makefile via `policy-check` and `enforce-section-5-1`.
+  - added contract LLD doc `09_ai_schema_contracts.md` and linked LLD index.
+  - updated ADR/HLD/LLD and governance docs for waiver process + migration state model.
+  - registered migration tickets `DEV-00010`, `DEV-00011`, `DEV-00012`.
+  - integrated compliance tracking into roadmap/current-state/where-are-we/kanban.
+  - added policy gate behavior tests (`tests/dev-0010/run.sh`).
+- Verification:
+  - `make policy-check` passes.
+  - `tests/dev-0010/run.sh` passes.
+  - existing dev checks pass (`dev-00003`, `dev-00004`, `dev-00005`, `dev-00006`, `dev-00008`, `dev-00009`) with `PYTHONPYCACHEPREFIX` workaround for local permission constraints.
+- Next recommended action:
+  - start implementation ticket `DEV-00010` (Rust migration of market ingestion connectors) with freeze on net-new deterministic Python scope.
+
+---
+
+## 2026-04-23 — Session Entry 004
+
+- Objective:
+  - execute `DEV-00010` and cut over market-ingestion deterministic connector runtime from Python to Rust.
+- Work completed:
+  - replaced `services/market-ingestion` Python runtime with Rust implementation (`Cargo.toml`, `src/main.rs`).
+  - preserved envelope/payload semantics and existing ingestion env variable contract.
+  - migrated `services/market-ingestion/Dockerfile` to compiled Rust binary runtime.
+  - updated compose wiring for market-ingestion connector services.
+  - updated policy manifest: `market_ingestion_connectors` now `compliant` with `current_runtime: rust`.
+  - updated ticket/kanban/roadmap/memory artifacts to reflect migration completion.
+  - updated `tests/dev-00005/run.sh` to validate Rust connector path.
+- Verification:
+  - `make enforce-section-5-1` passes.
+  - `tests/dev-00005/run.sh` passes.
+  - `tests/dev-0010/run.sh` passes.
+- Next recommended action:
+  - execute `DEV-00011` (Rust migration for market normalization/replay).
+
+---
+
+## 2026-04-23 — Session Entry 005
+
+- Objective:
+  - execute `DEV-00011` and cut over market-normalization/replay deterministic runtime from Python to Rust.
+- Work completed:
+  - replaced `services/market-normalization` Python runtime with Rust implementation (`Cargo.toml`, `src/main.rs`).
+  - preserved normalization output envelope/fields, canonical symbol mapping fallback, and dedup semantics.
+  - preserved manual commit processing with explicit commit lifecycle and replay-safe ledger checks.
+  - migrated `services/market-normalization/Dockerfile` to compiled Rust binary runtime.
+  - updated compose symbol-registry mount path for binary runtime deployment.
+  - updated policy manifest: `market_normalization_replay` now `compliant` with `current_runtime: rust`.
+  - updated ticket/kanban/roadmap/memory artifacts for migration completion.
+  - updated `tests/dev-00005/run.sh` and `tests/dev-00006/run.sh` for Rust validation.
+- Verification:
+  - `cargo check --manifest-path services/market-normalization/Cargo.toml` passes.
+  - `tests/dev-00005/run.sh` passes.
+  - `tests/dev-00006/run.sh` passes.
+  - `DEV00006_INTEGRATION=1 tests/dev-00006/run.sh` passes.
+  - `tests/dev-0010/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+- Next recommended action:
+  - execute `DEV-00012` (Rust migration for bar aggregation + gap detection + backfill controller).
+
+---
+
+## 2026-04-23 — Session Entry 006
+
+- Objective:
+  - execute `DEV-00012` and cut over bar aggregation, gap detection, and backfill deterministic services from Python to Rust.
+- Work completed:
+  - replaced Python runtimes in `services/bar-aggregation`, `services/gap-detection`, and `services/backfill-worker` with Rust implementations.
+  - preserved stream contracts and deterministic flow (`normalized.quote.fx` -> `bar.1m` -> `gap.events` -> `replay.commands`).
+  - preserved replay-safe ledger semantics with explicit dedup checks and `ON CONFLICT DO NOTHING` ledger writes.
+  - migrated all three service Dockerfiles to compiled Rust binary runtimes.
+  - updated compose runtime mounts for binary deployment.
+  - updated policy manifest: `bar_gap_backfill` now `compliant` with `current_runtime: rust`.
+  - retired waiver `WVR-0003` and updated ticket/kanban/roadmap/memory docs.
+  - updated dev checks and added `tests/dev-0012` migration test pack (+ integration script).
+- Verification:
+  - `cargo check --manifest-path services/bar-aggregation/Cargo.toml` passes.
+  - `cargo check --manifest-path services/gap-detection/Cargo.toml` passes.
+  - `cargo check --manifest-path services/backfill-worker/Cargo.toml` passes.
+  - `tests/dev-00005/run.sh` passes.
+  - `tests/dev-00006/run.sh` passes.
+  - `tests/dev-0010/run.sh` passes.
+  - `tests/dev-0012/run.sh` passes.
+  - `DEV0012_INTEGRATION=1 tests/dev-0012/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+- Next recommended action:
+  - begin deterministic runtime implementation for `structure-engine`, then `risk-engine` and `execution-gateway`.

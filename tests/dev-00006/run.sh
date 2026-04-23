@@ -2,15 +2,38 @@
 set -euo pipefail
 
 for f in \
-  services/market-normalization/app.py \
-  services/bar-aggregation/app.py \
-  services/gap-detection/app.py \
-  services/backfill-worker/app.py; do
-  python -m py_compile "$f"
-  rg -n 'enable_auto_commit=False' "$f" >/dev/null
-  rg -n 'is_message_processed\(' "$f" >/dev/null
-  rg -n 'record_message_processed\(' "$f" >/dev/null
+  services/bar-aggregation/Cargo.toml \
+  services/gap-detection/Cargo.toml \
+  services/backfill-worker/Cargo.toml \
+  services/bar-aggregation/src/main.rs \
+  services/gap-detection/src/main.rs \
+  services/backfill-worker/src/main.rs; do
+  [[ -f "$f" ]]
 done
+
+cargo check --manifest-path services/bar-aggregation/Cargo.toml >/dev/null
+cargo check --manifest-path services/gap-detection/Cargo.toml >/dev/null
+cargo check --manifest-path services/backfill-worker/Cargo.toml >/dev/null
+rg -n 'enable.auto.commit", "false"' services/bar-aggregation/src/main.rs >/dev/null
+rg -n 'enable.auto.commit", "false"' services/gap-detection/src/main.rs >/dev/null
+rg -n 'enable.auto.commit", "false"' services/backfill-worker/src/main.rs >/dev/null
+rg -n 'processed_message_ledger' services/bar-aggregation/src/main.rs >/dev/null
+rg -n 'processed_message_ledger' services/gap-detection/src/main.rs >/dev/null
+rg -n 'processed_message_ledger' services/backfill-worker/src/main.rs >/dev/null
+rg -n 'ON CONFLICT DO NOTHING' services/bar-aggregation/src/main.rs >/dev/null
+rg -n 'ON CONFLICT DO NOTHING' services/gap-detection/src/main.rs >/dev/null
+rg -n 'ON CONFLICT DO NOTHING' services/backfill-worker/src/main.rs >/dev/null
+rg -n 'commit_message\(' services/bar-aggregation/src/main.rs >/dev/null
+rg -n 'commit_message\(' services/gap-detection/src/main.rs >/dev/null
+rg -n 'commit_message\(' services/backfill-worker/src/main.rs >/dev/null
+
+[[ -f services/market-normalization/Cargo.toml ]]
+[[ -f services/market-normalization/src/main.rs ]]
+cargo check --manifest-path services/market-normalization/Cargo.toml >/dev/null
+rg -n 'enable.auto.commit", "false"' services/market-normalization/src/main.rs >/dev/null
+rg -n 'processed_message_ledger' services/market-normalization/src/main.rs >/dev/null
+rg -n 'ON CONFLICT DO NOTHING' services/market-normalization/src/main.rs >/dev/null
+rg -n 'commit_message\(' services/market-normalization/src/main.rs >/dev/null
 
 rg -n 'CREATE TABLE IF NOT EXISTS processed_message_ledger' infra/timescaledb/init/002_processed_message_ledger.sql >/dev/null
 

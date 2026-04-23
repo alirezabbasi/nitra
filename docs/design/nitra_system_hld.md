@@ -169,6 +169,62 @@ The LLM layer is an analyst and critic, not the execution authority.
                                           +----------------------------------+
 ```
 
+### 5.1 Enforced Technology Allocation Policy
+
+This policy is mandatory for production runtime architecture and is governed by ADR-0001 in `docs/design/ARCHITECTURE_DECISIONS.md`.
+
+**Deterministic core: Rust-only**
+- market ingestion connectors
+- market normalization and replay
+- bar aggregation, gap detection, backfill controller
+- structure engine
+- risk engine
+- portfolio engine
+- execution gateway and OMS state machine
+
+**Probabilistic/ML/AI layer: Python-only**
+- research and backtesting
+- feature engineering jobs
+- online model inference services
+- RAG and LLM analyst/critic services
+
+**Contracts and interoperability**
+- external APIs: OpenAPI
+- event streams: AsyncAPI + versioned schemas
+- AI I/O: Pydantic/JSON Schema validation at runtime
+
+**Platform standards**
+- streaming backbone: Kafka/Redpanda
+- hot store: TimescaleDB/Postgres
+- raw archive: S3/MinIO + Parquet
+- vector memory: pgvector first (Qdrant only if scale requires)
+- inference serving: Ray Serve
+- observability: OpenTelemetry + Prometheus + Grafana (Loki/Tempo as needed)
+- UI: TypeScript/React (or lightweight TypeScript frontend)
+
+**Control boundaries (non-negotiable)**
+- LLM layer is advisory only
+- only deterministic Rust execution path may place/modify/cancel orders
+- if AI services fail, deterministic path remains operable
+- if risk/execution integrity is uncertain, system fails closed
+
+**Anti-duplication rule**
+- one runtime language per layer:
+  - Rust for deterministic core
+  - Python for probabilistic/AI layer
+  - TypeScript for UI
+- no parallel Python/Rust implementation of the same production core component
+
+**Waiver and migration controls**
+- temporary non-compliance requires ADR-linked waiver with explicit expiry
+- migration state model:
+  - `compliant`
+  - `non_compliant_migrating`
+  - `blocked` (no net-new feature scope while non-compliant)
+- enforcement gates must pass:
+  - `make enforce-section-5-1`
+  - includes technology and contract policy checks
+
 ---
 
 ## 6. Layered Design

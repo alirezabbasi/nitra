@@ -12,18 +12,28 @@ Last updated: 2026-04-23
 
 - Latest delivery commit for baseline scope: `f51c5f5`.
 - HLD Section 5 coverage reviewed and synchronized into roadmap.
+- `DEV-00010` completed: `market-ingestion` connector runtime migrated to Rust.
+- `DEV-00011` completed: `market-normalization` runtime migrated to Rust.
+- `DEV-00012` completed: bar/gap/backfill deterministic runtimes migrated to Rust.
 
 ## Current
 
-- Preparing transition from ingestion track to deterministic core modules.
+- Section 5.1 hard-gate enforcement active with deterministic-core migration batch completed.
 
 ## Next
 
-1. Register next tickets for `structure-engine`, `risk-engine`, `execution-gateway`.
-2. Add contract/test scaffolds for those modules.
-3. Implement replay-controller consumer path.
+1. Enforce `make enforce-section-5-1` in standard pre-merge flow.
+2. Implement deterministic structure-engine runtime baseline.
+3. Implement deterministic risk/execution runtime baselines.
 
 ## Risks/Blocks
 
 - Context drift if session close memory updates are skipped.
-- Sequence decision pending: replay-controller before/after structure-engine first slice.
+- Delivery risk shifted to deterministic engine implementation depth (structure/risk/execution).
+
+## Section 5.1 Compliance Snapshot
+
+- Hard gate status: active
+- Deterministic-core Python services: none
+- Blocked policy: no net-new deterministic Python scope
+- Current migration tickets: none

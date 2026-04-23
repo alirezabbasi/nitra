@@ -9,7 +9,7 @@ set -a
 source .env
 set +a
 
-docker compose up -d timescaledb kafka market-normalization >/dev/null
+docker compose up -d --build timescaledb kafka market-normalization >/dev/null
 scripts/kafka/bootstrap-topics.sh >/dev/null
 
 MSG_ID="11111111-1111-1111-1111-111111111111"

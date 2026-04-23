@@ -30,6 +30,7 @@ All contributors and AI agents working on ingestion scope must read and follow t
 ## Rule 5: Respect Existing Contracts
 
 - Do not break ingestion architecture, API, schema, or data contracts without explicit ADR and migration notes.
+- Section 5.1 technology allocation policy must pass hard gates via `make enforce-section-5-1`.
 
 ## Rule 6: Small, Traceable Changes
 
@@ -76,6 +77,7 @@ All contributors and AI agents working on ingestion scope must read and follow t
 - Ingestion implementation must align with project HLDs:
   - execution-facing: `docs/design/nitra_system_hld.md`
   - strategic baseline: `docs/design/AI-enabled_trading_decision_platform.md`
+- Ingestion runtime technology choices must comply with ADR-0001 in `docs/design/ARCHITECTURE_DECISIONS.md` (deterministic core in Rust; no parallel Python/Rust duplicate production components).
 - Ingestion design/LLD docs under `docs/design/ingestion/` must stay synchronized with implementation.
 - Divergence requires ADR + migration/update notes.
 

@@ -4,7 +4,6 @@ Last updated: 2026-04-23
 
 ## Backlog
 
-- [ ] Define and approve next program ticket set beyond ingestion baseline.
 - [ ] Implement deterministic `structure-engine` runtime baseline.
 - [ ] Implement deterministic `risk-engine` runtime baseline.
 - [ ] Implement `execution-gateway` runtime baseline with order-state machine.
@@ -13,7 +12,7 @@ Last updated: 2026-04-23
 
 ## In Progress
 
-- [ ] Define next program ticket set beyond ingestion baseline.
+- [ ] (No in-progress items)
 
 ## Done
 
@@ -28,6 +27,11 @@ Last updated: 2026-04-23
 - [x] `DEV-00007` development runbook for live ingestion startup/validation.
 - [x] Reorganized `docs/` into a unified documentation entrypoint and coherent cross-link structure.
 - [x] Embedded mandatory "Where are we?" status protocol in rulesets and memory operating model.
+- [x] ADR/HLD/LLD policy baseline for Section 5.1 runtime allocation and boundaries.
+- [x] Section 5.1 hard-gate technology enforcement rollout (`make enforce-section-5-1`).
+- [x] `DEV-00010` Rust migration for market ingestion connectors.
+- [x] `DEV-00011` Rust migration for market normalization/replay.
+- [x] `DEV-00012` Rust migration for bar/gap/backfill controller.
 
 ## Blocked
 
