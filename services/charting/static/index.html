@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NITRA Charting</title>
+    <script src="/static/vendor-klinecharts.min.js"></script>
+    <style>
+      :root {
+        --bg: #131722;
+        --panel: #1b2130;
+        --panel-soft: #1f2638;
+        --line: #2b3245;
+        --text: #d1d4dc;
+        --muted: #7f8697;
+        --accent: #2962ff;
+        --green: #26a69a;
+        --red: #ef5350;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, "Helvetica Neue", Arial, sans-serif;
+      }
+
+      .app {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        grid-template-rows: 48px 1fr;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 10px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+      }
+
+      .brand {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #e7ebf4;
+        padding: 0 10px;
+      }
+
+      .tool-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .divider {
+        width: 1px;
+        height: 20px;
+        background: var(--line);
+        margin: 0 6px;
+      }
+
+      .tool-btn,
+      .tf-btn {
+        border: 1px solid transparent;
+        color: var(--muted);
+        background: transparent;
+        border-radius: 6px;
+        height: 30px;
+        min-width: 30px;
+        padding: 0 10px;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .tool-btn:hover,
+      .tf-btn:hover {
+        background: #252d3f;
+        color: var(--text);
+      }
+
+      .tf-btn.active,
+      .tool-btn.active {
+        background: #27324a;
+        color: #e3e7f0;
+        border-color: #3a4660;
+      }
+
+      .content {
+        min-height: 0;
+        display: grid;
+        grid-template-columns: 280px 1fr;
+      }
+
+      .sidebar {
+        min-height: 0;
+        border-right: 1px solid var(--line);
+        background: var(--panel);
+        display: flex;
+        flex-direction: column;
+      }
+
+      .sidebar-head {
+        padding: 12px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .search {
+        width: 100%;
+        height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-soft);
+        color: var(--text);
+        padding: 0 10px;
+        font-size: 12px;
+      }
+
+      .market-list {
+        min-height: 0;
+        overflow: auto;
+      }
+
+      .market-item {
+        width: 100%;
+        border: 0;
+        border-bottom: 1px solid #232a3a;
+        background: transparent;
+        color: var(--text);
+        text-align: left;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+
+      .market-item:hover {
+        background: #232b3c;
+      }
+
+      .market-item.active {
+        background: #28344f;
+      }
+
+      .symbol-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .symbol {
+        font-size: 13px;
+        font-weight: 600;
+        color: #e5e9f2;
+      }
+
+      .venue {
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+
+      .meta {
+        margin-top: 4px;
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      .chart-wrap {
+        min-height: 0;
+        display: grid;
+        grid-template-rows: 40px 1fr;
+      }
+
+      .chart-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--line);
+        background: #161d2a;
+        font-size: 12px;
+      }
+
+      #active-market {
+        font-size: 13px;
+        color: #e4e8f1;
+      }
+
+      #status {
+        color: var(--muted);
+      }
+
+      #kline {
+        width: 100%;
+        height: 100%;
+      }
+
+      @media (max-width: 980px) {
+        .content {
+          grid-template-columns: 1fr;
+          grid-template-rows: 190px 1fr;
+        }
+
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="brand">NITRA · KLine</div>
+        <div class="divider"></div>
+        <div class="tool-group" id="timeframes">
+          <button class="tf-btn active" data-tf="1m">1m</button>
+          <button class="tf-btn" data-tf="5m">5m</button>
+          <button class="tf-btn" data-tf="15m">15m</button>
+          <button class="tf-btn" data-tf="1h">1h</button>
+        </div>
+        <div class="divider"></div>
+        <div class="tool-group">
+          <button class="tool-btn" id="reload-btn">Reload</button>
+          <button class="tool-btn" id="fit-btn">Fit</button>
+        </div>
+      </div>
+
+      <div class="content">
+        <aside class="sidebar">
+          <div class="sidebar-head">
+            <input id="search" class="search" type="text" placeholder="Search instruments" />
+          </div>
+          <div id="market-list" class="market-list"></div>
+        </aside>
+
+        <section class="chart-wrap">
+          <div class="chart-head">
+            <div id="active-market">Select instrument</div>
+            <div id="status">Loading...</div>
+          </div>
+          <div id="kline"></div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      const marketListEl = document.getElementById("market-list");
+      const searchEl = document.getElementById("search");
+      const activeMarketEl = document.getElementById("active-market");
+      const statusEl = document.getElementById("status");
+      const reloadBtn = document.getElementById("reload-btn");
+      const fitBtn = document.getElementById("fit-btn");
+      const timeframeRoot = document.getElementById("timeframes");
+
+      const state = {
+        timeframe: "1m",
+        markets: [],
+        selected: null,
+        persistedBars: [],
+        liveCursorMs: null,
+        liveTimer: null,
+        liveInFlight: false,
+      };
+
+      let chart = null;
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      function initChart() {
+        if (!window.klinecharts || typeof window.klinecharts.init !== "function") {
+          setStatus("Chart library failed to load");
+          return false;
+        }
+
+        chart = window.klinecharts.init("kline", {
+          styles: {
+            grid: {
+              horizontal: { color: "#2a3041" },
+              vertical: { color: "#2a3041" },
+            },
+            candle: {
+              bar: {
+                upColor: "#26a69a",
+                downColor: "#ef5350",
+                upBorderColor: "#26a69a",
+                downBorderColor: "#ef5350",
+                upWickColor: "#26a69a",
+                downWickColor: "#ef5350",
+              },
+            },
+            xAxis: {
+              axisLine: { color: "#3c4357" },
+              tickText: { color: "#8f98aa" },
+            },
+            yAxis: {
+              axisLine: { color: "#3c4357" },
+              tickText: { color: "#8f98aa" },
+            },
+            separator: {
+              color: "#2c3244",
+            },
+            crosshair: {
+              horizontal: { line: { color: "#7583a5" }, text: { backgroundColor: "#414c69" } },
+              vertical: { line: { color: "#7583a5" }, text: { backgroundColor: "#414c69" } },
+            },
+          },
+        });
+        return true;
+      }
+
+      function replaceChartData(bars) {
+        if (!chart) {
+          return false;
+        }
+        if (typeof chart.applyNewData === "function") {
+          chart.applyNewData(bars);
+          return true;
+        }
+        if (typeof chart.setData === "function") {
+          chart.setData(bars);
+          return true;
+        }
+        return false;
+      }
+
+      function formatMarket(market) {
+        return `${market.symbol} · ${market.venue.toUpperCase()}`;
+      }
+
+      function timeframeToMs(tf) {
+        const m = /^(\d+)([mhd])$/.exec(tf || "");
+        if (!m) return 60_000;
+        const value = Number(m[1]);
+        const unit = m[2];
+        if (unit === "m") return value * 60_000;
+        if (unit === "h") return value * 3_600_000;
+        if (unit === "d") return value * 86_400_000;
+        return 60_000;
+      }
+
+      function bucketStartMs(tsMs, tfMs) {
+        return Math.floor(tsMs / tfMs) * tfMs;
+      }
+
+      function stopLivePolling() {
+        if (state.liveTimer) {
+          clearInterval(state.liveTimer);
+          state.liveTimer = null;
+        }
+        state.liveInFlight = false;
+      }
+
+      function mergeBarsWithTicks(baseBars, ticks, tfMs) {
+        const bars = baseBars.map((b) => ({ ...b }));
+        if (!ticks.length) {
+          return bars;
+        }
+
+        for (const tick of ticks) {
+          const tickTs = Number(tick.ts_ms);
+          const price = Number(tick.price);
+          if (!Number.isFinite(tickTs) || !Number.isFinite(price)) {
+            continue;
+          }
+
+          const bucketTs = bucketStartMs(tickTs, tfMs);
+          if (!bars.length) {
+            bars.push({
+              timestamp: bucketTs,
+              open: price,
+              high: price,
+              low: price,
+              close: price,
+              volume: 0,
+            });
+            continue;
+          }
+
+          let last = bars[bars.length - 1];
+          if (bucketTs < last.timestamp) {
+            continue;
+          }
+
+          while (bucketTs > last.timestamp + tfMs) {
+            bars.push({
+              timestamp: last.timestamp + tfMs,
+              open: last.close,
+              high: last.close,
+              low: last.close,
+              close: last.close,
+              volume: 0,
+            });
+            last = bars[bars.length - 1];
+          }
+
+          if (bucketTs === last.timestamp) {
+            last.high = Math.max(last.high, price);
+            last.low = Math.min(last.low, price);
+            last.close = price;
+            continue;
+          }
+
+          bars.push({
+            timestamp: bucketTs,
+            open: last.close,
+            high: Math.max(last.close, price),
+            low: Math.min(last.close, price),
+            close: price,
+            volume: 0,
+          });
+        }
+        return bars;
+      }
+
+      async function pollLiveTicks() {
+        if (!state.selected || !chart || state.liveInFlight) {
+          return;
+        }
+        state.liveInFlight = true;
+        try {
+          const params = new URLSearchParams({
+            venue: state.selected.venue,
+            symbol: state.selected.symbol,
+            limit: "1500",
+          });
+          if (state.liveCursorMs !== null) {
+            params.set("since_ms", String(state.liveCursorMs));
+          }
+
+          const payload = await getJson(`/api/v1/ticks/hot?${params.toString()}`);
+          const ticks = payload.ticks || [];
+          if (!ticks.length) {
+            return;
+          }
+
+          state.liveCursorMs = Number(ticks[ticks.length - 1].ts_ms);
+          const tfMs = timeframeToMs(state.timeframe);
+          const mergedBars = mergeBarsWithTicks(state.persistedBars, ticks, tfMs);
+          if (replaceChartData(mergedBars)) {
+            chart.scrollToRealTime();
+            setStatus(`live ticks:${ticks.length} · ${new Date().toLocaleTimeString()}`);
+          }
+        } catch (error) {
+          setStatus(`Live error: ${error.message}`);
+        } finally {
+          state.liveInFlight = false;
+        }
+      }
+
+      function startLivePolling() {
+        stopLivePolling();
+        state.liveTimer = setInterval(pollLiveTicks, 1000);
+      }
+
+      async function getJson(url) {
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return response.json();
+      }
+
+      function setActiveTimeframe(tf) {
+        state.timeframe = tf;
+        Array.from(timeframeRoot.querySelectorAll(".tf-btn")).forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.tf === tf);
+        });
+      }
+
+      function renderMarketList() {
+        const query = searchEl.value.trim().toUpperCase();
+        const filtered = state.markets.filter((m) => {
+          if (!query) return true;
+          return (`${m.symbol} ${m.venue}`).toUpperCase().includes(query);
+        });
+
+        marketListEl.innerHTML = "";
+        if (!filtered.length) {
+          const empty = document.createElement("div");
+          empty.className = "meta";
+          empty.style.padding = "10px 12px";
+          empty.textContent = "No instrument matches your search.";
+          marketListEl.appendChild(empty);
+          return;
+        }
+
+        for (const market of filtered) {
+          const key = `${market.venue}:${market.symbol}`;
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "market-item";
+          btn.classList.toggle("active", state.selected && key === `${state.selected.venue}:${state.selected.symbol}`);
+
+          const symbolRow = document.createElement("div");
+          symbolRow.className = "symbol-row";
+          symbolRow.innerHTML = `<span class="symbol">${market.symbol}</span><span class="venue">${market.venue}</span>`;
+
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = `${market.bar_count} bars · last ${new Date(market.last_bar_ts).toLocaleTimeString()}`;
+
+          btn.appendChild(symbolRow);
+          btn.appendChild(meta);
+          btn.addEventListener("click", async () => {
+            state.selected = market;
+            renderMarketList();
+            await loadBars();
+            startLivePolling();
+          });
+          marketListEl.appendChild(btn);
+        }
+      }
+
+      async function loadMarkets() {
+        setStatus("Loading instruments...");
+        const payload = await getJson(`/api/v1/markets/available?timeframe=${encodeURIComponent(state.timeframe)}`);
+        state.markets = payload.markets || [];
+        if (!state.selected && state.markets.length) {
+          state.selected = state.markets[0];
+        } else if (state.selected) {
+          const exists = state.markets.find((m) => m.venue === state.selected.venue && m.symbol === state.selected.symbol);
+          if (!exists) {
+            state.selected = state.markets[0] || null;
+          }
+        }
+        renderMarketList();
+      }
+
+      async function loadBars() {
+        if (!state.selected) {
+          activeMarketEl.textContent = "No instrument available";
+          if (chart) {
+            replaceChartData([]);
+          }
+          setStatus("No data");
+          return;
+        }
+
+        activeMarketEl.textContent = formatMarket(state.selected);
+        setStatus("Loading candles...");
+
+        const params = new URLSearchParams({
+          venue: state.selected.venue,
+          symbol: state.selected.symbol,
+          timeframe: state.timeframe,
+          limit: "500",
+        });
+
+        const payload = await getJson(`/api/v1/bars/hot?${params.toString()}`);
+        const bars = (payload.bars || []).map((b) => ({
+          timestamp: Number(b.time) * 1000,
+          open: Number(b.open),
+          high: Number(b.high),
+          low: Number(b.low),
+          close: Number(b.close),
+          volume: Number(b.volume || 0),
+        }));
+        state.persistedBars = bars;
+        const tfMs = timeframeToMs(state.timeframe);
+        const lastBarTs = bars.length ? bars[bars.length - 1].timestamp : Date.now();
+        state.liveCursorMs = Math.max(0, lastBarTs - tfMs);
+
+        if (!chart) {
+          setStatus("Chart is not initialized");
+          return;
+        }
+
+        if (!replaceChartData(bars)) {
+          setStatus("Chart data API unavailable");
+          return;
+        }
+        chart.scrollToRealTime();
+        setStatus(`${bars.length} candles · live on`);
+      }
+
+      async function reloadAll() {
+        try {
+          await loadMarkets();
+          await loadBars();
+        } catch (error) {
+          setStatus(`Error: ${error.message}`);
+        }
+      }
+
+      timeframeRoot.addEventListener("click", async (event) => {
+        const btn = event.target.closest(".tf-btn");
+        if (!btn) return;
+        const tf = btn.dataset.tf;
+        if (!tf || tf === state.timeframe) return;
+        setActiveTimeframe(tf);
+        await reloadAll();
+        startLivePolling();
+      });
+
+      reloadBtn.addEventListener("click", reloadAll);
+      fitBtn.addEventListener("click", () => {
+        if (chart) {
+          chart.scrollToRealTime();
+        }
+      });
+
+      searchEl.addEventListener("input", renderMarketList);
+      window.addEventListener("resize", () => {
+        if (chart) {
+          chart.resize();
+        }
+      });
+
+      setActiveTimeframe("1m");
+      if (initChart()) {
+        reloadAll();
+        startLivePolling();
+      }
+    </script>
+  </body>
+</html>

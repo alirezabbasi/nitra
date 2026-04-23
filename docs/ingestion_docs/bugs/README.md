@@ -13,3 +13,4 @@ This directory is the canonical bug registry for BarsFP.
 
 Current entries:
 - `BUG-00001`: TimescaleDB bootstrap halts before creating `raw_tick` and related tables.
+- `BUG-00002`: `market-normalization` crash loop on duplicate processed-message ledger offsets.

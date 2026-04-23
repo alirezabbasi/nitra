@@ -3,17 +3,57 @@
   "mappings": [
     {
       "venue": "oanda",
-      "broker_symbol": "EUR_USD",
+      "broker_symbol": "EURUSD",
+      "canonical_symbol": "EURUSD"
+    },
+    {
+      "venue": "oanda",
+      "broker_symbol": "GBPUSD",
+      "canonical_symbol": "GBPUSD"
+    },
+    {
+      "venue": "oanda",
+      "broker_symbol": "USDJPY",
+      "canonical_symbol": "USDJPY"
+    },
+    {
+      "venue": "capital",
+      "broker_symbol": "EURUSD",
       "canonical_symbol": "EURUSD"
     },
     {
       "venue": "capital",
-      "broker_symbol": "CS.D.EURUSD.MINI.IP",
-      "canonical_symbol": "EURUSD"
+      "broker_symbol": "GBPUSD",
+      "canonical_symbol": "GBPUSD"
     },
     {
       "venue": "coinbase",
-      "broker_symbol": "EUR-USD",
+      "broker_symbol": "BTCUSD",
+      "canonical_symbol": "BTCUSD"
+    },
+    {
+      "venue": "coinbase",
+      "broker_symbol": "ETHUSD",
+      "canonical_symbol": "ETHUSD"
+    },
+    {
+      "venue": "coinbase",
+      "broker_symbol": "SOLUSD",
+      "canonical_symbol": "SOLUSD"
+    },
+    {
+      "venue": "coinbase",
+      "broker_symbol": "ADAUSD",
+      "canonical_symbol": "ADAUSD"
+    },
+    {
+      "venue": "coinbase",
+      "broker_symbol": "XRPUSD",
+      "canonical_symbol": "XRPUSD"
+    },
+    {
+      "venue": "coinbase",
+      "broker_symbol": "EURUSD",
       "canonical_symbol": "EURUSD"
     }
   ]

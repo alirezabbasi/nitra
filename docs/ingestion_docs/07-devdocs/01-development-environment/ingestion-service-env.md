@@ -2,14 +2,61 @@
 
 This page defines environment variables for the minimal ingestion runtime wired in NITRA compose.
 
-## market-ingestion
+## charting
+
+- `CHARTING_PORT` default `8110`
+- `CHARTING_TIMEFRAME` default `1m`
+- `CHARTING_DEFAULT_LIMIT` default `300`
+- `CHARTING_REFRESH_SECS` default `5`
+
+## market-ingestion services (parallel)
+
+The compose runtime starts three ingestion services simultaneously:
+
+- `market-ingestion` (OANDA)
+- `market-ingestion-capital` (CAPITAL)
+- `market-ingestion-coinbase` (COINBASE)
+
+Shared:
 
 - `KAFKA_BROKERS` default `kafka:9092`
-- `INGESTION_RAW_TOPIC` default `raw.market.oanda`
 - `INGESTION_HEALTH_TOPIC` default `connector.health`
-- `INGESTION_VENUE` default `oanda`
-- `INGESTION_SYMBOL` default `EUR_USD`
-- `INGESTION_INTERVAL_SECS` default `1.0`
+
+OANDA profile:
+
+- `OANDA_RAW_TOPIC` default `raw.market.oanda`
+- `OANDA_DEFAULT_INSTRUMENT` default `EURUSD`
+- `OANDA_ENABLED_INSTRUMENTS` default `EURUSD,GBPUSD,USDJPY`
+- `OANDA_POLL_INTERVAL_SECS` default `1.0`
+- `OANDA_STREAM_URL`
+- `OANDA_ACCOUNT_ID`
+- `OANDA_API_TOKEN`
+
+CAPITAL profile:
+
+- `CAPITAL_RAW_TOPIC` default `raw.market.capital`
+- `CAPITAL_DEFAULT_INSTRUMENT` default `EURUSD`
+- `CAPITAL_ENABLED_INSTRUMENTS` default `EURUSD,GBPUSD`
+- `CAPITAL_POLL_INTERVAL_SECS` default `1.0`
+- `CAPITAL_API_URL`
+- `CAPITAL_API_KEY`
+- `CAPITAL_IDENTIFIER`
+- `CAPITAL_API_PASSWORD`
+- `CAPITAL_EPIC_ALLOWLIST`
+
+Note:
+
+- Pair symbols are emitted in compact alphanumeric format only (for example `EURUSD`, `GBPUSD`, `BTCUSD`) with no `_`, `-`, or dot separators.
+
+COINBASE profile:
+
+- `COINBASE_RAW_TOPIC` default `raw.market.coinbase`
+- `COINBASE_DEFAULT_INSTRUMENT` default `BTCUSD`
+- `COINBASE_ENABLED_INSTRUMENTS` default `BTCUSD,ETHUSD,SOLUSD,ADAUSD,XRPUSD`
+- `COINBASE_POLL_INTERVAL_SECS` default `1.0`
+- `COINBASE_WS_URL`
+- `COINBASE_PRODUCT_ALLOWLIST`
+- `COINBASE_CHANNELS`
 
 ## market-normalization
 

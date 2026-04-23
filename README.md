@@ -19,6 +19,7 @@ Start with the minimum platform that lets you:
 - MinIO (S3-compatible local object store)
 - MLflow
 - Prometheus + Grafana
+- Charting UI (Kline/Candlestick)
 - lightweight service containers / placeholders
 
 ## What is intentionally excluded for now

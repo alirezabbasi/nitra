@@ -43,7 +43,7 @@ def record_message_processed(
             INSERT INTO processed_message_ledger (
               service_name, message_id, source_topic, source_partition, source_offset
             ) VALUES (%s, %s::uuid, %s, %s, %s)
-            ON CONFLICT (service_name, message_id) DO NOTHING
+            ON CONFLICT DO NOTHING
             """,
             (service_name, message_id, source_topic, source_partition, source_offset),
         )

@@ -5,7 +5,7 @@ This runbook is for development-only startup and validation of NITRA live ingest
 ## Scope
 
 Covered path:
-- `market-ingestion` -> `market-normalization` -> `bar-aggregation` -> `gap-detection` -> `backfill-worker`
+- `market-ingestion` + `market-ingestion-capital` + `market-ingestion-coinbase` -> `market-normalization` -> `bar-aggregation` -> `gap-detection` -> `backfill-worker`
 
 Required baseline:
 - Kafka topics from `infra/kafka/topics.csv`
@@ -40,13 +40,19 @@ make kafka-bootstrap
 3. Confirm key services are running:
 
 ```bash
-docker compose ps timescaledb kafka market-ingestion market-normalization bar-aggregation gap-detection backfill-worker
+docker compose ps timescaledb kafka charting market-ingestion market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker
 ```
 
 4. Optional logs (follow):
 
 ```bash
-docker compose logs -f --tail=200 market-ingestion market-normalization bar-aggregation gap-detection backfill-worker
+docker compose logs -f --tail=200 charting market-ingestion market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker
+```
+
+Charting UI:
+
+```bash
+http://localhost:${CHARTING_PORT:-8110}/
 ```
 
 ## Validation Checklist
@@ -112,7 +118,7 @@ If ingestion services are unstable:
 1. Stop only ingestion services:
 
 ```bash
-docker compose stop market-ingestion market-normalization bar-aggregation gap-detection backfill-worker
+docker compose stop market-ingestion market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker
 ```
 
 2. Keep core stateful services running (`timescaledb`, `kafka`) for investigation.
@@ -120,7 +126,7 @@ docker compose stop market-ingestion market-normalization bar-aggregation gap-de
 4. Restart ingestion services only:
 
 ```bash
-docker compose up -d --build market-ingestion market-normalization bar-aggregation gap-detection backfill-worker
+docker compose up -d --build market-ingestion market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker
 ```
 
 ## Troubleshooting
@@ -130,8 +136,8 @@ docker compose up -d --build market-ingestion market-normalization bar-aggregati
 - Retry: `make kafka-bootstrap`
 
 2. No rows in `raw_tick`:
-- Check `market-ingestion` logs for publish loop.
-- Confirm topic name alignment: `raw.market.oanda`.
+- Check ingestion logs for all three connectors (`market-ingestion`, `market-ingestion-capital`, `market-ingestion-coinbase`).
+- Confirm topic alignment: `raw.market.oanda`, `raw.market.capital`, `raw.market.coinbase`.
 
 3. `raw_tick` grows but `ohlcv_bar` empty:
 - Check `market-normalization` and `bar-aggregation` logs.

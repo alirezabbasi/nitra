@@ -123,6 +123,29 @@ services:
     depends_on:
       - prometheus
 
+  charting:
+    build:
+      context: ./services/charting
+      dockerfile: Dockerfile
+    container_name: charting
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+      CHARTING_TIMEFRAME: ${CHARTING_TIMEFRAME}
+      CHARTING_DEFAULT_LIMIT: ${CHARTING_DEFAULT_LIMIT}
+      CHARTING_REFRESH_SECS: ${CHARTING_REFRESH_SECS}
+    ports:
+      - "${CHARTING_PORT}:8080"
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    volumes:
+      - ./services/charting:/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=3).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
   structure-engine:
     build:
       context: ./services/structure-engine
@@ -229,12 +252,91 @@ services:
       dockerfile: Dockerfile
     container_name: market-ingestion
     environment:
-      KAFKA_BROKERS: kafka:9092
-      INGESTION_RAW_TOPIC: raw.market.oanda
-      INGESTION_HEALTH_TOPIC: connector.health
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      INGESTION_RAW_TOPIC: ${OANDA_RAW_TOPIC}
+      INGESTION_HEALTH_TOPIC: ${INGESTION_HEALTH_TOPIC}
       INGESTION_VENUE: oanda
-      INGESTION_SYMBOL: EUR_USD
-      INGESTION_INTERVAL_SECS: 1.0
+      INGESTION_SYMBOL: ${OANDA_DEFAULT_INSTRUMENT}
+      INGESTION_ENABLED_INSTRUMENTS: ${OANDA_ENABLED_INSTRUMENTS}
+      INGESTION_INTERVAL_SECS: ${OANDA_POLL_INTERVAL_SECS}
+      CONNECTOR_MODE: oanda
+      OANDA_STREAM_URL: ${OANDA_STREAM_URL}
+      OANDA_API_TOKEN: ${OANDA_API_TOKEN}
+      CAPITAL_API_URL: ${CAPITAL_API_URL}
+      CAPITAL_API_KEY: ${CAPITAL_API_KEY}
+      CAPITAL_IDENTIFIER: ${CAPITAL_IDENTIFIER}
+      CAPITAL_API_PASSWORD: ${CAPITAL_API_PASSWORD}
+      CAPITAL_EPIC_ALLOWLIST: ${CAPITAL_EPIC_ALLOWLIST}
+      CAPITAL_POLL_INTERVAL_SECS: ${CAPITAL_POLL_INTERVAL_SECS}
+      COINBASE_WS_URL: ${COINBASE_WS_URL}
+      COINBASE_PRODUCT_ALLOWLIST: ${COINBASE_PRODUCT_ALLOWLIST}
+      COINBASE_CHANNELS: ${COINBASE_CHANNELS}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./services/market-ingestion:/app
+      - ./services/ingestion:/app/ingestion
+    restart: unless-stopped
+
+  market-ingestion-capital:
+    build:
+      context: ./services/market-ingestion
+      dockerfile: Dockerfile
+    container_name: market-ingestion-capital
+    environment:
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      INGESTION_RAW_TOPIC: ${CAPITAL_RAW_TOPIC}
+      INGESTION_HEALTH_TOPIC: ${INGESTION_HEALTH_TOPIC}
+      INGESTION_VENUE: capital
+      INGESTION_SYMBOL: ${CAPITAL_DEFAULT_INSTRUMENT}
+      INGESTION_ENABLED_INSTRUMENTS: ${CAPITAL_ENABLED_INSTRUMENTS}
+      INGESTION_INTERVAL_SECS: ${CAPITAL_POLL_INTERVAL_SECS}
+      CONNECTOR_MODE: capital
+      OANDA_STREAM_URL: ${OANDA_STREAM_URL}
+      OANDA_API_TOKEN: ${OANDA_API_TOKEN}
+      CAPITAL_API_URL: ${CAPITAL_API_URL}
+      CAPITAL_API_KEY: ${CAPITAL_API_KEY}
+      CAPITAL_IDENTIFIER: ${CAPITAL_IDENTIFIER}
+      CAPITAL_API_PASSWORD: ${CAPITAL_API_PASSWORD}
+      CAPITAL_EPIC_ALLOWLIST: ${CAPITAL_EPIC_ALLOWLIST}
+      CAPITAL_POLL_INTERVAL_SECS: ${CAPITAL_POLL_INTERVAL_SECS}
+      COINBASE_WS_URL: ${COINBASE_WS_URL}
+      COINBASE_PRODUCT_ALLOWLIST: ${COINBASE_PRODUCT_ALLOWLIST}
+      COINBASE_CHANNELS: ${COINBASE_CHANNELS}
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./services/market-ingestion:/app
+      - ./services/ingestion:/app/ingestion
+    restart: unless-stopped
+
+  market-ingestion-coinbase:
+    build:
+      context: ./services/market-ingestion
+      dockerfile: Dockerfile
+    container_name: market-ingestion-coinbase
+    environment:
+      KAFKA_BROKERS: ${KAFKA_BROKERS}
+      INGESTION_RAW_TOPIC: ${COINBASE_RAW_TOPIC}
+      INGESTION_HEALTH_TOPIC: ${INGESTION_HEALTH_TOPIC}
+      INGESTION_VENUE: coinbase
+      INGESTION_SYMBOL: ${COINBASE_DEFAULT_INSTRUMENT}
+      INGESTION_ENABLED_INSTRUMENTS: ${COINBASE_ENABLED_INSTRUMENTS}
+      INGESTION_INTERVAL_SECS: ${COINBASE_POLL_INTERVAL_SECS}
+      CONNECTOR_MODE: coinbase
+      OANDA_STREAM_URL: ${OANDA_STREAM_URL}
+      OANDA_API_TOKEN: ${OANDA_API_TOKEN}
+      CAPITAL_API_URL: ${CAPITAL_API_URL}
+      CAPITAL_API_KEY: ${CAPITAL_API_KEY}
+      CAPITAL_IDENTIFIER: ${CAPITAL_IDENTIFIER}
+      CAPITAL_API_PASSWORD: ${CAPITAL_API_PASSWORD}
+      CAPITAL_EPIC_ALLOWLIST: ${CAPITAL_EPIC_ALLOWLIST}
+      CAPITAL_POLL_INTERVAL_SECS: ${CAPITAL_POLL_INTERVAL_SECS}
+      COINBASE_WS_URL: ${COINBASE_WS_URL}
+      COINBASE_PRODUCT_ALLOWLIST: ${COINBASE_PRODUCT_ALLOWLIST}
+      COINBASE_CHANNELS: ${COINBASE_CHANNELS}
     depends_on:
       kafka:
         condition: service_healthy

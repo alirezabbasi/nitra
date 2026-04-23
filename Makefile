@@ -9,6 +9,9 @@ down:
 logs:
 	docker compose logs -f --tail=200
 
+charting-logs:
+	docker compose logs -f --tail=200 charting
+
 ps:
 	docker compose ps
 
@@ -38,6 +41,9 @@ test-dev-00005:
 
 test-dev-00006:
 	tests/dev-00006/run.sh
+
+test-dev-00008:
+	tests/dev-00008/run.sh
 
 db:
 	docker compose exec timescaledb psql -U $$POSTGRES_USER -d $$POSTGRES_DB
