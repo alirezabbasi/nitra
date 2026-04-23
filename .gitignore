@@ -1,2 +1,4 @@
 __pycache__/
 *.pyc
+services/*/ingestion/
+services/*/target/
