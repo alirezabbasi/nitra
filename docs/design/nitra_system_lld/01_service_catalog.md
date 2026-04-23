@@ -113,6 +113,7 @@ Enforcement command:
 - bucket aggregation
 - session rollover behavior
 - bar finalization events
+- maintain rolling 90-day `1m` bar coverage for active instruments in `ohlcv_bar` (with support from gap/backfill controller)
 
 **Consumes**
 - `md.norm.ticks.v1`
@@ -141,6 +142,8 @@ Enforcement command:
 - gap detection
 - backfill command emission
 - replay completion monitoring
+- startup coverage audit for all active `venue + symbol` pairs to validate full `1m` continuity from `now` to `now - 90 days`
+- missing-only backfill orchestration from broker history APIs until startup coverage target is satisfied
 
 **Consumes**
 - `md.bars.*`
@@ -151,6 +154,11 @@ Enforcement command:
 
 **Technology (mandatory)**
 - Rust
+
+**Mandatory startup behavior**
+- At service startup, perform a coverage check against `ohlcv_bar` for every active instrument.
+- If any `1m` interval is missing in the last 90 days, enqueue deterministic chunked backfill jobs.
+- Mark startup as degraded (not fully ready) until all missing intervals are resolved or an explicit failure state is emitted.
 
 ---
 

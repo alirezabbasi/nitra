@@ -16,14 +16,18 @@ Last updated: 2026-04-23
 - `DEV-00011` completed: `market-normalization` runtime migrated to Rust.
 - `DEV-00012` completed: bar/gap/backfill deterministic runtimes migrated to Rust.
 - Charting fix session completed: corrected live candle merge logic, improved live-fit behavior, and moved market selection to header dropdowns.
+- HLD/LLD updated with mandatory startup 90-day `1m` historical coverage policy for all active instruments.
+- `DEV-00013` created to implement startup coverage audit + missing-only broker backfill.
+- `DEV-00013` runtime baseline implemented: startup 90-day coverage scan in `gap-detection`, gap persistence/events, and chunked backfill job/replay orchestration in `backfill-worker`.
 
 ## Current
 
 - Section 5.1 hard-gate enforcement active with deterministic-core migration batch completed.
+- `DEV-00013` is in progress with core runtime changes landed; replay-controller execution remains the final dependency.
 
 ## Next
 
-1. Enforce `make enforce-section-5-1` in standard pre-merge flow.
+1. Implement replay-controller execution path to fulfill `replay.commands` for broker-history recovery.
 2. Implement deterministic structure-engine runtime baseline.
 3. Implement deterministic risk/execution runtime baselines.
 
@@ -31,6 +35,7 @@ Last updated: 2026-04-23
 
 - Context drift if session close memory updates are skipped.
 - Delivery risk shifted to deterministic engine implementation depth (structure/risk/execution).
+- Open dependency: broker-history replay executor is not yet wired, so queued startup backfills are not fully auto-fulfilled end-to-end.
 
 ## Section 5.1 Compliance Snapshot
 

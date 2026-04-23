@@ -265,6 +265,12 @@ Responsible for transforming raw streams into canonical internal representations
 - reject or quarantine malformed events
 - aggregate ticks into bars
 - support deterministic historical replay into downstream services
+- enforce startup historical coverage for active instruments: on service start, verify `ohlcv_bar` has a complete rolling 90-day window of `1m` bars per active `venue + symbol`; if gaps exist, trigger missing-only broker backfill until coverage is complete
+
+**Coverage policy (mandatory)**
+- charting operational baseline is always `now` back to `now - 90 days` on `1m`
+- the system must not rely on manual operator action to repair missing historical windows after restart
+- startup coverage check/backfill runs before normal steady-state status is reported healthy
 
 ### 6.3 Deterministic Market Structure Layer
 Responsible for applying the liquidity-driven market-structure framework in code.

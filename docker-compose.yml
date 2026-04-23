@@ -385,12 +385,18 @@ services:
       GAP_INPUT_TOPIC: bar.1m
       GAP_OUTPUT_TOPIC: gap.events
       GAP_GROUP_ID: nitra-gap-detection-v1
+      GAP_STARTUP_SCAN_ENABLED: "true"
+      GAP_STARTUP_COVERAGE_DAYS: 90
+      GAP_ACTIVE_MARKET_DB_LOOKBACK_HOURS: 24
+      GAP_SYMBOL_REGISTRY_PATH: /etc/nitra/registry.v1.json
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
     depends_on:
       kafka:
         condition: service_healthy
       timescaledb:
         condition: service_healthy
+    volumes:
+      - ./infra/symbols/registry.v1.json:/etc/nitra/registry.v1.json:ro
     restart: unless-stopped
 
   backfill-worker:
@@ -404,6 +410,8 @@ services:
       BACKFILL_REPLAY_TOPIC: replay.commands
       BACKFILL_GROUP_ID: nitra-backfill-worker-v1
       BACKFILL_TARGET_GROUP: nitra-market-normalization-v1
+      BACKFILL_STARTUP_PROCESS_OPEN_GAPS: "true"
+      BACKFILL_FETCH_CHUNK_MINUTES: 60
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
     depends_on:
       kafka:

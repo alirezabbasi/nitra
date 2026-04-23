@@ -4,5 +4,4 @@ services/*/ingestion/
 services/*/target/
 .env
 .codex
-docs/
 services/ingestion/registry.v1.json

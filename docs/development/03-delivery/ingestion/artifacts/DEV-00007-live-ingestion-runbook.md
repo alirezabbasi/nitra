@@ -83,13 +83,21 @@ docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c
 docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT service_name, COUNT(*) AS rows FROM processed_message_ledger GROUP BY service_name ORDER BY service_name;"
 ```
 
-5. Optional DEV-00006 checks:
+5. Startup coverage state and gap/backfill lifecycle tables are present:
+
+```bash
+docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT COUNT(*) AS tracked_symbols FROM coverage_state;"
+docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, COUNT(*) FROM gap_log GROUP BY status ORDER BY status;"
+docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, COUNT(*) FROM backfill_jobs GROUP BY status ORDER BY status;"
+```
+
+6. Optional DEV-00006 checks:
 
 ```bash
 make test-dev-00006
 ```
 
-6. Optional duplicate-injection integration drill (requires Docker access):
+7. Optional duplicate-injection integration drill (requires Docker access):
 
 ```bash
 DEV00006_INTEGRATION=1 tests/dev-00006/run.sh

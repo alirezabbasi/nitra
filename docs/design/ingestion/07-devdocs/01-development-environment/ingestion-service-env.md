@@ -82,6 +82,10 @@ COINBASE profile:
 - `GAP_INPUT_TOPIC` default `bar.1m`
 - `GAP_OUTPUT_TOPIC` default `gap.events`
 - `GAP_GROUP_ID` default `nitra-gap-detection-v1`
+- `GAP_STARTUP_SCAN_ENABLED` default `true`
+- `GAP_STARTUP_COVERAGE_DAYS` default `90`
+- `GAP_ACTIVE_MARKET_DB_LOOKBACK_HOURS` default `24`
+- `GAP_SYMBOL_REGISTRY_PATH` default `/etc/nitra/registry.v1.json`
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 ## backfill-worker
@@ -91,4 +95,6 @@ COINBASE profile:
 - `BACKFILL_REPLAY_TOPIC` default `replay.commands`
 - `BACKFILL_GROUP_ID` default `nitra-backfill-worker-v1`
 - `BACKFILL_TARGET_GROUP` default `nitra-market-normalization-v1`
+- `BACKFILL_STARTUP_PROCESS_OPEN_GAPS` default `true`
+- `BACKFILL_FETCH_CHUNK_MINUTES` default `60`
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)

@@ -12,7 +12,7 @@ Last updated: 2026-04-23
 
 ## In Progress
 
-- [ ] (No in-progress items)
+- [ ] `DEV-00013` enforce startup 90-day `1m` coverage and missing-only backfill for all active instruments.
 
 ## Done
 

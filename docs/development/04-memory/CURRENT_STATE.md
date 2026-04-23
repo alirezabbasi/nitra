@@ -21,15 +21,17 @@ Last updated: 2026-04-23
 - Completed `DEV-00012` cutover: bar/gap/backfill services moved from Python to Rust runtime.
 - Charting stabilization patch applied for live candle integrity, auto-fit behavior, and header-based venue/instrument selection.
 - Charting selector upgraded to searchable input and timeframe switching restored with 1m-derived fallback for `5m/15m/1h` when native bars are absent.
+- Added formal architecture requirement: startup must guarantee rolling 90-day `1m` coverage in `ohlcv_bar` for all active instruments.
+- Registered `DEV-00013` to implement deterministic startup coverage audit + missing-only broker backfill.
 
 ### Current
 
-- Transition planning from ingestion-only delivery to deterministic core modules.
+- `DEV-00013` runtime baseline implemented in deterministic ingestion services (startup 90-day coverage scan + gap/backfill orchestration).
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Enforce `make enforce-section-5-1` as mandatory gate in pre-merge workflow.
+1. Implement replay-controller execution path for `replay.commands` to complete broker-history backfill loop.
 2. Implement deterministic structure-engine runtime baseline.
 3. Implement deterministic risk-engine and execution-gateway runtime baselines.
 
@@ -38,6 +40,7 @@ Last updated: 2026-04-23
 - Risk of architecture drift toward ingestion-only progress.
 - Risk of context drift if memory files are not updated at session close.
 - Open decision: priority ordering between replay controller and structure-engine first slice.
+- Open dependency: broker-history fulfillment still depends on replay-controller runtime execution.
 
 ## Program status
 

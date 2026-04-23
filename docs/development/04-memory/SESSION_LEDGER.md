@@ -170,3 +170,42 @@ Append one entry at the end of each substantial session.
   - source sanity checks passed for updated UI/event/fallback paths in `services/charting/static/index.html`.
 - Next recommended action:
   - decide whether to persist native `5m/15m/1h` bars in backend aggregation, or keep client-side derivation as intended runtime behavior.
+
+---
+
+## 2026-04-23 — Session Entry 009
+
+- Objective:
+  - formalize business requirement for startup historical coverage (rolling 90 days of `1m` candles) and create executable delivery tasking.
+- Work completed:
+  - reviewed docs to locate existing references; confirmed retention references existed but no explicit startup enforcement rule.
+  - updated HLD (`Section 6.2`) with mandatory startup coverage enforcement for active instruments.
+  - updated LLD service catalog (bar aggregation + gap/backfill) with mandatory startup audit/backfill behavior.
+  - created delivery ticket `DEV-00013` for implementation of startup coverage audit + missing-only broker backfill.
+  - updated roadmap and kanban to prioritize `DEV-00013`.
+  - synchronized memory files (`CURRENT_STATE`, `WHERE_ARE_WE`) to reflect the new policy and next action.
+- Key outcomes:
+  - 90-day `1m` chart-history requirement is now explicit in architecture governance, not implicit retention guidance.
+  - implementation path is now tracked and visible in execution/memory systems.
+- Next recommended action:
+  - start `DEV-00013` implementation in deterministic Rust backfill path with startup readiness gating.
+
+---
+
+## 2026-04-23 — Session Entry 010
+
+- Objective:
+  - implement `DEV-00013` runtime baseline for startup 90-day `1m` coverage enforcement and deterministic missing-only backfill orchestration.
+- Work completed:
+  - rewrote `services/gap-detection` with startup coverage scan (`90d` window by default), active-market discovery (registry + DB), gap persistence (`gap_log`), event emission (`gap.events`), and coverage state tracking (`coverage_state`).
+  - rewrote `services/backfill-worker` to process startup/open gaps and stream gaps, split into deterministic chunks, persist `backfill_jobs`, write `replay_audit`, and publish enriched `replay.commands`.
+  - added runtime schema migration `infra/timescaledb/init/004_gap_backfill_runtime.sql` for `coverage_state`, `gap_log`, `backfill_jobs`, and `replay_audit`.
+  - updated compose environment contracts for new startup scan/backfill controls and mounted symbol registry into `gap-detection`.
+  - added delivery validation script `tests/dev-0013/run.sh` and make target `test-dev-0013`.
+  - updated ingestion env documentation and live runbook with startup coverage/gap/backfill verification commands.
+  - updated kanban/memory state to reflect `DEV-00013` implementation progress.
+- Verification:
+  - `cargo test --manifest-path services/gap-detection/Cargo.toml` passes.
+  - `cargo test --manifest-path services/backfill-worker/Cargo.toml` passes.
+- Next recommended action:
+  - implement replay-controller execution for `replay.commands` to fully close the broker-history backfill loop end-to-end.
