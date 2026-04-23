@@ -1,6 +1,20 @@
 import json
 from datetime import datetime, timezone
 
+CRYPTO_BASE_ASSETS = {
+    "BTC",
+    "ETH",
+    "SOL",
+    "ADA",
+    "XRP",
+    "LTC",
+    "DOGE",
+    "BNB",
+    "AVAX",
+    "DOT",
+    "LINK",
+}
+
 
 def parse_ts(value: str | None) -> datetime:
     if not value:
@@ -14,6 +28,15 @@ def minute_bucket(ts: datetime) -> datetime:
 
 def canonical_symbol(broker_symbol: str) -> str:
     return broker_symbol.replace("_", "").replace("-", "").replace(".", "").upper()
+
+
+def infer_asset_class_from_symbol(symbol: str) -> str:
+    canonical = canonical_symbol(symbol)
+    if len(canonical) >= 6 and canonical.endswith("USD"):
+        base = canonical[:-3]
+        if base in CRYPTO_BASE_ASSETS:
+            return "crypto"
+    return "fx"
 
 
 def classify_market_payload(payload: dict) -> str:

@@ -4,6 +4,7 @@ set -euo pipefail
 for f in \
   services/ingestion/contracts.py \
   services/ingestion/domain.py \
+  services/ingestion/mock_pricing.py \
   services/market-ingestion/app.py \
   services/market-normalization/app.py \
   services/bar-aggregation/app.py \

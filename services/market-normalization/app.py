@@ -9,7 +9,13 @@ from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
 from psycopg import Connection
 
 from ingestion.contracts import build_envelope, is_message_processed, parse_json_bytes, record_message_processed
-from ingestion.domain import canonical_symbol, classify_market_payload, load_symbol_registry, parse_ts
+from ingestion.domain import (
+    canonical_symbol,
+    classify_market_payload,
+    infer_asset_class_from_symbol,
+    load_symbol_registry,
+    parse_ts,
+)
 
 
 def env(name: str, default: str) -> str:
@@ -153,12 +159,13 @@ async def main() -> None:
 
             broker_symbol = raw_event.get("broker_symbol", "UNKNOWN")
             venue = raw_event.get("venue", "unknown")
+            canonical = canonical_from_registry_or_fallback(registry, venue, broker_symbol)
             normalized = {
                 "event_id": str(uuid.uuid4()),
                 "venue": venue,
-                "asset_class": "fx",
+                "asset_class": infer_asset_class_from_symbol(canonical),
                 "broker_symbol": broker_symbol,
-                "canonical_symbol": canonical_from_registry_or_fallback(registry, venue, broker_symbol),
+                "canonical_symbol": canonical,
                 "event_type": "quote",
                 "event_ts_exchange": payload.get("event_ts_exchange", datetime.now(timezone.utc).isoformat()),
                 "event_ts_received": raw_event.get("event_ts_received", datetime.now(timezone.utc).isoformat()),

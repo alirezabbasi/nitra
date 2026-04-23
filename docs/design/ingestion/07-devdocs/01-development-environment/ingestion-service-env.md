@@ -47,6 +47,7 @@ CAPITAL profile:
 Note:
 
 - Pair symbols are emitted in compact alphanumeric format only (for example `EURUSD`, `GBPUSD`, `BTCUSD`) with no `_`, `-`, or dot separators.
+- In mock mode, each instrument now uses its own baseline/volatility profile so crypto symbols are not projected with FX-like prices.
 
 COINBASE profile:
 

@@ -8,6 +8,12 @@ from datetime import datetime, timezone
 from aiokafka import AIOKafkaProducer
 
 from ingestion.contracts import build_envelope
+from ingestion.mock_pricing import (
+    initial_price,
+    price_precision,
+    spread_amount,
+    step_amount,
+)
 
 
 def env(name: str, default: str) -> str:
@@ -56,15 +62,21 @@ async def main() -> None:
     producer = AIOKafkaProducer(bootstrap_servers=brokers)
     await producer.start()
 
-    price = 1.0850
+    prices: dict[str, float] = {symbol: initial_price(symbol) for symbol in output_symbols}
     try:
         while True:
-            price += random.uniform(-0.0002, 0.0002)
-            bid = round(price - 0.00005, 6)
-            ask = round(price + 0.00005, 6)
-            mid = round((bid + ask) / 2, 6)
-
             for source_symbol, output_symbol in zip(symbols, output_symbols):
+                current_mid = prices.get(output_symbol, initial_price(output_symbol))
+                step = step_amount(output_symbol, current_mid)
+                next_mid = max(current_mid + random.uniform(-step, step), 0.00001)
+                prices[output_symbol] = next_mid
+
+                spread = spread_amount(output_symbol, next_mid)
+                precision = price_precision(output_symbol)
+                bid = round(max(next_mid - (spread / 2.0), 0.00001), precision)
+                ask = round(max(next_mid + (spread / 2.0), bid), precision)
+                mid = round((bid + ask) / 2.0, precision)
+
                 raw_payload = {
                     "venue": venue,
                     "broker_symbol": output_symbol,
