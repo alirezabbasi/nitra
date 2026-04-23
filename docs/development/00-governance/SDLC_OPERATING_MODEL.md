@@ -1,0 +1,85 @@
+# NITRA SDLC Operating Model
+
+## Purpose
+
+Provide a repeatable execution model for business-led direction and AI-assisted engineering delivery.
+
+## Collaboration model
+
+- Business/Product owner (you):
+  - define priorities, acceptance intent, and business constraints.
+  - validate solution direction and tradeoffs.
+- Engineering executor (Codex):
+  - translate goals into technical slices.
+  - implement, test, and document with full traceability.
+  - maintain project memory artifacts so work resumes cleanly.
+
+## Work unit standard
+
+Each work unit (ticket/story) must include:
+
+- ID (`DEV-XXXXX` currently)
+- scope and non-goals
+- HLD alignment note
+- acceptance criteria
+- verification evidence
+- residual risks
+
+## Required delivery sequence
+
+1. HLD/LLD alignment check
+2. implementation
+3. tests
+4. docs
+5. memory update (`CURRENT_STATE`, `SESSION_LEDGER`, decision/risk logs)
+
+## Definition of done
+
+A scope is done only when all are true:
+
+- behavior implemented
+- tests added/updated and run evidence captured
+- relevant docs updated
+- board status updated
+- memory artifacts updated
+
+## Session discipline
+
+At start of each session:
+
+1. reload required architecture/ruleset docs
+2. read `04-memory/CURRENT_STATE.md`
+3. read `02-execution/KANBAN.md`
+4. confirm active objective
+
+At end of each session:
+
+1. append `04-memory/SESSION_LEDGER.md`
+2. update `04-memory/CURRENT_STATE.md`
+3. update `04-memory/WHERE_ARE_WE.md`
+4. update board and any affected ticket status
+
+## Mandatory status command behavior
+
+When asked "Where are we?", always respond using:
+
+1. Completed
+2. Recent
+3. Current
+4. Next
+5. Risks/Blocks
+
+Source priority:
+
+1. `docs/development/04-memory/WHERE_ARE_WE.md`
+2. `docs/development/04-memory/CURRENT_STATE.md`
+3. `docs/development/04-memory/SESSION_LEDGER.md`
+4. `docs/development/02-execution/KANBAN.md`
+
+## Escalation policy
+
+Pause and escalate to owner before implementing when:
+
+- architecture contract changes are required
+- cross-module tradeoff is non-obvious
+- production safety/risk controls are impacted

@@ -39,5 +39,5 @@ Add the minimum Timescale/Postgres schema baseline for canonical ingestion entit
 
 - Migrations: `infra/timescaledb/init/001_ohlcv_bar.sql`, `002_processed_message_ledger.sql`, `003_market_event_entities.sql`
 - Init wiring: `docker-compose.yml` (`/docker-entrypoint-initdb.d` mount)
-- Schema notes: `docs/ingestion_docs/02-data-platform/canonical-ingestion-schema.md`
+- Schema notes: `docs/design/ingestion/02-data-platform/canonical-ingestion-schema.md`
 - Verification: `tests/dev-00004/run.sh`

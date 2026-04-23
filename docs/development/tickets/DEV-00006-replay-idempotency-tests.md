@@ -42,4 +42,4 @@ Add step-scoped tests in NITRA to verify explicit commit lifecycle, replay safet
   - `services/bar-aggregation/app.py`
   - `services/gap-detection/app.py`
   - `services/backfill-worker/app.py`
-- Guarantee doc: `docs/ingestion_docs/02-data-platform/stream-replay-idempotency.md`
+- Guarantee doc: `docs/design/ingestion/02-data-platform/stream-replay-idempotency.md`

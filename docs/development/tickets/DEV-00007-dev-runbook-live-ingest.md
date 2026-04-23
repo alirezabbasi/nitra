@@ -33,6 +33,6 @@ Create the operator/developer runbook for starting NITRA ingestion in dev and va
 
 ## Evidence
 
-- Runbook: `docs/development/DEV-00007-live-ingestion-runbook.md`
+- Runbook: `docs/development/03-delivery/ingestion/artifacts/DEV-00007-live-ingestion-runbook.md`
 - Validation checklist included for raw -> normalized -> persisted path
 - Troubleshooting and safe stop/restart/rollback sections included

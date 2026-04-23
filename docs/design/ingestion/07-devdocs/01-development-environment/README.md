@@ -4,19 +4,17 @@
 
 1. Sync branch and inspect working tree.
 2. Make small scoped changes.
-3. Run targeted test pack (`tests/epic-xx/run.sh`).
+3. Run targeted test pack (`tests/dev-xxxxx/run.sh`).
 4. Update docs (HLD/LLD/epic log where applicable).
 5. Commit in subject-separated groups.
 
 ## Key Commands
 
-- Full stack up: `docker compose up -d`
-- Service status: `docker compose ps`
-- Warm Rust Docker cache once for all Rust services: `make rust-cache-warm`
-- Intentional Rust base/toolchain refresh + cache warm: `make rust-cache-refresh`
-- Lint: `make lint`
-- Tests: `make test`
-- Epic tests: `make test-epic-03` (example)
+- Full stack up: `make up`
+- Service status: `make ps`
+- Kafka bootstrap: `make kafka-bootstrap`
+- Dev tests: `make test-dev-00003`, `make test-dev-00004`, `make test-dev-00005`, `make test-dev-00006`, `make test-dev-00008`
+- Charting logs: `make charting-logs`
 
 ## Rust Container Build Caching
 
@@ -31,7 +29,7 @@
 - New variables require:
   - `.env.example` update,
   - runtime validation in code,
-  - docs update in `docs/07-devdocs/` and subject docs.
+  - docs update in `docs/design/ingestion/07-devdocs/` and subject docs.
 
 ## Non-Destructive Rule
 

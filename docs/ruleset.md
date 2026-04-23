@@ -6,7 +6,7 @@ All contributors and AI agents must read and follow this file before planning or
 ## Rule 0: Scope and Precedence
 
 - `docs/ruleset.md` is the global baseline for the whole repository.
-- Subdomain rulesets (for example `docs/ingestion_docs/ruleset.md`) are mandatory inside their own scope.
+- Subdomain rulesets (for example `docs/design/ingestion/ruleset.md`) are mandatory inside their own scope.
 - When a global and a subdomain rule conflict, apply the stricter rule unless an ADR explicitly approves an exception.
 
 ## Rule 1: Documentation Is Mandatory and Structured
@@ -14,19 +14,20 @@ All contributors and AI agents must read and follow this file before planning or
 - Documentation must remain current for architecture, delivery, operations, and testing.
 - Primary documentation roots are:
   - `docs/design/` for project-wide architecture and planning.
-  - `docs/ingestion_docs/` for ingestion-domain details.
+  - `docs/design/ingestion/` for ingestion-domain details.
 - Every meaningful implementation change must include matching documentation updates in the same change set.
 
 ## Rule 2: Authoritative Architecture Baseline
 
-- `docs/design/AI-enabled_trading_decision_platform.md` is the authoritative HLD for the full platform.
+- `docs/design/nitra_system_hld.md` is the execution-facing HLD for implementation tracking.
+- `docs/design/AI-enabled_trading_decision_platform.md` is the strategic architecture baseline and principle source.
 - All epics/stories must include an HLD alignment check before implementation and before closure.
 - Any divergence requires ADR + migration/update notes and synchronized HLD updates.
 
 ## Rule 3: Domain Rulebooks Must Be Respected
 
 - Contributors must load and follow domain-specific rulebooks when working in that domain.
-- Ingestion domain source of truth: `docs/ingestion_docs/ruleset.md`.
+- Ingestion domain source of truth: `docs/design/ingestion/ruleset.md`.
 - Additional domain rulebooks may be added later and must be treated the same way.
 
 ## Rule 4: Docker-First Runtime Is Mandatory
@@ -80,10 +81,12 @@ All contributors and AI agents must read and follow this file before planning or
 ## Rule 11: Session Resume Context Reload Is Mandatory
 
 - At the start of each session (or after pause/handoff/context switch), reload:
+  - documentation entrypoint (`docs/README.md`),
   - repository instructions (`AGENTS.md` when present),
   - this global ruleset (`docs/ruleset.md`),
-  - authoritative HLD (`docs/design/nitra_system_hld.md` and guide lines from `AI-enabled_trading_decision_platform.md`),
-  - authoritative LLD Folder (`docs/design/nitra_system_lld`)
+  - authoritative HLDs (`docs/design/nitra_system_hld.md`, `docs/design/AI-enabled_trading_decision_platform.md`),
+  - authoritative LLD folder (`docs/design/nitra_system_lld`),
+  - development state (`docs/development/04-memory/CURRENT_STATE.md`, `docs/development/02-execution/KANBAN.md`),
   - relevant domain docs/rulesets for the active scope.
 
 ## Rule 12: Mandatory Bug Registry
@@ -102,3 +105,17 @@ All contributors and AI agents must read and follow this file before planning or
 - For internet/image-pull failures (timeout/connection), retry via `proxychains`.
 - Prefer direct access first; proxy fallback is recovery path.
 - Document proxy-related reproducibility assumptions in applicable DevOps docs.
+
+## Rule 14: "Where Are We?" Status Response Is Mandatory
+
+- When asked "Where are we?" provide a concise structured status with exactly these sections:
+  - Completed
+  - Recent
+  - Current
+  - Next
+  - Risks/Blocks
+- The response must be sourced from:
+  - `docs/development/04-memory/CURRENT_STATE.md`
+  - `docs/development/04-memory/SESSION_LEDGER.md`
+  - `docs/development/02-execution/KANBAN.md`
+- After each substantial session, update these sources so future status answers remain accurate.

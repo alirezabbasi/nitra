@@ -1,33 +1,43 @@
-# NITRA Development Workspace
+# NITRA Development Operating System
 
-This folder tracks implementation planning and execution tickets for NITRA development work.
+This folder is the project-wide development control plane for NITRA.
+It is designed to keep multi-session progress stable, traceable, and aligned with the HLD.
 
-## Purpose
+## Why this structure exists
 
-- Keep development work items explicit, scoped, and traceable.
-- Keep implementation aligned with:
-  - `docs/ruleset.md` (global governance)
-  - `docs/design/nitra_system_hld.md` and `docs/design/AI-enabled_trading_decision_platform.md` (architecture authority)
-  - relevant domain ruleset/docs when applicable
+NITRA development happens across multiple sessions and spans many modules beyond ingestion.
+This layout prevents context loss and keeps execution aligned with business goals and SDLC quality gates.
 
-## Ticketing Rules
+## Folder Map
 
-- Ticket IDs use `DEV-XXXXX` format.
-- Each ticket must include scope, non-goals, acceptance criteria, and HLD alignment notes.
-- Keep dev environment changes simple and reproducible in Docker Compose.
-- Avoid adding non-essential complexity in the baseline dev stack.
+- `00-governance/`: delivery rules, ownership model, and session discipline.
+- `01-roadmap/`: full-project module roadmap and sequencing aligned to HLD Section 5.
+- `02-execution/`: active kanban and immediate execution focus.
+- `03-delivery/`: delivered scope, module-by-module records, and implementation evidence.
+- `04-memory/`: persistent project memory system (state snapshots, decisions, risks, handoff ledger).
+- `tickets/`: existing ingestion ticket files (`DEV-00001..DEV-00007`) retained for continuity.
 
-## Tickets
+## Mandatory read order at each resume
 
-- [DEV-00001](/home/alireza/Projects/nitra/docs/development/tickets/DEV-00001-barsfp-ingestion-wireup.md): Wire reusable BarsFP ingestion components into NITRA with a simple dev environment.
-- [DEV-00002](/home/alireza/Projects/nitra/docs/development/tickets/DEV-00002-ingestion-reuse-map.md): Create strict reuse map with `reuse/adapt/reject` decisions.
-- [DEV-00003](/home/alireza/Projects/nitra/docs/development/tickets/DEV-00003-kafka-contract-bootstrap.md): Add minimal Kafka topic contract and bootstrap.
-- [DEV-00004](/home/alireza/Projects/nitra/docs/development/tickets/DEV-00004-ingestion-schema-ledger.md): Add canonical ingestion schema and idempotency ledger.
-- [DEV-00005](/home/alireza/Projects/nitra/docs/development/tickets/DEV-00005-minimal-service-wireup.md): Wire minimum ingestion services into NITRA compose.
-- [DEV-00006](/home/alireza/Projects/nitra/docs/development/tickets/DEV-00006-replay-idempotency-tests.md): Add replay/idempotency verification tests.
-- [DEV-00007](/home/alireza/Projects/nitra/docs/development/tickets/DEV-00007-dev-runbook-live-ingest.md): Document dev runbook for live ingestion operations.
+1. `docs/README.md`
+2. `docs/ruleset.md`
+3. `docs/design/nitra_system_hld.md`
+4. `docs/design/AI-enabled_trading_decision_platform.md`
+5. `docs/development/04-memory/WHERE_ARE_WE.md`
+6. `docs/development/04-memory/CURRENT_STATE.md`
+7. `docs/development/02-execution/KANBAN.md`
 
-## Project Tracking
+## Existing records preserved
 
-- [Kanban TODO Board](/home/alireza/Projects/nitra/docs/development/TODO.md)
-- [Live Ingestion Dev Runbook](/home/alireza/Projects/nitra/docs/development/DEV-00007-live-ingestion-runbook.md)
+- Legacy kanban entrypoint: `docs/development/TODO.md` (now points to canonical board).
+- Existing tickets remain under `docs/development/tickets/` for stable references.
+- Ingestion runbook and reuse map are canonicalized under `03-delivery/ingestion/artifacts/`; compatibility pointers are kept at legacy paths.
+
+## Governance alignment
+
+This workspace is governed by:
+
+- Global ruleset: `docs/ruleset.md`
+- Domain ruleset (ingestion scope): `docs/design/ingestion/ruleset.md`
+
+All meaningful implementation changes must update the related docs here in the same change set.

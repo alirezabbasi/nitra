@@ -44,5 +44,5 @@ Wire the minimum viable ingestion services into NITRA compose and service folder
   - `services/gap-detection/`
   - `services/backfill-worker/`
 - Compose wiring: `docker-compose.yml`
-- Env var schema docs: `docs/ingestion_docs/07-devdocs/01-development-environment/ingestion-service-env.md`
+- Env var schema docs: `docs/design/ingestion/07-devdocs/01-development-environment/ingestion-service-env.md`
 - Verification: `tests/dev-00005/run.sh`

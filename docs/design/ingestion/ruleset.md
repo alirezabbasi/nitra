@@ -5,7 +5,7 @@ All contributors and AI agents working on ingestion scope must read and follow t
 
 ## Rule 1: Documentation Is Mandatory and Structured
 
-- The documentation root for this domain is `docs/ingestion_docs/`.
+- The documentation root for this domain is `docs/design/ingestion/`.
 - Every meaningful ingestion change must include documentation updates in the same change set when applicable.
 - Documents must be placed under the correct subject folder (`01-architecture`, `02-data-platform`, `03-reliability-risk-ops`, `06-devops`, `07-devdocs`, `bugs`, etc.).
 
@@ -17,7 +17,7 @@ All contributors and AI agents working on ingestion scope must read and follow t
 
 ## Rule 3: Production-Ready DevOps Plan Must Be Maintained
 
-- DevOps documentation under `docs/ingestion_docs/06-devops/` is mandatory and must be updated alongside implementation.
+- DevOps documentation under `docs/design/ingestion/06-devops/` is mandatory and must be updated alongside implementation.
 - CI/CD requirements, release strategy, deployment strategy, rollback strategy, and operations standards must remain documented.
 - Runtime behavior changes that break deployment contracts are prohibited without docs and migration notes.
 
@@ -73,26 +73,44 @@ All contributors and AI agents working on ingestion scope must read and follow t
 
 ## Rule 13: HLD Alignment for Ingestion Scope
 
-- Ingestion implementation must align with the project-authoritative HLD: `docs/design/AI-enabled_trading_decision_platform.md`.
-- Ingestion design/LLD docs under `docs/ingestion_docs/` must stay synchronized with implementation.
+- Ingestion implementation must align with project HLDs:
+  - execution-facing: `docs/design/nitra_system_hld.md`
+  - strategic baseline: `docs/design/AI-enabled_trading_decision_platform.md`
+- Ingestion design/LLD docs under `docs/design/ingestion/` must stay synchronized with implementation.
 - Divergence requires ADR + migration/update notes.
 
 ## Rule 14: Developer Guides and LLD Must Be Maintained
 
-- `docs/ingestion_docs/07-devdocs/` is the canonical ingestion developer-guide and LLD path.
+- `docs/design/ingestion/07-devdocs/` is the canonical ingestion developer-guide and LLD path.
 - Workflow, boundaries, contracts, schema, SDLC, testing, and release changes must update these docs in the same change set.
 
 ## Rule 15: Session Resume Must Reload Context
 
 - At each session start (or after pause/handoff/context switch), reload:
+  - documentation entrypoint (`docs/README.md`),
   - repository instructions (`AGENTS.md` when present),
   - global ruleset (`docs/ruleset.md`),
-  - ingestion ruleset (`docs/ingestion_docs/ruleset.md`),
-  - authoritative HLD (`docs/design/AI-enabled_trading_decision_platform.md`),
+  - ingestion ruleset (`docs/design/ingestion/ruleset.md`),
+  - authoritative HLDs (`docs/design/nitra_system_hld.md`, `docs/design/AI-enabled_trading_decision_platform.md`),
+  - project execution state (`docs/development/04-memory/CURRENT_STATE.md`, `docs/development/02-execution/KANBAN.md`),
   - relevant ingestion developer docs.
 
 ## Rule 16: Mandatory Bug Registry and Resolution Notes
 
-- Every ingestion bug must be recorded under `docs/ingestion_docs/bugs/` with unique code (for example `BUG-00001`).
+- Every ingestion bug must be recorded under `docs/design/ingestion/bugs/` with unique code (for example `BUG-00001`).
 - Records must include description/impact, reproduction steps, root cause, fix details, verification evidence, and status.
 - Bug documentation should be updated in the same change set as the fix whenever feasible.
+
+## Rule 17: "Where Are We?" Status Response for Ingestion Scope
+
+- When asked "Where are we?" for ingestion scope, provide:
+  - Completed
+  - Recent
+  - Current
+  - Next
+  - Risks/Blocks
+- Source the answer from:
+  - `docs/development/04-memory/CURRENT_STATE.md`
+  - `docs/development/04-memory/SESSION_LEDGER.md`
+  - `docs/development/02-execution/KANBAN.md`
+  - relevant ingestion ticket/docs when needed for evidence.

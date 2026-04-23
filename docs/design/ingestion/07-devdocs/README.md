@@ -1,7 +1,10 @@
 # Developer Guides (Canonical)
 
 This folder is the canonical developer handbook for onboarding and implementation.
-It complements the project HLD in [AI-enabled_trading_decision_platform.md](../AI-enabled_trading_decision_platform.md) with practical low-level design (LLD) and delivery guidance.
+It complements project HLDs in:
+- [nitra_system_hld.md](../../nitra_system_hld.md)
+- [AI-enabled_trading_decision_platform.md](../../AI-enabled_trading_decision_platform.md)
+with practical low-level design (LLD) and delivery guidance.
 
 ## Purpose
 

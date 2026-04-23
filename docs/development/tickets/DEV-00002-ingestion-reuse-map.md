@@ -34,4 +34,4 @@ Create a strict source-to-target reuse map for ingestion code from `../barsfp` i
 
 ## Evidence
 
-- Reuse map created: `docs/development/DEV-00002-reuse-map.md`
+- Reuse map created: `docs/development/03-delivery/ingestion/artifacts/DEV-00002-reuse-map.md`

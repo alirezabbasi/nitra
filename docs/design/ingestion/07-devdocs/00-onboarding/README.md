@@ -10,9 +10,9 @@
 ## Day 1: Repository Orientation
 
 1. Read `ruleset.md`.
-2. Read `docs/AI-enabled_trading_decision_platform.md` (HLD baseline).
+2. Read `docs/design/nitra_system_hld.md` and `docs/design/AI-enabled_trading_decision_platform.md` (HLD baseline).
 3. Read `docs/README.md` for project doc map.
-4. Read this `docs/07-devdocs/` folder in order.
+4. Read `docs/design/ingestion/07-devdocs/` in order.
 5. Read `python-fastapi-to-rust-orientation.md` for stack translation.
 
 ## Day 1: Run Project Locally
@@ -21,10 +21,7 @@
 2. Start stack: `docker compose up -d`.
 3. Verify services: `docker compose ps`.
 4. Check core logs:
-   - `make oanda-adapter-logs`
-   - `make capital-adapter-logs`
-   - `make coinbase-adapter-logs`
-   - `make normalizer-logs`
+   - `docker compose logs -f --tail=200 market-ingestion market-ingestion-capital market-ingestion-coinbase market-normalization`
 
 ## Ownership Model
 

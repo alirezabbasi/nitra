@@ -67,6 +67,12 @@ The LLM layer is an analyst and critic, not the execution authority.
 - Final low-level DB migration scripts
 - Final OpenAPI / AsyncAPI schema definitions
 
+### Domain Deep-Dive References
+
+- Ingestion domain implementation and operational design pack:
+  - `docs/design/ingestion/`
+  - `docs/design/ingestion/ruleset.md`
+
 ---
 
 ## 4. System Context

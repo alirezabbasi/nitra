@@ -1,6 +1,6 @@
 # HLD Section 6 Entity Map
 
-Source of truth: HLD Section 6 in `docs/AI-enabled_trading_decision_platform.md`.
+Source of truth: HLD Section 6 in `docs/design/nitra_system_hld.md` and strategic baseline in `docs/design/AI-enabled_trading_decision_platform.md`.
 
 ## Current Coverage Snapshot
 

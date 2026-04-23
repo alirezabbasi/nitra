@@ -33,7 +33,7 @@ Define and wire the minimal Kafka topic/bootstrap contract for NITRA ingestion f
 
 ## Evidence
 
-- Topic contract: `docs/ingestion_docs/02-data-platform/kafka-backbone.md`
+- Topic contract: `docs/design/ingestion/02-data-platform/kafka-backbone.md`
 - Topic catalog: `infra/kafka/topics.csv`
 - Bootstrap mechanism: `scripts/kafka/bootstrap-topics.sh`
 - Step test: `tests/dev-00003/run.sh`
