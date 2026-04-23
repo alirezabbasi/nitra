@@ -2,3 +2,5 @@ __pycache__/
 *.pyc
 services/*/ingestion/
 services/*/target/
+.env
+services/ingestion/registry.v1.json
