@@ -12,6 +12,7 @@ from datetime import datetime, timezone, timedelta
 import psycopg
 import uvicorn
 from fastapi import Body, FastAPI, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -34,13 +35,6 @@ def int_env(name: str, default: int) -> int:
         return default
 
 
-def bool_env(name: str, default: bool) -> bool:
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on"}
-
-
 def db_url() -> str:
     from_env = os.getenv("DATABASE_URL")
     if from_env:
@@ -61,11 +55,6 @@ VENUE_FETCH_MAX_ERRORS = max(1, int_env("CHARTING_VENUE_FETCH_MAX_ERRORS", 3))
 OANDA_REST_URL = env("OANDA_REST_URL", "https://api-fxpractice.oanda.com")
 COINBASE_REST_URL = env("COINBASE_REST_URL", "https://api.exchange.coinbase.com")
 COINBASE_PUBLIC_REST_URL = env("COINBASE_PUBLIC_REST_URL", "https://api.coinbase.com")
-WATCHDOG_ENABLED = bool_env("CHARTING_GAP_WATCHDOG_ENABLED", True)
-WATCHDOG_INTERVAL_SECS = max(60, int_env("CHARTING_GAP_WATCHDOG_INTERVAL_SECS", 300))
-WATCHDOG_MARKETS_PER_CYCLE = max(1, int_env("CHARTING_GAP_WATCHDOG_MARKETS_PER_CYCLE", 8))
-WATCHDOG_LOOKBACK_HOURS = max(1, int_env("CHARTING_GAP_WATCHDOG_LOOKBACK_HOURS", 48))
-WATCHDOG_MAX_RANGES_PER_RUN = max(1, int_env("CHARTING_GAP_WATCHDOG_MAX_RANGES_PER_RUN", 48))
 
 CRYPTO_BASES = {
     "BTC",
@@ -86,7 +75,6 @@ _CAPITAL_SESSION_HEADERS: dict[str, str] = {}
 _CAPITAL_SESSION_EXPIRY: datetime | None = None
 _BACKFILL_LOCKS_GUARD = threading.Lock()
 _BACKFILL_LOCKS: dict[tuple[str, str], threading.Lock] = {}
-_WATCHDOG_THREAD: threading.Thread | None = None
 
 app = FastAPI(title="nitra-charting")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -961,81 +949,195 @@ def backfill_window(
     )
 
 
-def list_watchdog_targets(conn: psycopg.Connection) -> list[tuple[str, str]]:
-    query = """
+def fetch_grouped_status_counts(
+    conn: psycopg.Connection,
+    table: str,
+    time_column: str,
+    lookback_hours: int,
+) -> dict[str, int]:
+    query = f"""
+    SELECT status, COUNT(*)::bigint
+    FROM {table}
+    WHERE {time_column} >= now() - (%s::int * interval '1 hour')
+    GROUP BY status
+    """
+    out: dict[str, int] = {}
+    with conn.cursor() as cur:
+        cur.execute(query, (lookback_hours,))
+        for status, count in cur.fetchall():
+            out[str(status)] = int(count)
+    return out
+
+
+def build_coverage_status_payload(
+    *,
+    venue: str | None,
+    symbol: str | None,
+    window_hours: int,
+    limit: int,
+    status_lookback_hours: int,
+) -> dict:
+    end_dt = datetime.now(timezone.utc).replace(second=0, microsecond=0) - timedelta(minutes=1)
+    start_dt = end_dt - timedelta(hours=max(1, window_hours))
+
+    where_parts = ["cs.timeframe = '1m'"]
+    params: list[object] = [start_dt, end_dt, start_dt, end_dt]
+    if venue:
+        where_parts.append("cs.venue = %s")
+        params.append(venue.strip().lower())
+    if symbol:
+        where_parts.append("cs.canonical_symbol = %s")
+        params.append(symbol.strip().upper())
+    params.append(max(1, min(limit, 1000)))
+    where_clause = " AND ".join(where_parts)
+
+    query = f"""
     SELECT
-      venue,
-      canonical_symbol
-    FROM ohlcv_bar
-    WHERE timeframe = '1m'
-      AND bucket_start >= now() - (%s::int * interval '1 hour')
-    GROUP BY venue, canonical_symbol
-    ORDER BY MAX(bucket_start) DESC
+      cs.venue,
+      cs.canonical_symbol,
+      cs.last_bucket_start,
+      cs.last_seen_at,
+      COALESCE(b.actual_minutes, 0)::bigint AS actual_minutes,
+      COALESCE(g.open_gap_count, 0)::bigint AS open_gap_count,
+      g.oldest_gap_start,
+      g.newest_gap_end
+    FROM coverage_state cs
+    LEFT JOIN LATERAL (
+      SELECT COUNT(*)::bigint AS actual_minutes
+      FROM ohlcv_bar ob
+      WHERE ob.venue = cs.venue
+        AND ob.canonical_symbol = cs.canonical_symbol
+        AND ob.timeframe = '1m'
+        AND ob.bucket_start >= %s
+        AND ob.bucket_start <= %s
+    ) b ON TRUE
+    LEFT JOIN LATERAL (
+      SELECT
+        COUNT(*)::bigint AS open_gap_count,
+        MIN(gap_start) AS oldest_gap_start,
+        MAX(gap_end) AS newest_gap_end
+      FROM gap_log gl
+      WHERE gl.venue = cs.venue
+        AND gl.canonical_symbol = cs.canonical_symbol
+        AND gl.timeframe = '1m'
+        AND gl.status IN ('open', 'backfill_queued')
+        AND gl.gap_end >= %s
+        AND gl.gap_start <= %s
+    ) g ON TRUE
+    WHERE {where_clause}
+    ORDER BY cs.last_seen_at DESC
     LIMIT %s
     """
-    with conn.cursor() as cur:
-        cur.execute(query, (WATCHDOG_LOOKBACK_HOURS, WATCHDOG_MARKETS_PER_CYCLE))
-        return [(row[0], row[1]) for row in cur.fetchall()]
 
+    rows_payload: list[dict] = []
+    with psycopg.connect(db_url()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, params)
+            rows = cur.fetchall()
 
-def watchdog_loop() -> None:
-    while True:
-        try:
-            with psycopg.connect(db_url()) as conn:
-                targets = list_watchdog_targets(conn)
-            if targets:
-                start_dt, end_dt = canonical_window_90d()
-                for venue, symbol in targets:
-                    result = run_backfill_window(
-                        venue=venue,
-                        symbol=symbol,
-                        start_dt=start_dt,
-                        end_dt=end_dt,
-                        trigger="watchdog_90d_gap_scan",
-                        wait_for_lock=False,
-                        max_ranges=WATCHDOG_MAX_RANGES_PER_RUN,
-                    )
-                    if result.get("missing_before_fetch_count", 0) > 0:
-                        print(
-                            "[charting-watchdog] backfill",
-                            venue,
-                            symbol,
-                            result.get("missing_before_fetch_count"),
-                            "->",
-                            result.get("missing_after_fetch_count"),
-                            result.get("status"),
-                        )
-        except Exception as exc:
-            print(f"[charting-watchdog] cycle error: {exc}")
-        time.sleep(WATCHDOG_INTERVAL_SECS)
+        backfill_jobs = fetch_grouped_status_counts(conn, "backfill_jobs", "updated_at", status_lookback_hours)
+        replay_audit = fetch_grouped_status_counts(conn, "replay_audit", "started_at", status_lookback_hours)
 
+    symbols_with_open_gaps = 0
+    coverage_ratio_sum = 0.0
+    for row in rows:
+        row_venue = str(row[0]).lower()
+        row_symbol = str(row[1]).upper()
+        last_bucket_start = row[2]
+        last_seen_at = row[3]
+        actual_minutes = int(row[4] or 0)
+        open_gap_count = int(row[5] or 0)
+        oldest_gap_start = row[6]
+        newest_gap_end = row[7]
+        if open_gap_count > 0:
+            symbols_with_open_gaps += 1
 
-@app.on_event("startup")
-def start_gap_watchdog() -> None:
-    global _WATCHDOG_THREAD
-    if not WATCHDOG_ENABLED:
-        return
-    if _WATCHDOG_THREAD and _WATCHDOG_THREAD.is_alive():
-        return
-    _WATCHDOG_THREAD = threading.Thread(
-        target=watchdog_loop,
-        daemon=True,
-        name="charting-gap-watchdog",
-    )
-    _WATCHDOG_THREAD.start()
+        expected = expected_minutes(
+            start_dt,
+            end_dt,
+            weekday_only=fx_weekday_only_policy(row_venue, row_symbol),
+        )
+        ratio = 1.0 if expected <= 0 else min(1.0, actual_minutes / expected)
+        coverage_ratio_sum += ratio
+        rows_payload.append(
+            {
+                "venue": row_venue,
+                "symbol": row_symbol,
+                "last_bucket_start": last_bucket_start.isoformat() if last_bucket_start else None,
+                "last_seen_at": last_seen_at.isoformat() if last_seen_at else None,
+                "actual_minutes": actual_minutes,
+                "expected_minutes": expected,
+                "coverage_ratio": ratio,
+                "open_gap_count": open_gap_count,
+                "oldest_open_gap_start": oldest_gap_start.isoformat() if oldest_gap_start else None,
+                "newest_open_gap_end": newest_gap_end.isoformat() if newest_gap_end else None,
+            }
+        )
 
-
-@app.get("/api/v1/backfill/watchdog")
-def backfill_watchdog_status() -> dict:
-    thread_alive = bool(_WATCHDOG_THREAD and _WATCHDOG_THREAD.is_alive())
+    total_symbols = len(rows_payload)
+    avg_ratio = (coverage_ratio_sum / total_symbols) if total_symbols else 0.0
     return {
-        "enabled": WATCHDOG_ENABLED,
-        "thread_alive": thread_alive,
-        "interval_secs": WATCHDOG_INTERVAL_SECS,
-        "markets_per_cycle": WATCHDOG_MARKETS_PER_CYCLE,
-        "lookback_hours": WATCHDOG_LOOKBACK_HOURS,
-        "max_ranges_per_run": WATCHDOG_MAX_RANGES_PER_RUN,
+        "window": {"start": start_dt.isoformat(), "end": end_dt.isoformat(), "hours": window_hours},
+        "filters": {"venue": venue, "symbol": symbol, "limit": limit},
+        "summary": {
+            "symbols_total": total_symbols,
+            "symbols_with_open_gaps": symbols_with_open_gaps,
+            "coverage_ratio_avg": avg_ratio,
+            "backfill_jobs_by_status": backfill_jobs,
+            "replay_audit_by_status": replay_audit,
+            "status_lookback_hours": status_lookback_hours,
+        },
+        "rows": rows_payload,
     }
+
+
+@app.get("/api/v1/coverage/status")
+def coverage_status(
+    venue: str | None = Query(default=None, min_length=1, max_length=64),
+    symbol: str | None = Query(default=None, min_length=1, max_length=64),
+    window_hours: int = Query(default=24 * 90, ge=1, le=24 * 180),
+    limit: int = Query(default=200, ge=1, le=1000),
+    status_lookback_hours: int = Query(default=24, ge=1, le=24 * 30),
+) -> dict:
+    return build_coverage_status_payload(
+        venue=venue,
+        symbol=symbol,
+        window_hours=window_hours,
+        limit=limit,
+        status_lookback_hours=status_lookback_hours,
+    )
+
+
+@app.get("/api/v1/coverage/metrics", response_class=PlainTextResponse)
+def coverage_metrics(
+    window_hours: int = Query(default=24 * 90, ge=1, le=24 * 180),
+    limit: int = Query(default=500, ge=1, le=1000),
+    status_lookback_hours: int = Query(default=24, ge=1, le=24 * 30),
+) -> PlainTextResponse:
+    payload = build_coverage_status_payload(
+        venue=None,
+        symbol=None,
+        window_hours=window_hours,
+        limit=limit,
+        status_lookback_hours=status_lookback_hours,
+    )
+    summary = payload["summary"]
+    lines = [
+        "# HELP nitra_coverage_symbols_total Number of tracked symbols in coverage snapshot",
+        "# TYPE nitra_coverage_symbols_total gauge",
+        f"nitra_coverage_symbols_total {summary['symbols_total']}",
+        "# HELP nitra_coverage_symbols_with_open_gaps Number of symbols currently containing open/backfill_queued gaps",
+        "# TYPE nitra_coverage_symbols_with_open_gaps gauge",
+        f"nitra_coverage_symbols_with_open_gaps {summary['symbols_with_open_gaps']}",
+        "# HELP nitra_coverage_ratio_avg Average 90d coverage ratio across symbols",
+        "# TYPE nitra_coverage_ratio_avg gauge",
+        f"nitra_coverage_ratio_avg {summary['coverage_ratio_avg']:.6f}",
+    ]
+    for status, count in sorted(summary["backfill_jobs_by_status"].items()):
+        lines.append(f'nitra_backfill_jobs_total{{status="{status}"}} {count}')
+    for status, count in sorted(summary["replay_audit_by_status"].items()):
+        lines.append(f'nitra_replay_audit_total{{status="{status}"}} {count}')
+    return PlainTextResponse("\n".join(lines) + "\n")
 
 
 @app.get("/api/v1/markets/available")

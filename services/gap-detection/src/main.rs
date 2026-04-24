@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::time::Duration;
+use tokio::time::{interval, MissedTickBehavior};
 use tokio_postgres::{Client, NoTls};
 use uuid::Uuid;
 
@@ -241,18 +242,19 @@ async fn load_markets_from_db(
 ) -> Result<Vec<MarketKey>, tokio_postgres::Error> {
     let mut out = Vec::new();
 
-    let bars = conn
+    let bars_recent = conn
         .query(
             "
             SELECT DISTINCT venue, canonical_symbol
             FROM ohlcv_bar
             WHERE timeframe = '1m'
+              AND bucket_start >= now() - ($1::text || ' hours')::interval
             ",
-            &[],
+            &[&lookback_hours.to_string()],
         )
         .await?;
 
-    for row in bars {
+    for row in bars_recent {
         let venue: String = row.get(0);
         let symbol: String = row.get(1);
         if !venue.is_empty() && !symbol.is_empty() {
@@ -263,18 +265,19 @@ async fn load_markets_from_db(
         }
     }
 
-    let ticks = conn
+    let coverage_recent = conn
         .query(
             "
-            SELECT DISTINCT venue, broker_symbol
-            FROM raw_tick
-            WHERE event_ts_received >= now() - ($1::text || ' hours')::interval
+            SELECT DISTINCT venue, canonical_symbol
+            FROM coverage_state
+            WHERE timeframe = '1m'
+              AND last_seen_at >= now() - ($1::text || ' hours')::interval
             ",
             &[&lookback_hours.to_string()],
         )
         .await?;
 
-    for row in ticks {
+    for row in coverage_recent {
         let venue: String = row.get(0);
         let symbol: String = row.get(1);
         if !venue.is_empty() && !symbol.is_empty() {
@@ -476,21 +479,28 @@ async fn insert_and_maybe_emit_gap(
     Ok(())
 }
 
-async fn run_startup_coverage_scan(
+async fn run_coverage_scan(
     conn: &Client,
     producer: &FutureProducer,
     output_topic: &str,
     registry_path: &str,
     coverage_days: i64,
     db_lookback_hours: i64,
-) -> Result<(), Box<dyn std::error::Error>> {
+    max_markets: Option<usize>,
+    source: &str,
+    reason: &str,
+) -> Result<usize, Box<dyn std::error::Error>> {
     let mut markets = load_markets_from_registry(registry_path);
     markets.extend(load_markets_from_db(conn, db_lookback_hours).await?);
-    let markets = dedupe_markets(markets);
+    let mut markets = dedupe_markets(markets);
+    if let Some(max) = max_markets {
+        if markets.len() > max {
+            markets.truncate(max);
+        }
+    }
 
     if markets.is_empty() {
-        eprintln!("gap-detection startup coverage scan skipped: no active markets discovered");
-        return Ok(());
+        return Ok(0);
     }
 
     let scan_end = minute_bucket(Utc::now());
@@ -514,8 +524,8 @@ async fn run_startup_coverage_scan(
                 &market.symbol,
                 range.start,
                 range.end,
-                "startup_coverage_scan",
-                "startup_90d_missing",
+                source,
+                reason,
                 None,
                 None,
             )
@@ -523,12 +533,30 @@ async fn run_startup_coverage_scan(
         }
     }
 
-    eprintln!(
-        "gap-detection startup coverage scan complete: emitted_or_recorded_gaps={} window_days={}",
-        total_gaps, coverage_days
-    );
+    Ok(total_gaps)
+}
 
-    Ok(())
+async fn load_last_bucket_from_coverage_state(
+    conn: &Client,
+    venue: &str,
+    symbol: &str,
+) -> Result<Option<DateTime<Utc>>, tokio_postgres::Error> {
+    let row = conn
+        .query_opt(
+            "
+            SELECT last_bucket_start
+            FROM coverage_state
+            WHERE venue = $1
+              AND canonical_symbol = $2
+              AND timeframe = '1m'
+            ",
+            &[&venue, &symbol],
+        )
+        .await?;
+    Ok(row.map(|r| {
+        let ts: DateTime<Utc> = r.get(0);
+        minute_bucket(ts)
+    }))
 }
 
 #[tokio::main]
@@ -547,6 +575,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let startup_coverage_days = env_i64_or("GAP_STARTUP_COVERAGE_DAYS", 90);
     let startup_db_lookback_hours = env_i64_or("GAP_ACTIVE_MARKET_DB_LOOKBACK_HOURS", 24);
     let registry_path = env_or("GAP_SYMBOL_REGISTRY_PATH", "/etc/nitra/registry.v1.json");
+    let periodic_scan_enabled = env_bool_or("GAP_PERIODIC_SCAN_ENABLED", true);
+    let periodic_scan_interval_secs = env_i64_or("GAP_PERIODIC_SCAN_INTERVAL_SECS", 300).max(30);
+    let periodic_scan_markets_per_cycle = env_i64_or("GAP_PERIODIC_SCAN_MARKETS_PER_CYCLE", 64).max(1) as usize;
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
     tokio::spawn(async move {
@@ -571,103 +602,159 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .create()?;
 
     if startup_scan_enabled {
-        run_startup_coverage_scan(
+        let emitted = run_coverage_scan(
             &conn,
             &producer,
             &output_topic,
             &registry_path,
             startup_coverage_days,
             startup_db_lookback_hours,
+            None,
+            "startup_coverage_scan",
+            "startup_90d_missing",
         )
         .await?;
+        eprintln!(
+            "gap-detection startup coverage scan complete: emitted_or_recorded_gaps={} window_days={}",
+            emitted, startup_coverage_days
+        );
     }
 
     let mut last_bucket: HashMap<(String, String), DateTime<Utc>> = HashMap::new();
     let mut stream = consumer.stream();
+    let mut periodic_scan_tick = interval(Duration::from_secs(periodic_scan_interval_secs as u64));
+    periodic_scan_tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    if periodic_scan_enabled {
+        periodic_scan_tick.tick().await;
+    }
 
-    while let Some(item) = stream.next().await {
-        let msg = match item {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
-
-        let source_topic = msg.topic().to_string();
-        let source_partition = msg.partition();
-        let source_offset = msg.offset();
-
-        let Some(outer) = message_payload_json(&msg) else {
-            consumer.commit_message(&msg, CommitMode::Sync)?;
-            continue;
-        };
-
-        let message_id = outer
-            .get("message_id")
-            .and_then(|v| v.as_str())
-            .and_then(|s| Uuid::parse_str(s).ok())
-            .unwrap_or_else(Uuid::new_v4);
-
-        if is_message_processed(&conn, service_name, message_id).await? {
-            consumer.commit_message(&msg, CommitMode::Sync)?;
-            continue;
-        }
-
-        let bar = outer.get("payload").cloned().unwrap_or(Value::Null);
-        let venue = bar.get("venue").and_then(|v| v.as_str()).unwrap_or("");
-        let symbol = bar
-            .get("canonical_symbol")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        let bucket_raw = bar.get("bucket_start").and_then(|v| v.as_str());
-
-        if venue.is_empty() || symbol.is_empty() || bucket_raw.is_none() {
-            record_message_processed(
-                &conn,
-                service_name,
-                message_id,
-                &source_topic,
-                source_partition,
-                source_offset,
-            )
-            .await?;
-            consumer.commit_message(&msg, CommitMode::Sync)?;
-            continue;
-        }
-
-        let bucket = minute_bucket(parse_ts(bucket_raw));
-        let key = (venue.to_ascii_lowercase(), symbol.to_ascii_uppercase());
-        if let Some(previous) = last_bucket.get(&key).copied() {
-            if bucket > previous + ChronoDuration::minutes(1) {
-                let gap_start = previous + ChronoDuration::minutes(1);
-                let gap_end = bucket - ChronoDuration::minutes(1);
-                insert_and_maybe_emit_gap(
+    loop {
+        tokio::select! {
+            _ = periodic_scan_tick.tick(), if periodic_scan_enabled => {
+                match run_coverage_scan(
                     &conn,
                     &producer,
                     &output_topic,
-                    venue,
-                    symbol,
-                    gap_start,
-                    gap_end,
-                    "stream",
-                    "missing_minute_bars",
-                    Some(previous),
-                    Some(bucket),
+                    &registry_path,
+                    startup_coverage_days,
+                    startup_db_lookback_hours,
+                    Some(periodic_scan_markets_per_cycle),
+                    "periodic_coverage_scan",
+                    "periodic_90d_missing",
+                ).await {
+                    Ok(emitted) => {
+                        if emitted > 0 {
+                            eprintln!(
+                                "gap-detection periodic coverage scan emitted_or_recorded_gaps={} window_days={} markets_limit={}",
+                                emitted, startup_coverage_days, periodic_scan_markets_per_cycle
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        eprintln!("gap-detection periodic coverage scan error: {err}");
+                    }
+                }
+            }
+            item = stream.next() => {
+                let Some(item) = item else {
+                    break;
+                };
+                let msg = match item {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+
+                let source_topic = msg.topic().to_string();
+                let source_partition = msg.partition();
+                let source_offset = msg.offset();
+
+                let Some(outer) = message_payload_json(&msg) else {
+                    consumer.commit_message(&msg, CommitMode::Sync)?;
+                    continue;
+                };
+
+                let message_id = outer
+                    .get("message_id")
+                    .and_then(|v| v.as_str())
+                    .and_then(|s| Uuid::parse_str(s).ok())
+                    .unwrap_or_else(Uuid::new_v4);
+
+                if is_message_processed(&conn, service_name, message_id).await? {
+                    consumer.commit_message(&msg, CommitMode::Sync)?;
+                    continue;
+                }
+
+                let bar = outer.get("payload").cloned().unwrap_or(Value::Null);
+                let venue = bar.get("venue").and_then(|v| v.as_str()).unwrap_or("");
+                let symbol = bar
+                    .get("canonical_symbol")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let bucket_raw = bar.get("bucket_start").and_then(|v| v.as_str());
+
+                if venue.is_empty() || symbol.is_empty() || bucket_raw.is_none() {
+                    record_message_processed(
+                        &conn,
+                        service_name,
+                        message_id,
+                        &source_topic,
+                        source_partition,
+                        source_offset,
+                    )
+                    .await?;
+                    consumer.commit_message(&msg, CommitMode::Sync)?;
+                    continue;
+                }
+
+                let bucket = minute_bucket(parse_ts(bucket_raw));
+                let key = (venue.to_ascii_lowercase(), symbol.to_ascii_uppercase());
+                let mut gap_source = "stream";
+                let mut gap_reason = "missing_minute_bars";
+                if !last_bucket.contains_key(&key) {
+                    if let Some(previous) =
+                        load_last_bucket_from_coverage_state(&conn, &key.0, &key.1).await?
+                    {
+                        last_bucket.insert(key.clone(), previous);
+                        gap_source = "stream_recovery";
+                        gap_reason = "missing_minute_bars_after_downtime";
+                    }
+                }
+
+                if let Some(previous) = last_bucket.get(&key).copied() {
+                    if bucket > previous + ChronoDuration::minutes(1) {
+                        let gap_start = previous + ChronoDuration::minutes(1);
+                        let gap_end = bucket - ChronoDuration::minutes(1);
+                        insert_and_maybe_emit_gap(
+                            &conn,
+                            &producer,
+                            &output_topic,
+                            venue,
+                            symbol,
+                            gap_start,
+                            gap_end,
+                            gap_source,
+                            gap_reason,
+                            Some(previous),
+                            Some(bucket),
+                        )
+                        .await?;
+                    }
+                }
+                last_bucket.insert(key, bucket);
+                upsert_coverage_state(&conn, venue, symbol, bucket).await?;
+
+                record_message_processed(
+                    &conn,
+                    service_name,
+                    message_id,
+                    &source_topic,
+                    source_partition,
+                    source_offset,
                 )
                 .await?;
+                consumer.commit_message(&msg, CommitMode::Sync)?;
             }
         }
-        last_bucket.insert(key, bucket);
-        upsert_coverage_state(&conn, venue, symbol, bucket).await?;
-
-        record_message_processed(
-            &conn,
-            service_name,
-            message_id,
-            &source_topic,
-            source_partition,
-            source_offset,
-        )
-        .await?;
-        consumer.commit_message(&msg, CommitMode::Sync)?;
     }
 
     Ok(())
