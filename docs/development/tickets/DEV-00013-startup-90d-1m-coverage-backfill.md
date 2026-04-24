@@ -10,6 +10,10 @@ Enforce business requirement that charting-ready `1m` candles always cover the r
 
 On service startup, the system must validate coverage in `ohlcv_bar` and automatically fetch missing historical data from broker APIs.
 
+Architectural ownership note:
+- 90-day coverage enforcement/backfill is ingestion-owned and must run independently of charting service availability.
+- Charting is a consumer/visualizer and optional trigger surface, not the owner of mandatory historical recovery.
+
 ## Scope
 
 - Define active-instrument set used for startup coverage checks.

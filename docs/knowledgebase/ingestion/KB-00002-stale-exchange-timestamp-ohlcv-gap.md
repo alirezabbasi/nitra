@@ -47,6 +47,8 @@ ORDER BY venue;
 
 ## Guardrails
 
+- 90-day backfill ownership is in ingestion deterministic services (`gap-detection` -> `backfill-worker` -> `replay-controller`), not in `charting`.
+- Charting availability is not a precondition for 90-day recovery. If charting is down, ingestion backfill must continue and converge coverage.
 - Keep timestamp fallback logic covered by tests:
   - `choose_event_timestamp_uses_exchange_when_fresh`
   - `choose_event_timestamp_falls_back_to_received_when_exchange_stale`

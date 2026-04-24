@@ -33,6 +33,8 @@ Operational notes:
 
 Operational notes:
 - Backfill range priority is newest-to-oldest so recent continuity is restored first.
+- 90-day historical coverage ownership is in ingestion services (`gap-detection`, `backfill-worker`, `replay-controller`), not in charting.
+- Charting may expose trigger/observability endpoints, but ingestion coverage/backfill must continue even if charting is unavailable.
 - New APIs:
   - `POST /api/v1/backfill/window` for explicit `from_ts`/`to_ts` backfill windows.
   - `GET /api/v1/coverage/status` for symbol-level 90d coverage and gap/backfill status.
