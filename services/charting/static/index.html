@@ -40,6 +40,7 @@
       .topbar {
         display: flex;
         align-items: center;
+        gap: 6px;
         padding: 0 8px;
         border-bottom: 1px solid var(--line);
         background: var(--panel);
@@ -301,7 +302,7 @@
         </select>
         <button class="tool-btn" id="reload-btn">Reload</button>
         <button class="tool-btn" id="fit-btn">Fit</button>
-        <button class="tool-btn" id="realtime-btn">Realtime</button>
+        <button class="tool-btn" id="realtime-btn" title="Back to current candle">Current</button>
         <button class="tool-btn" id="snapshot-btn">Snapshot</button>
         <button class="tool-btn" id="backfill-btn">Backfill 90d</button>
         <div id="status" class="meta">Loading...</div>
@@ -412,6 +413,16 @@
 
       function setStatus(text) {
         statusEl.textContent = text;
+      }
+
+      function syncRealtimeButtonState() {
+        if (state.autoFollowRealtime) {
+          realtimeBtn.classList.add("active");
+          realtimeBtn.title = "Following current candle";
+        } else {
+          realtimeBtn.classList.remove("active");
+          realtimeBtn.title = "Back to current candle";
+        }
       }
 
       function compactNumber(value) {
@@ -530,6 +541,55 @@
         return false;
       }
 
+      function barsEqual(a, b) {
+        if (!a || !b) return false;
+        return (
+          a.timestamp === b.timestamp &&
+          a.open === b.open &&
+          a.high === b.high &&
+          a.low === b.low &&
+          a.close === b.close &&
+          Number(a.volume || 0) === Number(b.volume || 0)
+        );
+      }
+
+      function updateChartDataIncremental(previousBars, nextBars) {
+        if (!chart) return false;
+        if (typeof chart.updateData !== "function") {
+          return replaceChartData(nextBars);
+        }
+        if (!previousBars.length || nextBars.length < previousBars.length) {
+          return replaceChartData(nextBars);
+        }
+
+        const prevLast = previousBars[previousBars.length - 1];
+        const nextLast = nextBars[nextBars.length - 1];
+        if (!prevLast || !nextLast) {
+          return replaceChartData(nextBars);
+        }
+
+        const updates = [];
+        if (nextBars.length === previousBars.length) {
+          if (!barsEqual(prevLast, nextLast)) {
+            updates.push(nextLast);
+          }
+        } else {
+          const start = Math.max(0, previousBars.length - 1);
+          for (let i = start; i < nextBars.length; i += 1) {
+            updates.push(nextBars[i]);
+          }
+        }
+
+        if (!updates.length) {
+          return true;
+        }
+
+        for (const bar of updates) {
+          chart.updateData(bar);
+        }
+        return true;
+      }
+
       function applyChartPreferences() {
         if (!chart) return;
         if (typeof chart.setZoomAnchor === "function") {
@@ -639,6 +699,16 @@
         const fromIndex = source.from ?? source.fromIndex ?? source.realFrom ?? source.displayFrom ?? null;
         const toIndex = source.to ?? source.toIndex ?? source.realTo ?? source.displayTo ?? null;
         return { fromIndex, toIndex };
+      }
+
+      function isNearRealtimeEdge(payload = null) {
+        if (!state.liveBars.length) return true;
+        const { toIndex } = extractVisibleRange(payload);
+        if (!Number.isFinite(Number(toIndex))) {
+          return state.autoFollowRealtime;
+        }
+        const rightMost = state.liveBars.length - 1;
+        return Number(toIndex) >= rightMost - 2;
       }
 
       function syncMeta(payload = null) {
@@ -901,10 +971,17 @@
           const tfMs = timeframeToMs(state.timeframe);
           const persistedLastTs = state.persistedBars.length ? state.persistedBars[state.persistedBars.length - 1].timestamp : null;
 
+          const previousBars = state.liveBars;
           state.liveBars = mergeBarsWithTicks(state.liveBars, ticks, tfMs, persistedLastTs);
-          if (replaceChartData(state.liveBars)) {
-            if (state.rangeMode === "auto") {
-              setYAxisRangeFromBars(state.liveBars, "auto");
+          if (updateChartDataIncremental(previousBars, state.liveBars)) {
+            if (state.rangeMode === "auto" && state.autoFollowRealtime && state.manualPriceRange) {
+              const last = state.liveBars[state.liveBars.length - 1];
+              const outOfRange =
+                last &&
+                (last.low < state.manualPriceRange.from || last.high > state.manualPriceRange.to);
+              if (outOfRange) {
+                setYAxisRangeFromBars(state.liveBars, "auto");
+              }
             }
             if (state.autoFollowRealtime && typeof chart.scrollToRealTime === "function") {
               chart.scrollToRealTime(80);
@@ -1130,6 +1207,7 @@
         }
 
         state.autoFollowRealtime = true;
+        syncRealtimeButtonState();
         state.hasMoreHistory = true;
         clearManualYAxisRange();
 
@@ -1189,6 +1267,7 @@
       function jumpToRealtime() {
         if (!chart || typeof chart.scrollToRealTime !== "function") return;
         state.autoFollowRealtime = true;
+        syncRealtimeButtonState();
         chart.scrollToRealTime(180);
         if (state.liveBars.length && typeof chart.executeAction === "function") {
           const last = state.liveBars[state.liveBars.length - 1];
@@ -1217,6 +1296,7 @@
         const targetMs = new Date(jumpTimeEl.value).getTime();
         if (!Number.isFinite(targetMs)) return;
         state.autoFollowRealtime = false;
+        syncRealtimeButtonState();
         if (typeof chart.scrollToTimestamp === "function") {
           chart.scrollToTimestamp(Math.floor(targetMs / 1000), 160);
         }
@@ -1231,6 +1311,7 @@
         const idx = Number(jumpIndexEl.value);
         if (!Number.isFinite(idx)) return;
         state.autoFollowRealtime = false;
+        syncRealtimeButtonState();
         if (typeof chart.scrollToDataIndex === "function") {
           chart.scrollToDataIndex(idx, 160);
         }
@@ -1241,6 +1322,11 @@
         if (!chart || typeof chart.subscribeAction !== "function") return;
 
         chart.subscribeAction("onVisibleRangeChange", (payload) => {
+          const nearRealtime = isNearRealtimeEdge(payload);
+          if (nearRealtime !== state.autoFollowRealtime) {
+            state.autoFollowRealtime = nearRealtime;
+            syncRealtimeButtonState();
+          }
           syncMeta(payload);
           if (state.lazyLoadDebounce) clearTimeout(state.lazyLoadDebounce);
           state.lazyLoadDebounce = setTimeout(() => {
@@ -1250,6 +1336,7 @@
 
         chart.subscribeAction("onScroll", () => {
           state.autoFollowRealtime = false;
+          syncRealtimeButtonState();
           syncMeta();
         });
 
@@ -1456,6 +1543,7 @@
       window.addEventListener("resize", () => fitChart());
 
       setActiveTimeframe("1m");
+      syncRealtimeButtonState();
       if (initChart()) {
         bindPointerInspector();
         reloadAll().then(startLivePolling);
