@@ -5,3 +5,4 @@ services/*/target/
 .env
 .codex
 services/ingestion/registry.v1.json
+.runtime-data/

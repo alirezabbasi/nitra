@@ -9,7 +9,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - timescaledb_data:/var/lib/postgresql/data
+      - ${TIMESCALEDB_DATA_PATH:-./.runtime-data/timescaledb}:/var/lib/postgresql/data
       - ./infra/timescaledb/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
@@ -20,8 +20,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
+    volumes:
+      - ${REDIS_DATA_PATH:-./.runtime-data/redis}:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -46,6 +49,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+    volumes:
+      - ${KAFKA_DATA_PATH:-./.runtime-data/kafka}:/var/lib/kafka/data
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1"]
       interval: 15s
@@ -63,7 +68,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - minio_data:/data
+      - ${MINIO_DATA_PATH:-./.runtime-data/minio}:/data
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
       interval: 15s
@@ -449,8 +454,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  timescaledb_data:
-  minio_data:
   cargo_cache:
   target_structure:
   target_risk:
