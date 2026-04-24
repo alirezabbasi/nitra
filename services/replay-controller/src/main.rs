@@ -665,20 +665,61 @@ async fn fetch_venue_history_bars(
     command: &ReplayCommand,
     broker_symbols: &[String],
 ) -> Result<Vec<BarRow>, String> {
+    fn venue_chunk_minutes(venue: &str) -> i64 {
+        match venue {
+            // OANDA supports larger windows, keep room for API response limits.
+            "oanda" => 4_000,
+            // Coinbase exchange/public candle routes are usually a few hundred rows per call.
+            "coinbase" => 300,
+            // Capital allows up to ~1000 rows at M1.
+            "capital" => 900,
+            _ => 300,
+        }
+    }
+
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(cfg.timeout_secs))
         .build()
         .map_err(|e| format!("history client build error: {e}"))?;
 
-    match command.venue.as_str() {
-        "oanda" => fetch_oanda_history_bars(&client, cfg, command, broker_symbols).await,
-        "coinbase" => fetch_coinbase_history_bars(&client, cfg, command).await,
-        "capital" => fetch_capital_history_bars(&client, cfg, command, broker_symbols).await,
-        _ => Err(format!(
-            "venue history adapter not implemented for {}",
-            command.venue
-        )),
+    let chunk_minutes = venue_chunk_minutes(&command.venue).max(1);
+    let mut cursor = minute_bucket(command.start_ts);
+    let end = minute_bucket(command.end_ts);
+
+    let mut by_bucket: HashMap<DateTime<Utc>, BarRow> = HashMap::new();
+    while cursor <= end {
+        let window_end = std::cmp::min(cursor + ChronoDuration::minutes(chunk_minutes - 1), end);
+        let sub_command = ReplayCommand {
+            replay_id: command.replay_id,
+            venue: command.venue.clone(),
+            canonical_symbol: command.canonical_symbol.clone(),
+            timeframe: command.timeframe.clone(),
+            start_ts: cursor,
+            end_ts: window_end,
+            dry_run: command.dry_run,
+        };
+
+        let window_rows = match command.venue.as_str() {
+            "oanda" => fetch_oanda_history_bars(&client, cfg, &sub_command, broker_symbols).await?,
+            "coinbase" => fetch_coinbase_history_bars(&client, cfg, &sub_command).await?,
+            "capital" => fetch_capital_history_bars(&client, cfg, &sub_command, broker_symbols).await?,
+            _ => {
+                return Err(format!(
+                    "venue history adapter not implemented for {}",
+                    command.venue
+                ))
+            }
+        };
+
+        for row in window_rows {
+            by_bucket.insert(row.bucket_start, row);
+        }
+        cursor = window_end + ChronoDuration::minutes(1);
     }
+
+    let mut out = by_bucket.into_values().collect::<Vec<_>>();
+    out.sort_by_key(|r| r.bucket_start);
+    Ok(out)
 }
 
 fn message_payload_json(msg: &BorrowedMessage<'_>) -> Option<Value> {

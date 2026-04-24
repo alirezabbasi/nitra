@@ -490,6 +490,29 @@ async fn run_coverage_scan(
     source: &str,
     reason: &str,
 ) -> Result<usize, Box<dyn std::error::Error>> {
+    async fn has_unresolved_gap(
+        conn: &Client,
+        venue: &str,
+        symbol: &str,
+    ) -> Result<bool, tokio_postgres::Error> {
+        let row = conn
+            .query_one(
+                "
+                SELECT EXISTS (
+                  SELECT 1
+                  FROM gap_log
+                  WHERE venue = $1
+                    AND canonical_symbol = $2
+                    AND timeframe = '1m'
+                    AND status IN ('open', 'backfill_queued')
+                )
+                ",
+                &[&venue, &symbol],
+            )
+            .await?;
+        Ok(row.get::<usize, bool>(0))
+    }
+
     let mut markets = load_markets_from_registry(registry_path);
     markets.extend(load_markets_from_db(conn, db_lookback_hours).await?);
     let mut markets = dedupe_markets(markets);
@@ -508,6 +531,12 @@ async fn run_coverage_scan(
 
     let mut total_gaps = 0usize;
     for market in markets {
+        // Do not keep fragmenting one symbol into new periodic/startup ranges while unresolved
+        // gaps already exist; let backfill pipeline converge first.
+        if has_unresolved_gap(conn, &market.venue, &market.symbol).await? {
+            continue;
+        }
+
         let buckets = fetch_buckets_in_window(conn, &market, scan_start, scan_end).await?;
         if let Some(last) = buckets.last().copied() {
             upsert_coverage_state(conn, &market.venue, &market.symbol, last).await?;

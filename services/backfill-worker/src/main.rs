@@ -448,7 +448,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let startup_process_open_gaps = env_bool_or("BACKFILL_STARTUP_PROCESS_OPEN_GAPS", true);
-    let chunk_minutes = env_i64_or("BACKFILL_FETCH_CHUNK_MINUTES", 60).max(1);
+    let chunk_minutes = env_i64_or("BACKFILL_FETCH_CHUNK_MINUTES", 1440).max(1);
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
     tokio::spawn(async move {

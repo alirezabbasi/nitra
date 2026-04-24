@@ -413,7 +413,7 @@ services:
       BACKFILL_GROUP_ID: nitra-backfill-worker-v1
       BACKFILL_TARGET_GROUP: nitra-market-normalization-v1
       BACKFILL_STARTUP_PROCESS_OPEN_GAPS: "true"
-      BACKFILL_FETCH_CHUNK_MINUTES: 60
+      BACKFILL_FETCH_CHUNK_MINUTES: ${BACKFILL_FETCH_CHUNK_MINUTES:-1440}
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
     depends_on:
       kafka:
