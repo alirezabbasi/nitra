@@ -4,10 +4,12 @@ use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
 use rdkafka::message::BorrowedMessage;
 use rdkafka::ClientConfig;
 use rdkafka::Message;
+use reqwest::header::{HeaderMap, HeaderValue};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
+use std::time::Duration;
 use tokio_postgres::{Client, NoTls};
 use uuid::Uuid;
 
@@ -33,8 +35,40 @@ struct BarRow {
     last_event_ts: DateTime<Utc>,
 }
 
+#[derive(Clone, Debug)]
+struct HistoryFetchConfig {
+    enabled: bool,
+    timeout_secs: u64,
+    oanda_rest_url: String,
+    oanda_token: String,
+    coinbase_rest_url: String,
+    coinbase_public_rest_url: String,
+    capital_api_url: String,
+    capital_api_key: String,
+    capital_identifier: String,
+    capital_password: String,
+    capital_epic_map: HashMap<String, String>,
+}
+
 fn env_or(name: &str, default: &str) -> String {
     env::var(name).unwrap_or_else(|_| default.to_string())
+}
+
+fn env_bool_or(name: &str, default: bool) -> bool {
+    env::var(name)
+        .ok()
+        .map(|v| {
+            let norm = v.trim().to_ascii_lowercase();
+            matches!(norm.as_str(), "1" | "true" | "yes" | "on")
+        })
+        .unwrap_or(default)
+}
+
+fn env_u64_or(name: &str, default: u64) -> u64 {
+    env::var(name)
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(default)
 }
 
 fn parse_ts(raw: Option<&str>) -> Option<DateTime<Utc>> {
@@ -60,6 +94,591 @@ fn expected_minutes(start: DateTime<Utc>, end: DateTime<Utc>) -> i64 {
         return 0;
     }
     (end - start).num_minutes() + 1
+}
+
+fn parse_capital_epic_map(raw: &str) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    let Ok(value) = serde_json::from_str::<Value>(raw) else {
+        return out;
+    };
+    let Some(map) = value.as_object() else {
+        return out;
+    };
+    for (k, v) in map {
+        if let Some(epic) = v.as_str() {
+            let key = k.trim().to_ascii_uppercase();
+            let val = epic.trim().to_string();
+            if !key.is_empty() && !val.is_empty() {
+                out.insert(key, val);
+            }
+        }
+    }
+    out
+}
+
+fn history_fetch_config() -> HistoryFetchConfig {
+    let epic_map_raw = env::var("REPLAY_CAPITAL_EPIC_MAP")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .or_else(|| env::var("CAPITAL_EPIC_MAP").ok())
+        .unwrap_or_default();
+
+    HistoryFetchConfig {
+        enabled: env_bool_or("REPLAY_HISTORY_ENABLED", true),
+        timeout_secs: env_u64_or("REPLAY_HISTORY_TIMEOUT_SECS", 8).max(3),
+        oanda_rest_url: env_or(
+            "REPLAY_OANDA_REST_URL",
+            &env_or("OANDA_REST_URL", "https://api-fxpractice.oanda.com"),
+        ),
+        oanda_token: env_or("REPLAY_OANDA_API_TOKEN", &env_or("OANDA_API_TOKEN", "")),
+        coinbase_rest_url: env_or(
+            "REPLAY_COINBASE_REST_URL",
+            &env_or("COINBASE_REST_URL", "https://api.exchange.coinbase.com"),
+        ),
+        coinbase_public_rest_url: env_or(
+            "REPLAY_COINBASE_PUBLIC_REST_URL",
+            &env_or("COINBASE_PUBLIC_REST_URL", "https://api.coinbase.com"),
+        ),
+        capital_api_url: env_or(
+            "REPLAY_CAPITAL_API_URL",
+            &env_or("CAPITAL_API_URL", "https://api-capital.backend-capital.com"),
+        ),
+        capital_api_key: env_or("REPLAY_CAPITAL_API_KEY", &env_or("CAPITAL_API_KEY", "")),
+        capital_identifier: env_or(
+            "REPLAY_CAPITAL_IDENTIFIER",
+            &env_or("CAPITAL_IDENTIFIER", ""),
+        ),
+        capital_password: env_or(
+            "REPLAY_CAPITAL_API_PASSWORD",
+            &env_or("CAPITAL_API_PASSWORD", ""),
+        ),
+        capital_epic_map: parse_capital_epic_map(&epic_map_raw),
+    }
+}
+
+fn symbol_for_oanda(canonical: &str, broker_symbols: &[String]) -> String {
+    if let Some(sym) = broker_symbols.iter().find(|s| s.contains('_')) {
+        return sym.clone();
+    }
+    if canonical.len() == 6 && canonical.chars().all(|ch| ch.is_ascii_alphabetic()) {
+        return format!("{}_{}", &canonical[0..3], &canonical[3..6]);
+    }
+    canonical.to_string()
+}
+
+fn symbol_for_coinbase(canonical: &str) -> String {
+    if canonical.len() == 6 && canonical.chars().all(|ch| ch.is_ascii_alphabetic()) {
+        return format!("{}-{}", &canonical[0..3], &canonical[3..6]);
+    }
+    canonical.to_string()
+}
+
+fn parse_capital_price(value: &Value) -> Option<f64> {
+    if let Some(v) = value.as_f64() {
+        return Some(v);
+    }
+    let Some(obj) = value.as_object() else {
+        return None;
+    };
+    let bid = obj.get("bid").and_then(|v| v.as_f64());
+    let ask = obj.get("ask").and_then(|v| v.as_f64());
+    match (bid, ask) {
+        (Some(b), Some(a)) => Some((b + a) / 2.0),
+        (Some(b), None) => Some(b),
+        (None, Some(a)) => Some(a),
+        _ => None,
+    }
+}
+
+fn parse_utc_minute(raw: &str) -> Option<DateTime<Utc>> {
+    DateTime::parse_from_rfc3339(raw)
+        .map(|v| minute_bucket(v.with_timezone(&Utc)))
+        .ok()
+}
+
+async fn fetch_oanda_history_bars(
+    client: &reqwest::Client,
+    cfg: &HistoryFetchConfig,
+    command: &ReplayCommand,
+    broker_symbols: &[String],
+) -> Result<Vec<BarRow>, String> {
+    if cfg.oanda_token.trim().is_empty() {
+        return Err("missing OANDA API token".to_string());
+    }
+
+    let instrument = symbol_for_oanda(&command.canonical_symbol, broker_symbols);
+    let start = command.start_ts.to_rfc3339();
+    let end = (command.end_ts + ChronoDuration::minutes(1)).to_rfc3339();
+    let url = format!(
+        "{}/v3/instruments/{}/candles",
+        cfg.oanda_rest_url.trim_end_matches('/'),
+        instrument
+    );
+
+    let response = client
+        .get(url)
+        .query(&[
+            ("granularity", "M1"),
+            ("price", "M"),
+            ("from", start.as_str()),
+            ("to", end.as_str()),
+            ("includeFirst", "true"),
+        ])
+        .header("Authorization", format!("Bearer {}", cfg.oanda_token))
+        .header("Accept-Datetime-Format", "RFC3339")
+        .send()
+        .await
+        .map_err(|e| format!("oanda request error: {e}"))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!(
+            "oanda HTTP {status}: {}",
+            body.chars().take(240).collect::<String>()
+        ));
+    }
+
+    let payload = response
+        .json::<Value>()
+        .await
+        .map_err(|e| format!("oanda response parse error: {e}"))?;
+
+    let Some(candles) = payload.get("candles").and_then(|v| v.as_array()) else {
+        return Ok(Vec::new());
+    };
+
+    let mut out = Vec::new();
+    for candle in candles {
+        if !candle
+            .get("complete")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            continue;
+        }
+        let ts = candle
+            .get("time")
+            .and_then(|v| v.as_str())
+            .and_then(parse_utc_minute);
+        let mid = candle.get("mid").and_then(|v| v.as_object());
+        let open = mid
+            .and_then(|m| m.get("o"))
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.parse::<f64>().ok());
+        let high = mid
+            .and_then(|m| m.get("h"))
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.parse::<f64>().ok());
+        let low = mid
+            .and_then(|m| m.get("l"))
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.parse::<f64>().ok());
+        let close = mid
+            .and_then(|m| m.get("c"))
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.parse::<f64>().ok());
+
+        if let (Some(bucket_start), Some(open), Some(high), Some(low), Some(close)) =
+            (ts, open, high, low, close)
+        {
+            out.push(BarRow {
+                bucket_start,
+                open,
+                high,
+                low,
+                close,
+                trade_count: 0,
+                last_event_ts: bucket_start,
+            });
+        }
+    }
+    Ok(out)
+}
+
+async fn fetch_coinbase_history_bars(
+    client: &reqwest::Client,
+    cfg: &HistoryFetchConfig,
+    command: &ReplayCommand,
+) -> Result<Vec<BarRow>, String> {
+    let product = symbol_for_coinbase(&command.canonical_symbol);
+    let start = command.start_ts.to_rfc3339();
+    let end = (command.end_ts + ChronoDuration::minutes(1)).to_rfc3339();
+
+    let primary_url = format!(
+        "{}/products/{}/candles",
+        cfg.coinbase_rest_url.trim_end_matches('/'),
+        product
+    );
+    let primary = client
+        .get(primary_url)
+        .query(&[
+            ("granularity", "60"),
+            ("start", start.as_str()),
+            ("end", end.as_str()),
+        ])
+        .send()
+        .await
+        .map_err(|e| format!("coinbase exchange request error: {e}"))?;
+
+    if primary.status().is_success() {
+        let payload = primary
+            .json::<Value>()
+            .await
+            .map_err(|e| format!("coinbase exchange parse error: {e}"))?;
+        let mut out = Vec::new();
+        if let Some(rows) = payload.as_array() {
+            for row in rows {
+                let Some(values) = row.as_array() else {
+                    continue;
+                };
+                if values.len() < 5 {
+                    continue;
+                }
+                let ts = values
+                    .first()
+                    .and_then(|v| v.as_i64())
+                    .and_then(|secs| DateTime::from_timestamp(secs, 0))
+                    .map(minute_bucket);
+                let low = values.get(1).and_then(|v| v.as_f64());
+                let high = values.get(2).and_then(|v| v.as_f64());
+                let open = values.get(3).and_then(|v| v.as_f64());
+                let close = values.get(4).and_then(|v| v.as_f64());
+                if let (Some(bucket_start), Some(open), Some(high), Some(low), Some(close)) =
+                    (ts, open, high, low, close)
+                {
+                    out.push(BarRow {
+                        bucket_start,
+                        open,
+                        high,
+                        low,
+                        close,
+                        trade_count: 0,
+                        last_event_ts: bucket_start,
+                    });
+                }
+            }
+        }
+        out.sort_by_key(|r| r.bucket_start);
+        return Ok(out);
+    }
+
+    let status = primary.status().as_u16();
+    if ![403, 429, 500, 503].contains(&status) {
+        let body = primary.text().await.unwrap_or_default();
+        return Err(format!(
+            "coinbase exchange HTTP {}: {}",
+            status,
+            body.chars().take(240).collect::<String>()
+        ));
+    }
+
+    let fallback_url = format!(
+        "{}/api/v3/brokerage/market/products/{}/candles",
+        cfg.coinbase_public_rest_url.trim_end_matches('/'),
+        product
+    );
+    let fallback_start = command.start_ts.timestamp().to_string();
+    let fallback_end = (command.end_ts + ChronoDuration::minutes(1))
+        .timestamp()
+        .to_string();
+    let fallback = client
+        .get(fallback_url)
+        .query(&[
+            ("granularity", "ONE_MINUTE"),
+            ("start", fallback_start.as_str()),
+            ("end", fallback_end.as_str()),
+            ("limit", "350"),
+        ])
+        .send()
+        .await
+        .map_err(|e| format!("coinbase public fallback request error: {e}"))?;
+
+    if !fallback.status().is_success() {
+        let status = fallback.status();
+        let body = fallback.text().await.unwrap_or_default();
+        return Err(format!(
+            "coinbase fallback HTTP {status}: {}",
+            body.chars().take(240).collect::<String>()
+        ));
+    }
+
+    let payload = fallback
+        .json::<Value>()
+        .await
+        .map_err(|e| format!("coinbase fallback parse error: {e}"))?;
+    let Some(candles) = payload.get("candles").and_then(|v| v.as_array()) else {
+        return Ok(Vec::new());
+    };
+
+    let mut out = Vec::new();
+    for candle in candles {
+        let Some(obj) = candle.as_object() else {
+            continue;
+        };
+        let ts = obj
+            .get("start")
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.parse::<i64>().ok())
+            .and_then(|secs| DateTime::from_timestamp(secs, 0))
+            .map(minute_bucket);
+        let open = obj
+            .get("open")
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.parse::<f64>().ok());
+        let high = obj
+            .get("high")
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.parse::<f64>().ok());
+        let low = obj
+            .get("low")
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.parse::<f64>().ok());
+        let close = obj
+            .get("close")
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.parse::<f64>().ok());
+
+        if let (Some(bucket_start), Some(open), Some(high), Some(low), Some(close)) =
+            (ts, open, high, low, close)
+        {
+            out.push(BarRow {
+                bucket_start,
+                open,
+                high,
+                low,
+                close,
+                trade_count: 0,
+                last_event_ts: bucket_start,
+            });
+        }
+    }
+    out.sort_by_key(|r| r.bucket_start);
+    Ok(out)
+}
+
+fn capital_epic_candidates(
+    cfg: &HistoryFetchConfig,
+    canonical_symbol: &str,
+    broker_symbols: &[String],
+) -> Vec<String> {
+    let mut out = Vec::new();
+    let key = canonical_symbol.to_ascii_uppercase();
+    if let Some(mapped) = cfg.capital_epic_map.get(&key) {
+        out.push(mapped.clone());
+    }
+    for symbol in broker_symbols {
+        if symbol.starts_with("CS.D.") && symbol.ends_with(".IP") {
+            out.push(symbol.clone());
+        }
+    }
+    out.push(format!("CS.D.{}.MINI.IP", key));
+    out.push(key);
+    let mut seen = HashSet::new();
+    out.retain(|v| seen.insert(v.clone()));
+    out
+}
+
+async fn capital_session_headers(
+    client: &reqwest::Client,
+    cfg: &HistoryFetchConfig,
+) -> Result<HeaderMap, String> {
+    if cfg.capital_api_key.trim().is_empty()
+        || cfg.capital_identifier.trim().is_empty()
+        || cfg.capital_password.trim().is_empty()
+    {
+        return Err("missing Capital credentials".to_string());
+    }
+
+    let url = format!(
+        "{}/api/v1/session",
+        cfg.capital_api_url.trim_end_matches('/')
+    );
+    let body = serde_json::json!({
+        "identifier": cfg.capital_identifier,
+        "password": cfg.capital_password,
+        "encryptedPassword": false
+    });
+
+    let response = client
+        .post(url)
+        .header("X-CAP-API-KEY", cfg.capital_api_key.clone())
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("capital session request error: {e}"))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!(
+            "capital session HTTP {status}: {}",
+            body.chars().take(240).collect::<String>()
+        ));
+    }
+
+    let cst = response
+        .headers()
+        .get("CST")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let security = response
+        .headers()
+        .get("X-SECURITY-TOKEN")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    if cst.is_empty() || security.is_empty() {
+        return Err("capital session missing CST/X-SECURITY-TOKEN headers".to_string());
+    }
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        "X-CAP-API-KEY",
+        HeaderValue::from_str(&cfg.capital_api_key)
+            .map_err(|e| format!("capital key header error: {e}"))?,
+    );
+    headers.insert(
+        "CST",
+        HeaderValue::from_str(&cst).map_err(|e| format!("capital cst header error: {e}"))?,
+    );
+    headers.insert(
+        "X-SECURITY-TOKEN",
+        HeaderValue::from_str(&security)
+            .map_err(|e| format!("capital security header error: {e}"))?,
+    );
+    headers.insert("Accept", HeaderValue::from_static("application/json"));
+    Ok(headers)
+}
+
+async fn fetch_capital_history_bars(
+    client: &reqwest::Client,
+    cfg: &HistoryFetchConfig,
+    command: &ReplayCommand,
+    broker_symbols: &[String],
+) -> Result<Vec<BarRow>, String> {
+    let mut headers = capital_session_headers(client, cfg).await?;
+    let from = command.start_ts.format("%Y-%m-%dT%H:%M:%S").to_string();
+    let to = (command.end_ts + ChronoDuration::minutes(1))
+        .format("%Y-%m-%dT%H:%M:%S")
+        .to_string();
+
+    for epic in capital_epic_candidates(cfg, &command.canonical_symbol, broker_symbols) {
+        let encoded_epic = urlencoding::encode(&epic);
+        let url = format!(
+            "{}/api/v1/prices/{}",
+            cfg.capital_api_url.trim_end_matches('/'),
+            encoded_epic
+        );
+
+        let mut response = client
+            .get(url.clone())
+            .headers(headers.clone())
+            .query(&[
+                ("resolution", "MINUTE"),
+                ("from", from.as_str()),
+                ("to", to.as_str()),
+                ("max", "1000"),
+            ])
+            .send()
+            .await
+            .map_err(|e| format!("capital history request error: {e}"))?;
+
+        if response.status().as_u16() == 401 || response.status().as_u16() == 403 {
+            headers = capital_session_headers(client, cfg).await?;
+            response = client
+                .get(url)
+                .headers(headers.clone())
+                .query(&[
+                    ("resolution", "MINUTE"),
+                    ("from", from.as_str()),
+                    ("to", to.as_str()),
+                    ("max", "1000"),
+                ])
+                .send()
+                .await
+                .map_err(|e| format!("capital history retry error: {e}"))?;
+        }
+
+        if response.status().as_u16() == 404 {
+            continue;
+        }
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            return Err(format!(
+                "capital history HTTP {status}: {}",
+                body.chars().take(240).collect::<String>()
+            ));
+        }
+
+        let payload = response
+            .json::<Value>()
+            .await
+            .map_err(|e| format!("capital history parse error: {e}"))?;
+        let Some(prices) = payload.get("prices").and_then(|v| v.as_array()) else {
+            continue;
+        };
+        if prices.is_empty() {
+            continue;
+        }
+
+        let mut out = Vec::new();
+        for price in prices {
+            let ts = price
+                .get("snapshotTimeUTC")
+                .or_else(|| price.get("snapshotTime"))
+                .and_then(|v| v.as_str())
+                .and_then(parse_utc_minute);
+            let open = price.get("openPrice").and_then(parse_capital_price);
+            let high = price.get("highPrice").and_then(parse_capital_price);
+            let low = price.get("lowPrice").and_then(parse_capital_price);
+            let close = price.get("closePrice").and_then(parse_capital_price);
+
+            if let (Some(bucket_start), Some(open), Some(high), Some(low), Some(close)) =
+                (ts, open, high, low, close)
+            {
+                out.push(BarRow {
+                    bucket_start,
+                    open,
+                    high,
+                    low,
+                    close,
+                    trade_count: 0,
+                    last_event_ts: bucket_start,
+                });
+            }
+        }
+        if !out.is_empty() {
+            out.sort_by_key(|r| r.bucket_start);
+            return Ok(out);
+        }
+    }
+
+    Ok(Vec::new())
+}
+
+async fn fetch_venue_history_bars(
+    cfg: &HistoryFetchConfig,
+    command: &ReplayCommand,
+    broker_symbols: &[String],
+) -> Result<Vec<BarRow>, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(cfg.timeout_secs))
+        .build()
+        .map_err(|e| format!("history client build error: {e}"))?;
+
+    match command.venue.as_str() {
+        "oanda" => fetch_oanda_history_bars(&client, cfg, command, broker_symbols).await,
+        "coinbase" => fetch_coinbase_history_bars(&client, cfg, command).await,
+        "capital" => fetch_capital_history_bars(&client, cfg, command, broker_symbols).await,
+        _ => Err(format!(
+            "venue history adapter not implemented for {}",
+            command.venue
+        )),
+    }
 }
 
 fn message_payload_json(msg: &BorrowedMessage<'_>) -> Option<Value> {
@@ -115,7 +734,10 @@ fn parse_replay_command(payload: &Value) -> Option<ReplayCommand> {
         timeframe,
         start_ts: minute_bucket(start_ts),
         end_ts: minute_bucket(end_ts),
-        dry_run: payload.get("dry_run").and_then(|v| v.as_bool()).unwrap_or(false),
+        dry_run: payload
+            .get("dry_run")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
     })
 }
 
@@ -278,7 +900,10 @@ fn candidate_broker_symbols(
     let mut out = Vec::new();
     out.push(canonical_symbol.to_ascii_uppercase());
 
-    if let Some(mapped) = registry.get(&(venue.to_ascii_lowercase(), canonical_symbol.to_ascii_uppercase())) {
+    if let Some(mapped) = registry.get(&(
+        venue.to_ascii_lowercase(),
+        canonical_symbol.to_ascii_uppercase(),
+    )) {
         for symbol in mapped {
             out.push(symbol.to_ascii_uppercase());
         }
@@ -569,6 +1194,7 @@ async fn process_replay_command(
     conn: &Client,
     command: &ReplayCommand,
     registry: &HashMap<(String, String), Vec<String>>,
+    history_cfg: &HistoryFetchConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if command.timeframe != "1m" {
         update_replay_audit(
@@ -583,14 +1209,7 @@ async fn process_replay_command(
     }
 
     if command.end_ts < command.start_ts {
-        update_replay_audit(
-            conn,
-            command.replay_id,
-            "failed",
-            0,
-            Some("invalid range"),
-        )
-        .await?;
+        update_replay_audit(conn, command.replay_id, "failed", 0, Some("invalid range")).await?;
         return Ok(());
     }
 
@@ -602,9 +1221,34 @@ async fn process_replay_command(
         return Ok(());
     }
 
-    let broker_symbols = candidate_broker_symbols(registry, &command.venue, &command.canonical_symbol);
+    let broker_symbols =
+        candidate_broker_symbols(registry, &command.venue, &command.canonical_symbol);
     let bars = fetch_aggregated_bars(conn, command, &broker_symbols).await?;
-    let written = upsert_ohlcv_bars(conn, command, &bars).await?;
+    let mut written = upsert_ohlcv_bars(conn, command, &bars).await?;
+
+    if history_cfg.enabled {
+        let complete_after_ticks = is_range_complete(conn, command).await?;
+        if !complete_after_ticks {
+            match fetch_venue_history_bars(history_cfg, command, &broker_symbols).await {
+                Ok(history_bars) => {
+                    if !history_bars.is_empty() {
+                        written += upsert_ohlcv_bars(conn, command, &history_bars).await?;
+                    }
+                }
+                Err(err) => {
+                    eprintln!(
+                        "replay-controller history fetch failed venue={} symbol={} range={}..{} error={}",
+                        command.venue,
+                        command.canonical_symbol,
+                        command.start_ts,
+                        command.end_ts,
+                        err
+                    );
+                }
+            }
+        }
+    }
+
     let complete = is_range_complete(conn, command).await?;
 
     if complete {
@@ -647,6 +1291,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "postgresql://trading:trading@timescaledb:5432/trading",
     );
     let registry_path = env_or("REPLAY_SYMBOL_REGISTRY_PATH", "/etc/nitra/registry.v1.json");
+    let history_cfg = history_fetch_config();
 
     let registry = load_symbol_registry(&registry_path);
 
@@ -697,9 +1342,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let payload = outer.get("payload").cloned().unwrap_or(Value::Null);
         if let Some(command) = parse_replay_command(&payload) {
-            if let Err(err) = process_replay_command(&conn, &command, &registry).await {
+            if let Err(err) = process_replay_command(&conn, &command, &registry, &history_cfg).await
+            {
                 let msg = err.to_string();
-                let _ = update_replay_audit(&conn, command.replay_id, "failed", 0, Some(&msg)).await;
+                let _ =
+                    update_replay_audit(&conn, command.replay_id, "failed", 0, Some(&msg)).await;
                 eprintln!("replay-controller command failed: {}", msg);
             }
         }
@@ -740,5 +1387,20 @@ mod tests {
         let symbols = candidate_broker_symbols(&registry, "oanda", "EURUSD");
         assert!(symbols.contains(&"EURUSD".to_string()));
         assert!(symbols.contains(&"EUR_USD".to_string()));
+    }
+
+    #[test]
+    fn capital_epic_map_parses_json() {
+        let parsed = parse_capital_epic_map(r#"{"EURUSD":"CS.D.EURUSD.MINI.IP"}"#);
+        assert_eq!(
+            parsed.get("EURUSD"),
+            Some(&"CS.D.EURUSD.MINI.IP".to_string())
+        );
+    }
+
+    #[test]
+    fn coinbase_symbol_formatting() {
+        assert_eq!(symbol_for_coinbase("BTCUSD"), "BTC-USD");
+        assert_eq!(symbol_for_coinbase("BTC-USD"), "BTC-USD");
     }
 }

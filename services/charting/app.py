@@ -4,6 +4,7 @@ import urllib.parse
 import urllib.request
 import urllib.error
 import socket
+import time
 import threading
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
@@ -397,6 +398,17 @@ def parse_capital_price(price_obj: object) -> float | None:
     return None
 
 
+def parse_float(raw: object) -> float | None:
+    if isinstance(raw, (float, int)):
+        return float(raw)
+    if isinstance(raw, str):
+        try:
+            return float(raw)
+        except ValueError:
+            return None
+    return None
+
+
 def parse_iso_ts(raw: str) -> datetime:
     normalized = raw.replace("Z", "+00:00")
     ts = datetime.fromisoformat(normalized)
@@ -420,19 +432,27 @@ def fetch_capital_range(symbol: str, start_dt: datetime, end_dt: datetime) -> li
         )
         url = f"{capital_base_url()}/api/v1/prices/{urllib.parse.quote(epic, safe='')}?{params}"
         req = urllib.request.Request(url, headers=headers, method="GET")
-        try:
-            with urllib.request.urlopen(req, timeout=VENUE_FETCH_TIMEOUT_SECS) as resp:
-                payload = json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as exc:
-            if exc.code in {401, 403}:
-                # Session may have expired; retry once with forced session refresh.
-                headers = capital_session_headers(force_refresh=True)
-                req = urllib.request.Request(url, headers=headers, method="GET")
+        retries = 0
+        while True:
+            try:
                 with urllib.request.urlopen(req, timeout=VENUE_FETCH_TIMEOUT_SECS) as resp:
                     payload = json.loads(resp.read().decode("utf-8"))
-            elif exc.code == 404:
-                continue
-            else:
+                break
+            except urllib.error.HTTPError as exc:
+                if exc.code in {401, 403}:
+                    # Session may have expired; retry once with forced session refresh.
+                    headers = capital_session_headers(force_refresh=True)
+                    req = urllib.request.Request(url, headers=headers, method="GET")
+                    retries += 1
+                    if retries <= 1:
+                        continue
+                elif exc.code in {429, 500, 503} and retries < 2:
+                    retries += 1
+                    time.sleep(0.8 * retries)
+                    continue
+                elif exc.code == 404:
+                    payload = {"prices": []}
+                    break
                 raise
 
         prices = payload.get("prices", [])
@@ -540,10 +560,12 @@ def fetch_coinbase_range(symbol: str, start_dt: datetime, end_dt: datetime) -> l
             if not isinstance(row, list) or len(row) < 5:
                 continue
             ts = datetime.fromtimestamp(int(row[0]), tz=timezone.utc).replace(second=0, microsecond=0)
-            low = float(row[1])
-            high = float(row[2])
-            open_ = float(row[3])
-            close = float(row[4])
+            low = parse_float(row[1])
+            high = parse_float(row[2])
+            open_ = parse_float(row[3])
+            close = parse_float(row[4])
+            if None in (open_, high, low, close):
+                continue
             bars.append((ts, open_, high, low, close, 0, ts))
         bars.sort(key=lambda item: item[0])
         if bars:
@@ -583,7 +605,13 @@ def fetch_coinbase_range(symbol: str, start_dt: datetime, end_dt: datetime) -> l
         if None in (start_raw, low_raw, high_raw, open_raw, close_raw):
             continue
         ts = datetime.fromtimestamp(int(start_raw), tz=timezone.utc).replace(second=0, microsecond=0)
-        bars.append((ts, float(open_raw), float(high_raw), float(low_raw), float(close_raw), 0, ts))
+        open_ = parse_float(open_raw)
+        high = parse_float(high_raw)
+        low = parse_float(low_raw)
+        close = parse_float(close_raw)
+        if None in (open_, high, low, close):
+            continue
+        bars.append((ts, open_, high, low, close, 0, ts))
     bars.sort(key=lambda item: item[0])
     return bars
 
@@ -653,6 +681,45 @@ def fetch_from_venue(venue: str, symbol: str, ranges: list[tuple[datetime, datet
                     upsert_bars(conn, venue, symbol, bars)
                     conn.commit()
     return fetched, "; ".join(errors[:3])
+
+
+@app.post("/api/v1/backfill/adapter-check")
+def adapter_check(
+    venue: str = Body(min_length=1, max_length=64),
+    symbol: str = Body(min_length=1, max_length=64),
+) -> dict:
+    venue_norm = venue.strip().lower()
+    symbol_norm = symbol.strip().upper()
+    end_dt = datetime.now(timezone.utc).replace(second=0, microsecond=0) - timedelta(minutes=1)
+    start_dt = end_dt - timedelta(minutes=30)
+    try:
+        if venue_norm == "oanda":
+            bars = fetch_oanda_range(symbol_norm, start_dt, end_dt)
+        elif venue_norm == "coinbase":
+            bars = fetch_coinbase_range(symbol_norm, start_dt, end_dt)
+        elif venue_norm == "capital":
+            bars = fetch_capital_range(symbol_norm, start_dt, end_dt)
+        else:
+            raise HTTPException(status_code=400, detail=f"adapter not implemented for venue={venue_norm}")
+    except Exception as exc:
+        return {
+            "venue": venue_norm,
+            "symbol": symbol_norm,
+            "status": "error",
+            "error": str(exc),
+            "window": {"start": start_dt.isoformat(), "end": end_dt.isoformat()},
+            "rows": 0,
+        }
+
+    return {
+        "venue": venue_norm,
+        "symbol": symbol_norm,
+        "status": "ok" if bars else "empty",
+        "window": {"start": start_dt.isoformat(), "end": end_dt.isoformat()},
+        "rows": len(bars),
+        "first_bar": bars[0][0].isoformat() if bars else None,
+        "last_bar": bars[-1][0].isoformat() if bars else None,
+    }
 
 
 @app.post("/api/v1/backfill/90d")
