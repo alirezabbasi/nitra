@@ -18,5 +18,7 @@ rg -n 'def capital_session_headers' services/charting/app.py >/dev/null
 rg -n 'COINBASE_PUBLIC_REST_URL' services/charting/app.py >/dev/null
 rg -n 'continuity_policy' services/charting/app.py >/dev/null
 rg -n 'fx_weekday_only_policy' services/charting/app.py >/dev/null
+rg -n '/api/v1/backfill/adapter-check' services/charting/app.py >/dev/null
+rg -n 'def parse_float' services/charting/app.py >/dev/null
 
 echo "[dev-0014] checks passed"

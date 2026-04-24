@@ -21,5 +21,7 @@ rg -n 'GAP_STARTUP_COVERAGE_DAYS' docker-compose.yml >/dev/null
 rg -n 'GAP_SYMBOL_REGISTRY_PATH' docker-compose.yml >/dev/null
 rg -n 'BACKFILL_FETCH_CHUNK_MINUTES' docker-compose.yml >/dev/null
 rg -n 'REPLAY_INPUT_TOPIC: replay.commands' docker-compose.yml >/dev/null
+rg -n 'REPLAY_HISTORY_ENABLED' docker-compose.yml >/dev/null
+rg -n 'fetch_venue_history_bars' services/replay-controller/src/main.rs >/dev/null
 
 echo "[dev-0013] checks passed"
