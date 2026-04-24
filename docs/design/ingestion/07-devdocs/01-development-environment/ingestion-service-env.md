@@ -138,7 +138,7 @@ COINBASE profile:
 - `BACKFILL_GROUP_ID` default `nitra-backfill-worker-v1`
 - `BACKFILL_TARGET_GROUP` default `nitra-market-normalization-v1`
 - `BACKFILL_STARTUP_PROCESS_OPEN_GAPS` default `true`
-- `BACKFILL_FETCH_CHUNK_MINUTES` default `60`
+- `BACKFILL_FETCH_CHUNK_MINUTES` default `1440` (larger default to reduce queue pressure for 90d rebuilds)
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 ## replay-controller
@@ -162,3 +162,4 @@ COINBASE profile:
 
 Notes:
 - Replay executor first rebuilds `1m` bars from `raw_tick`; if the range remains incomplete, it attempts venue-history adapters (`oanda`/`coinbase`/`capital`) before finalizing status.
+- Venue-history fetch in replay is window-paginated for long ranges (backend-only 90d recovery without chart trigger dependency).
