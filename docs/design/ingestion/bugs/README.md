@@ -19,3 +19,4 @@ Current entries:
 - `BUG-00005`: Coinbase "live" feed was mock-generated; resolved in code with venue-sourced ingestion and fail-closed no-mock guardrails.
 - `BUG-00006`: startup 90-day backfill stalls with high `failed_no_source_data` volume due replay source-depth gap.
 - `BUG-00007`: OANDA/Capital connectors degraded after no-mock cutover due URL/auth/error handling defects (resolved in code; restart required).
+- `BUG-00008`: OANDA/Capital quotes ingested but no OHLCV persisted due stale exchange timestamp bucketing in bar aggregation (resolved in code; restart required).
