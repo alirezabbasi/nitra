@@ -11,6 +11,8 @@ This page defines environment variables for the minimal ingestion runtime wired 
 - `OANDA_API_TOKEN` optional; required for strict venue-history backfill on OANDA symbols
 - `OANDA_REST_URL` default `https://api-fxpractice.oanda.com`
 - `COINBASE_REST_URL` default `https://api.exchange.coinbase.com`
+- `CHARTING_VENUE_FETCH_TIMEOUT_SECS` default `8` (per-request timeout for venue history backfill calls)
+- `CHARTING_VENUE_FETCH_MAX_ERRORS` default `3` (fail-fast threshold before aborting long backfill loops)
 
 ## market-ingestion services (parallel)
 

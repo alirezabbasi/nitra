@@ -67,6 +67,8 @@ Note:
 - `OANDA_API_TOKEN` (for OANDA history fetch adapter)
 - `OANDA_REST_URL` (default `https://api-fxpractice.oanda.com`)
 - `COINBASE_REST_URL` (default `https://api.exchange.coinbase.com`)
+- `CHARTING_VENUE_FETCH_TIMEOUT_SECS` (default `8`)
+- `CHARTING_VENUE_FETCH_MAX_ERRORS` (default `3`)
 
 ## Implementation Files
 

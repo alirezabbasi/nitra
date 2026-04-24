@@ -2,6 +2,8 @@ import os
 import json
 import urllib.parse
 import urllib.request
+import urllib.error
+import socket
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 
@@ -45,6 +47,8 @@ def db_url() -> str:
 DEFAULT_TIMEFRAME = env("CHARTING_TIMEFRAME", "1m")
 DEFAULT_LIMIT = int_env("CHARTING_DEFAULT_LIMIT", 300)
 DEFAULT_REFRESH_SECS = int_env("CHARTING_REFRESH_SECS", 5)
+VENUE_FETCH_TIMEOUT_SECS = max(3, int_env("CHARTING_VENUE_FETCH_TIMEOUT_SECS", 8))
+VENUE_FETCH_MAX_ERRORS = max(1, int_env("CHARTING_VENUE_FETCH_MAX_ERRORS", 3))
 OANDA_REST_URL = env("OANDA_REST_URL", "https://api-fxpractice.oanda.com")
 COINBASE_REST_URL = env("COINBASE_REST_URL", "https://api.exchange.coinbase.com")
 
@@ -282,7 +286,7 @@ def fetch_oanda_range(symbol: str, start_dt: datetime, end_dt: datetime) -> list
         },
         method="GET",
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=VENUE_FETCH_TIMEOUT_SECS) as resp:
         payload = json.loads(resp.read().decode("utf-8"))
     candles = payload.get("candles", [])
     bars: list[tuple] = []
@@ -316,7 +320,7 @@ def fetch_coinbase_range(symbol: str, start_dt: datetime, end_dt: datetime) -> l
     )
     url = f"{base}/products/{product}/candles?{params}"
     req = urllib.request.Request(url, headers={"Content-Type": "application/json"}, method="GET")
-    with urllib.request.urlopen(req, timeout=30) as resp:
+    with urllib.request.urlopen(req, timeout=VENUE_FETCH_TIMEOUT_SECS) as resp:
         payload = json.loads(resp.read().decode("utf-8"))
     bars: list[tuple] = []
     # Coinbase returns [time, low, high, open, close, volume]
@@ -334,10 +338,17 @@ def fetch_coinbase_range(symbol: str, start_dt: datetime, end_dt: datetime) -> l
 
 
 def fetch_from_venue(venue: str, symbol: str, ranges: list[tuple[datetime, datetime]]) -> tuple[int, str]:
+    # Keep each venue request within provider limits (Coinbase candles API is strict: max 300).
+    chunk_minutes_map = {
+        "oanda": 4500,
+        "coinbase": 300,
+    }
+    chunk_minutes = chunk_minutes_map.get(venue, 300)
     fetched = 0
     errors: list[str] = []
+    failed_calls = 0
     for start_dt, end_dt in ranges:
-        chunks = chunk_range(start_dt, end_dt, chunk_minutes=1200)
+        chunks = chunk_range(start_dt, end_dt, chunk_minutes=chunk_minutes)
         for chunk_start, chunk_end in chunks:
             try:
                 if venue == "oanda":
@@ -346,8 +357,41 @@ def fetch_from_venue(venue: str, symbol: str, ranges: list[tuple[datetime, datet
                     bars = fetch_coinbase_range(symbol, chunk_start, chunk_end)
                 else:
                     return fetched, f"venue adapter not implemented for {venue}"
+                if bars:
+                    failed_calls = 0
+            except urllib.error.HTTPError as exc:
+                body = ""
+                try:
+                    body = exc.read().decode("utf-8", errors="ignore")
+                except Exception:
+                    body = ""
+                errors.append(
+                    f"{chunk_start.isoformat()}..{chunk_end.isoformat()}: HTTP {exc.code} {body[:240]}"
+                )
+                failed_calls += 1
+                if failed_calls >= VENUE_FETCH_MAX_ERRORS:
+                    return fetched, f"aborted after {failed_calls} venue fetch errors: {'; '.join(errors[:3])}"
+                continue
+            except urllib.error.URLError as exc:
+                reason = getattr(exc, "reason", exc)
+                errors.append(
+                    f"{chunk_start.isoformat()}..{chunk_end.isoformat()}: URL error {reason}"
+                )
+                failed_calls += 1
+                if failed_calls >= VENUE_FETCH_MAX_ERRORS:
+                    return fetched, f"aborted after {failed_calls} venue fetch errors: {'; '.join(errors[:3])}"
+                continue
+            except socket.timeout:
+                errors.append(f"{chunk_start.isoformat()}..{chunk_end.isoformat()}: socket timeout")
+                failed_calls += 1
+                if failed_calls >= VENUE_FETCH_MAX_ERRORS:
+                    return fetched, f"aborted after {failed_calls} venue fetch errors: {'; '.join(errors[:3])}"
+                continue
             except Exception as exc:
                 errors.append(f"{chunk_start.isoformat()}..{chunk_end.isoformat()}: {exc}")
+                failed_calls += 1
+                if failed_calls >= VENUE_FETCH_MAX_ERRORS:
+                    return fetched, f"aborted after {failed_calls} venue fetch errors: {'; '.join(errors[:3])}"
                 continue
             fetched += len(bars)
             if bars:
@@ -387,6 +431,8 @@ def backfill_90d(
     venue_fetch_error = ""
     if missing_ranges:
         venue_fetch_rows, venue_fetch_error = fetch_from_venue(venue_norm, symbol_norm, missing_ranges)
+        if venue_fetch_rows == 0 and not venue_fetch_error:
+            venue_fetch_error = "venue returned no candles for missing ranges (likely non-trading windows or unavailable history)"
 
     with psycopg.connect(db_url()) as conn:
         missing_after = fetch_missing_minutes(conn, venue_norm, symbol_norm, start_dt, end_dt)
