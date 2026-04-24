@@ -8,12 +8,14 @@ This is the canonical documentation entrypoint for the full NITRA project.
 2. `docs/design/README.md` (architecture authority and design map)
 3. `docs/development/README.md` (execution system, kanban, and memory)
 4. `docs/design/ingestion/README.md` (ingestion domain rulebook and deep technical docs)
+5. `docs/knowledgebase/README.md` (incident RCA + practical resolution knowledge)
 
 ## Documentation Layers
 
 - `docs/design/`: architecture source of truth (HLD/LLD and design decisions).
 - `docs/development/`: delivery operating system (roadmap, execution board, project memory).
 - `docs/design/ingestion/`: ingestion-domain deep docs, contracts, runbooks, and domain bug registry.
+- `docs/knowledgebase/`: cross-session RCA and fix playbooks for recurring issues.
 
 ## Single-source principles
 

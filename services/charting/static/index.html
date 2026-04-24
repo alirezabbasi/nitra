@@ -34,16 +34,25 @@
         width: 100%;
         height: 100%;
         display: grid;
-        grid-template-rows: 78px 1fr;
+        grid-template-rows: 40px 1fr 40px;
       }
 
       .topbar {
-        display: grid;
-        grid-template-rows: 38px 38px;
-        gap: 2px;
+        display: flex;
+        align-items: center;
         padding: 0 8px;
         border-bottom: 1px solid var(--line);
         background: var(--panel);
+      }
+
+      .bottombar {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0 8px;
+        border-top: 1px solid var(--line);
+        background: var(--panel);
+        min-width: 0;
       }
 
       .row {
@@ -234,6 +243,7 @@
       .chart-wrap {
         min-height: 0;
         display: block;
+        position: relative;
       }
 
       #kline {
@@ -252,7 +262,7 @@
         }
 
         .app {
-          grid-template-rows: 84px 1fr;
+          grid-template-rows: 40px 1fr 40px;
         }
 
         .meta {
@@ -264,72 +274,71 @@
   <body>
     <div class="app">
       <div class="topbar">
-        <div class="row">
-          <div class="brand">NITRA · KLine UX</div>
-          <div class="tool-group combo" id="market-combo">
-            <input id="market-search" class="select" title="Search Venue · Instrument" placeholder="Search venue/instrument" autocomplete="off" />
-            <button class="combo-toggle" id="market-toggle" title="Show available markets">▼</button>
-            <div id="market-dropdown" class="combo-menu hidden"></div>
-          </div>
-          <select id="timeframe-select" class="select" title="Timeframe">
-            <option value="1m">1m</option>
-            <option value="5m">5m</option>
-            <option value="15m">15m</option>
-            <option value="30m">30m</option>
-            <option value="1h">1h</option>
-            <option value="4h">4h</option>
-            <option value="1d">1d</option>
-          </select>
-          <select id="locale-select" class="select" title="Locale">
-            <option value="en-US">en-US</option>
-            <option value="zh-CN">zh-CN</option>
-          </select>
-          <select id="timezone-select" class="select" title="Timezone">
-            <option value="UTC">UTC</option>
-            <option value="Asia/Tehran">Asia/Tehran</option>
-            <option value="America/New_York">America/New_York</option>
-            <option value="Europe/London">Europe/London</option>
-          </select>
-          <button class="tool-btn" id="reload-btn">Reload</button>
-          <button class="tool-btn" id="fit-btn">Fit</button>
-          <button class="tool-btn" id="realtime-btn">Realtime</button>
-          <button class="tool-btn" id="snapshot-btn">Snapshot</button>
-          <button class="tool-btn" id="backfill-btn">Backfill 90d</button>
-          <div id="status" class="meta">Loading...</div>
+        <div class="brand">NITRA · KLine UX</div>
+        <div class="tool-group combo" id="market-combo">
+          <input id="market-search" class="select" title="Search Venue · Instrument" placeholder="Search venue/instrument" autocomplete="off" />
+          <button class="combo-toggle" id="market-toggle" title="Show available markets">▼</button>
+          <div id="market-dropdown" class="combo-menu hidden"></div>
         </div>
-        <div class="row">
-          <button class="tool-btn" id="lock-scroll-btn" title="Toggle chart panning">Scroll: On</button>
-          <button class="tool-btn" id="lock-zoom-btn" title="Toggle chart zooming">Zoom: On</button>
-          <select id="zoom-anchor-select" class="select" title="Zoom anchor">
-            <option value="cursor">Anchor: Cursor</option>
-            <option value="last_bar">Anchor: Last Bar</option>
-          </select>
-          <select id="format-select" class="select" title="Number formatting">
-            <option value="compact">Format: Compact</option>
-            <option value="raw">Format: Raw</option>
-          </select>
-          <div class="range-wrap">
-            <span class="label">Bar</span>
-            <input id="bar-space-range" type="range" min="1" max="50" step="1" value="8" />
-          </div>
-          <div class="range-wrap">
-            <span class="label">Right</span>
-            <input id="right-offset-range" type="range" min="0" max="240" step="2" value="24" />
-          </div>
-          <span class="label">L/R min</span>
-          <input id="left-min-bars" class="num" type="number" min="0" step="1" value="2" />
-          <input id="right-min-bars" class="num" type="number" min="0" step="1" value="2" />
-          <input id="jump-timestamp" class="dt" type="datetime-local" title="Jump to timestamp" />
-          <button class="tool-btn" id="jump-time-btn">Jump Time</button>
-          <input id="jump-index" class="num" type="number" step="1" placeholder="Data index" title="Jump to data index" />
-          <button class="tool-btn" id="jump-index-btn">Jump Index</button>
-          <div id="meta" class="meta">range:- | cursor:-</div>
-        </div>
+        <select id="timeframe-select" class="select" title="Timeframe">
+          <option value="1m">1m</option>
+          <option value="5m">5m</option>
+          <option value="15m">15m</option>
+          <option value="30m">30m</option>
+          <option value="1h">1h</option>
+          <option value="4h">4h</option>
+          <option value="1d">1d</option>
+        </select>
+        <select id="locale-select" class="select" title="Locale">
+          <option value="en-US">en-US</option>
+          <option value="zh-CN">zh-CN</option>
+        </select>
+        <select id="timezone-select" class="select" title="Timezone">
+          <option value="UTC">UTC</option>
+          <option value="Asia/Tehran">Asia/Tehran</option>
+          <option value="America/New_York">America/New_York</option>
+          <option value="Europe/London">Europe/London</option>
+        </select>
+        <button class="tool-btn" id="reload-btn">Reload</button>
+        <button class="tool-btn" id="fit-btn">Fit</button>
+        <button class="tool-btn" id="realtime-btn">Realtime</button>
+        <button class="tool-btn" id="snapshot-btn">Snapshot</button>
+        <button class="tool-btn" id="backfill-btn">Backfill 90d</button>
+        <div id="status" class="meta">Loading...</div>
       </div>
 
       <section class="chart-wrap">
         <div id="kline"></div>
       </section>
+
+      <div class="bottombar">
+        <button class="tool-btn" id="lock-scroll-btn" title="Toggle chart panning">Scroll: On</button>
+        <button class="tool-btn" id="lock-zoom-btn" title="Toggle chart zooming">Zoom: On</button>
+        <select id="zoom-anchor-select" class="select" title="Zoom anchor">
+          <option value="cursor">Anchor: Cursor</option>
+          <option value="last_bar">Anchor: Last Bar</option>
+        </select>
+        <select id="format-select" class="select" title="Number formatting">
+          <option value="compact">Format: Compact</option>
+          <option value="raw">Format: Raw</option>
+        </select>
+        <div class="range-wrap">
+          <span class="label">Bar</span>
+          <input id="bar-space-range" type="range" min="1" max="50" step="1" value="8" />
+        </div>
+        <div class="range-wrap">
+          <span class="label">Right</span>
+          <input id="right-offset-range" type="range" min="0" max="240" step="2" value="24" />
+        </div>
+        <span class="label">L/R min</span>
+        <input id="left-min-bars" class="num" type="number" min="0" step="1" value="2" />
+        <input id="right-min-bars" class="num" type="number" min="0" step="1" value="2" />
+        <input id="jump-timestamp" class="dt" type="datetime-local" title="Jump to timestamp" />
+        <button class="tool-btn" id="jump-time-btn">Jump Time</button>
+        <input id="jump-index" class="num" type="number" step="1" placeholder="Data index" title="Jump to data index" />
+        <button class="tool-btn" id="jump-index-btn">Jump Index</button>
+        <div id="meta" class="meta">range:- | cursor:-</div>
+      </div>
     </div>
 
     <script>
@@ -391,6 +400,12 @@
         historyLoading: false,
         lazyLoadDebounce: null,
         derivedFromOneMinute: false,
+        visibleFromIndex: null,
+        visibleToIndex: null,
+        manualPriceRange: null,
+        rangeMode: "auto",
+        rangeApplying: false,
+        paneIds: [],
       };
 
       let chart = null;
@@ -405,6 +420,44 @@
         if (Math.abs(value) < 1_000_000) return `${(value / 1000).toFixed(2)}K`;
         if (Math.abs(value) < 1_000_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
         return `${(value / 1_000_000_000).toFixed(2)}B`;
+      }
+
+      function inferPricePrecision(samplePrice, symbol) {
+        const upper = String(symbol || "").toUpperCase();
+        if (upper.endsWith("JPY")) {
+          return 3;
+        }
+        const p = Math.abs(Number(samplePrice));
+        if (!Number.isFinite(p) || p <= 0) {
+          return 5;
+        }
+        if (p >= 10000) return 2;
+        if (p >= 1000) return 2;
+        if (p >= 100) return 3;
+        if (p >= 1) return 5;
+        if (p >= 0.1) return 6;
+        return 8;
+      }
+
+      function applySymbolPrecision() {
+        if (!chart) return;
+        if (!state.selected || !state.liveBars.length) {
+          return;
+        }
+        const last = state.liveBars[state.liveBars.length - 1];
+        const samplePrice = Number(last?.close);
+        const pricePrecision = inferPricePrecision(samplePrice, state.selected.symbol);
+        if (typeof chart.setPriceVolumePrecision === "function") {
+          chart.setPriceVolumePrecision(pricePrecision, 2);
+          return;
+        }
+        if (typeof chart.setSymbol === "function") {
+          chart.setSymbol({
+            ticker: `${state.selected.venue}:${state.selected.symbol}`,
+            pricePrecision,
+            volumePrecision: 2,
+          });
+        }
       }
 
       function initChart() {
@@ -459,6 +512,7 @@
 
         applyChartPreferences();
         applyFormatting();
+        refreshPaneIds();
         subscribeChartActions();
         return true;
       }
@@ -589,10 +643,187 @@
 
       function syncMeta(payload = null) {
         const { fromIndex, toIndex } = extractVisibleRange(payload);
+        state.visibleFromIndex = Number.isFinite(Number(fromIndex)) ? Number(fromIndex) : null;
+        state.visibleToIndex = Number.isFinite(Number(toIndex)) ? Number(toIndex) : null;
         const left = Number.isFinite(Number(fromIndex)) ? Number(fromIndex) : "-";
         const right = Number.isFinite(Number(toIndex)) ? Number(toIndex) : "-";
         const follow = state.autoFollowRealtime ? "follow:on" : "follow:off";
         metaEl.textContent = `range:${left}..${right} | bars:${state.liveBars.length} | ${follow}`;
+        if (state.rangeMode === "auto") {
+          setYAxisRangeFromBars(getVisibleBarsOrAll(), "auto");
+        }
+      }
+
+      function buildRangePayload(from, to) {
+        const range = to - from;
+        return {
+          from,
+          to,
+          range,
+          realFrom: from,
+          realTo: to,
+          realRange: range,
+          displayFrom: from,
+          displayTo: to,
+          displayRange: range,
+        };
+      }
+
+      function refreshPaneIds() {
+        if (!chart || typeof chart.getPaneOptions !== "function") {
+          state.paneIds = [];
+          return;
+        }
+        const options = chart.getPaneOptions();
+        const ids = [];
+        if (Array.isArray(options)) {
+          for (const pane of options) {
+            if (pane && typeof pane.id === "string" && pane.id.trim()) {
+              ids.push(pane.id);
+            }
+          }
+        } else if (options && typeof options.id === "string" && options.id.trim()) {
+          ids.push(options.id);
+        }
+        state.paneIds = Array.from(new Set(ids));
+      }
+
+      function applyManualYAxisRange() {
+        if (!chart || typeof chart.setPaneOptions !== "function") {
+          return;
+        }
+        refreshPaneIds();
+        const createRange = (params) => {
+          if (state.manualPriceRange) {
+            return buildRangePayload(state.manualPriceRange.from, state.manualPriceRange.to);
+          }
+          // No manual override: let library compute auto range from current instrument data.
+          return undefined;
+        };
+
+        const targetIds = state.paneIds.length ? state.paneIds : ["candle_pane"];
+        for (const paneId of targetIds) {
+          chart.setPaneOptions({
+            id: paneId,
+            axisOptions: { createRange, gap: { top: 0.06, bottom: 0.06 } },
+          });
+          chart.setPaneOptions({
+            id: paneId,
+            axis: { createRange, gap: { top: 0.06, bottom: 0.06 } },
+          });
+        }
+        chart.setPaneOptions({
+          axisOptions: { createRange, gap: { top: 0.06, bottom: 0.06 } },
+        });
+        chart.setPaneOptions({
+          axis: { createRange, gap: { top: 0.06, bottom: 0.06 } },
+        });
+      }
+
+      function clearManualYAxisRange() {
+        state.manualPriceRange = null;
+        state.rangeMode = "auto";
+        if (!chart || typeof chart.setPaneOptions !== "function") {
+          return;
+        }
+        refreshPaneIds();
+        const targetIds = state.paneIds.length ? state.paneIds : ["candle_pane"];
+        for (const paneId of targetIds) {
+          chart.setPaneOptions({
+            id: paneId,
+            axisOptions: { createRange: undefined },
+          });
+          chart.setPaneOptions({
+            id: paneId,
+            axis: { createRange: undefined },
+          });
+        }
+        chart.setPaneOptions({
+          axisOptions: { createRange: undefined },
+        });
+        chart.setPaneOptions({
+          axis: { createRange: undefined },
+        });
+      }
+
+      function computePriceRangeFromBars(bars) {
+        if (!bars || !bars.length) {
+          return null;
+        }
+        let low = Number.POSITIVE_INFINITY;
+        let high = Number.NEGATIVE_INFINITY;
+        for (const bar of bars) {
+          low = Math.min(low, Number(bar.low));
+          high = Math.max(high, Number(bar.high));
+        }
+        if (!Number.isFinite(low) || !Number.isFinite(high)) {
+          return null;
+        }
+        if (high <= low) {
+          const mid = (high + low) / 2;
+          const span = Math.max(Math.abs(mid) * 0.01, 1e-6);
+          low = mid - span;
+          high = mid + span;
+        }
+        const pad = (high - low) * 0.08;
+        return {
+          from: low - pad,
+          to: high + pad,
+        };
+      }
+
+      function setYAxisRangeFromBars(bars, mode = "auto") {
+        if (state.rangeApplying) {
+          return;
+        }
+        const range = computePriceRangeFromBars(bars);
+        if (!range) {
+          return;
+        }
+        state.rangeApplying = true;
+        state.manualPriceRange = range;
+        state.rangeMode = mode;
+        applyManualYAxisRange();
+        state.rangeApplying = false;
+      }
+
+      function getVisibleBarsOrAll() {
+        if (!state.liveBars.length) {
+          return [];
+        }
+        const from = state.visibleFromIndex;
+        const to = state.visibleToIndex;
+        if (Number.isFinite(from) && Number.isFinite(to)) {
+          const left = Math.max(0, Math.floor(Math.min(from, to)));
+          const right = Math.min(state.liveBars.length - 1, Math.ceil(Math.max(from, to)));
+          if (right >= left) {
+            return state.liveBars.slice(left, right + 1);
+          }
+        }
+        return state.liveBars;
+      }
+
+      function fitVisibleCandlesVertically() {
+        if (!state.liveBars.length) {
+          return;
+        }
+        const from = state.visibleFromIndex;
+        const to = state.visibleToIndex;
+        let visibleBars = state.liveBars;
+        if (Number.isFinite(from) && Number.isFinite(to)) {
+          const left = Math.max(0, Math.floor(Math.min(from, to)));
+          const right = Math.min(state.liveBars.length - 1, Math.ceil(Math.max(from, to)));
+          if (right >= left) {
+            visibleBars = state.liveBars.slice(left, right + 1);
+          }
+        }
+        if (!visibleBars.length) {
+          return;
+        }
+
+        setYAxisRangeFromBars(visibleBars, "visible");
+        fitChart();
+        setStatus("Price axis fit to visible candle range");
       }
 
       function fitChart() {
@@ -672,6 +903,9 @@
 
           state.liveBars = mergeBarsWithTicks(state.liveBars, ticks, tfMs, persistedLastTs);
           if (replaceChartData(state.liveBars)) {
+            if (state.rangeMode === "auto") {
+              setYAxisRangeFromBars(state.liveBars, "auto");
+            }
             if (state.autoFollowRealtime && typeof chart.scrollToRealTime === "function") {
               chart.scrollToRealTime(80);
             }
@@ -762,6 +996,9 @@
           state.persistedBars = [...dedupOlder, ...state.persistedBars];
           state.liveBars = [...dedupOlder, ...state.liveBars];
           replaceChartData(state.liveBars);
+          if (state.rangeMode === "auto") {
+            setYAxisRangeFromBars(state.liveBars, "auto");
+          }
           state.hasMoreHistory = result.hasMore;
           syncMeta();
           setStatus(`history +${dedupOlder.length} candles`);
@@ -894,6 +1131,7 @@
 
         state.autoFollowRealtime = true;
         state.hasMoreHistory = true;
+        clearManualYAxisRange();
 
         setStatus("Loading candles...");
         let bars = await fetchBars(state.selected.venue, state.selected.symbol, state.timeframe, 700);
@@ -924,6 +1162,9 @@
           return;
         }
 
+        applySymbolPrecision();
+        // Reset to instrument-specific vertical scale every symbol/timeframe load.
+        setYAxisRangeFromBars(state.liveBars, "auto");
         if (typeof chart.scrollToRealTime === "function") {
           chart.scrollToRealTime(120);
         }
@@ -1042,6 +1283,17 @@
             const ts = point.timestamp ? new Date(Number(point.timestamp) * 1000).toISOString() : "-";
             setStatus(`x:${Math.round(x)} y:${Math.round(y)} idx:${idx} val:${val} ts:${ts}`);
           }
+        });
+
+        dom.addEventListener("dblclick", (event) => {
+          const rect = dom.getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          const inRightPriceAxis = x >= rect.width * 0.88;
+          if (!inRightPriceAxis) {
+            return;
+          }
+          event.preventDefault();
+          fitVisibleCandlesVertically();
         });
       }
 
