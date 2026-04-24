@@ -1,13 +1,12 @@
 # NITRA Project Kanban
 
-Last updated: 2026-04-23
+Last updated: 2026-04-24
 
 ## Backlog
 
 - [ ] Implement deterministic `structure-engine` runtime baseline.
 - [ ] Implement deterministic `risk-engine` runtime baseline.
 - [ ] Implement `execution-gateway` runtime baseline with order-state machine.
-- [ ] Implement replay controller to consume `replay.commands`.
 - [ ] Implement project-wide audit/journal event persistence contract.
 
 ## In Progress
@@ -32,6 +31,7 @@ Last updated: 2026-04-23
 - [x] `DEV-00010` Rust migration for market ingestion connectors.
 - [x] `DEV-00011` Rust migration for market normalization/replay.
 - [x] `DEV-00012` Rust migration for bar/gap/backfill controller.
+- [x] Implement replay controller to consume `replay.commands`.
 
 ## Blocked
 

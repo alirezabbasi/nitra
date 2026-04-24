@@ -19,8 +19,8 @@ This index summarizes delivered ingestion baseline work and links to source tick
 
 - Reuse map: `docs/development/03-delivery/ingestion/artifacts/DEV-00002-reuse-map.md`
 - Runbook: `docs/development/03-delivery/ingestion/artifacts/DEV-00007-live-ingestion-runbook.md`
-- Tests: `tests/dev-00003`, `tests/dev-00004`, `tests/dev-00005`, `tests/dev-00006`, `tests/dev-00008`
-- Runtime services: `services/market-ingestion`, `services/market-normalization`, `services/bar-aggregation`, `services/gap-detection`, `services/backfill-worker`, `services/charting`
+- Tests: `tests/dev-00003`, `tests/dev-00004`, `tests/dev-00005`, `tests/dev-00006`, `tests/dev-00008`, `tests/dev-0013`
+- Runtime services: `services/market-ingestion`, `services/market-normalization`, `services/bar-aggregation`, `services/gap-detection`, `services/backfill-worker`, `services/replay-controller`, `services/charting`
 
 ## Completion status
 

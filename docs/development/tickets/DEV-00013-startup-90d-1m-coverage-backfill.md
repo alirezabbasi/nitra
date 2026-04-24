@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress (runtime baseline implemented; replay-controller execution still required for full broker-history fulfillment)
+In Progress (replay-controller executor implemented; full 90-day completion still depends on source history depth / broker-history adapters)
 
 ## Summary
 
@@ -56,8 +56,12 @@ On service startup, the system must validate coverage in `ohlcv_bar` and automat
 - Added compose/runtime controls:
   - `GAP_STARTUP_SCAN_ENABLED`, `GAP_STARTUP_COVERAGE_DAYS`, `GAP_SYMBOL_REGISTRY_PATH`.
   - `BACKFILL_STARTUP_PROCESS_OPEN_GAPS`, `BACKFILL_FETCH_CHUNK_MINUTES`.
+- Implemented replay-controller executor:
+  - consumes `replay.commands`.
+  - rebuilds `1m` bars from replay ranges using available `raw_tick` source data.
+  - updates `backfill_jobs`, `replay_audit`, and resolves covered gaps in `gap_log`.
 - Remaining dependency:
-  - replay-controller/broker-history executor must consume `replay.commands` and materialize missing historical ticks/bars end-to-end.
+  - broker-history adapters are still required where `raw_tick` does not already contain the requested 90-day range.
 
 ## Verification Plan
 

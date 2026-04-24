@@ -1,6 +1,6 @@
 # Current State Snapshot
 
-Last updated: 2026-04-23
+Last updated: 2026-04-24
 
 ## Where Are We Snapshot
 
@@ -23,15 +23,16 @@ Last updated: 2026-04-23
 - Charting selector upgraded to searchable input and timeframe switching restored with 1m-derived fallback for `5m/15m/1h` when native bars are absent.
 - Added formal architecture requirement: startup must guarantee rolling 90-day `1m` coverage in `ohlcv_bar` for all active instruments.
 - Registered `DEV-00013` to implement deterministic startup coverage audit + missing-only broker backfill.
+- Implemented `replay-controller` executor for `replay.commands` with deterministic `ohlcv_bar` rebuild and backfill/audit status transitions.
 
 ### Current
 
-- `DEV-00013` runtime baseline implemented in deterministic ingestion services (startup 90-day coverage scan + gap/backfill orchestration).
+- `DEV-00013` is in progress with replay execution now wired (`gap-detection` + `backfill-worker` + `replay-controller`).
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Implement replay-controller execution path for `replay.commands` to complete broker-history backfill loop.
+1. Implement broker-history adapters for replay ranges where `raw_tick` source coverage is missing.
 2. Implement deterministic structure-engine runtime baseline.
 3. Implement deterministic risk-engine and execution-gateway runtime baselines.
 
@@ -40,7 +41,7 @@ Last updated: 2026-04-23
 - Risk of architecture drift toward ingestion-only progress.
 - Risk of context drift if memory files are not updated at session close.
 - Open decision: priority ordering between replay controller and structure-engine first slice.
-- Open dependency: broker-history fulfillment still depends on replay-controller runtime execution.
+- Open dependency: broker-history fulfillment still depends on source history adapters beyond current `raw_tick`-backed replay execution.
 
 ## Program status
 

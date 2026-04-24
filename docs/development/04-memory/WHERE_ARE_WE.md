@@ -1,6 +1,6 @@
 # Where Are We
 
-Last updated: 2026-04-23
+Last updated: 2026-04-24
 
 ## Completed
 
@@ -19,15 +19,16 @@ Last updated: 2026-04-23
 - HLD/LLD updated with mandatory startup 90-day `1m` historical coverage policy for all active instruments.
 - `DEV-00013` created to implement startup coverage audit + missing-only broker backfill.
 - `DEV-00013` runtime baseline implemented: startup 90-day coverage scan in `gap-detection`, gap persistence/events, and chunked backfill job/replay orchestration in `backfill-worker`.
+- `DEV-00013` replay execution step implemented: `replay-controller` now consumes `replay.commands` and updates `ohlcv_bar` plus backfill/replay status tables.
 
 ## Current
 
 - Section 5.1 hard-gate enforcement active with deterministic-core migration batch completed.
-- `DEV-00013` is in progress with core runtime changes landed; replay-controller execution remains the final dependency.
+- `DEV-00013` is in progress with replay execution wired; remaining work is source-history depth where replay ranges have no `raw_tick` data.
 
 ## Next
 
-1. Implement replay-controller execution path to fulfill `replay.commands` for broker-history recovery.
+1. Implement broker-history adapters to fulfill replay ranges beyond currently available `raw_tick` depth.
 2. Implement deterministic structure-engine runtime baseline.
 3. Implement deterministic risk/execution runtime baselines.
 
@@ -35,7 +36,7 @@ Last updated: 2026-04-23
 
 - Context drift if session close memory updates are skipped.
 - Delivery risk shifted to deterministic engine implementation depth (structure/risk/execution).
-- Open dependency: broker-history replay executor is not yet wired, so queued startup backfills are not fully auto-fulfilled end-to-end.
+- Open dependency: replay execution is wired, but 90-day completion still depends on source history availability/adapters.
 
 ## Section 5.1 Compliance Snapshot
 

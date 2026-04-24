@@ -804,9 +804,16 @@
           const payload = await response.json();
           await loadBars();
           fitChart();
-          setStatus(
-            `backfill done · bars:${payload.bars_upserted} · source:${payload.source_tick_count} ticks`
-          );
+          if (payload.complete_90d_1m) {
+            setStatus(
+              `backfill complete · 90d OK · ticks:${payload.source_tick_count} · venue_rows:${payload.venue_rows_fetched}`
+            );
+          } else {
+            const missing = payload.missing_after_fetch_count ?? "?";
+            setStatus(
+              `backfill incomplete · missing:${missing}m · venue_err:${payload.venue_fetch_error || "none"}`
+            );
+          }
         } catch (error) {
           setStatus(`Backfill error: ${error.message}`);
         } finally {

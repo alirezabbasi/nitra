@@ -1,6 +1,6 @@
 # Master Roadmap (HLD Section 5 Aligned)
 
-Last updated: 2026-04-23
+Last updated: 2026-04-24
 
 ## Status legend
 
@@ -39,11 +39,10 @@ Last updated: 2026-04-23
 2. Structure engine baseline (service skeleton + input/output contracts)
 3. Risk engine deterministic checks baseline
 4. Execution gateway order-state machine baseline
-5. Replay controller consumer for `replay.commands`
-6. Audit/journal events for deterministic decision path
-7. Feature platform bootstrap (contract-first)
-8. Inference gateway service logic with schema validation
-9. RAG/LLM advisory path with strict boundaries
+5. Audit/journal events for deterministic decision path
+6. Feature platform bootstrap (contract-first)
+7. Inference gateway service logic with schema validation
+8. RAG/LLM advisory path with strict boundaries
 
 ## Gate policy between modules
 

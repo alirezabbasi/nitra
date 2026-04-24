@@ -209,3 +209,29 @@ Append one entry at the end of each substantial session.
   - `cargo test --manifest-path services/backfill-worker/Cargo.toml` passes.
 - Next recommended action:
   - implement replay-controller execution for `replay.commands` to fully close the broker-history backfill loop end-to-end.
+
+---
+
+## 2026-04-24 — Session Entry 011
+
+- Objective:
+  - implement replay-controller execution step for `DEV-00013` so queued replay jobs materialize bars and update lifecycle state.
+- Work completed:
+  - added new deterministic Rust service `services/replay-controller` (Kafka consumer for `replay.commands`).
+  - implemented replay execution path:
+    - parse replay commands and ranges,
+    - aggregate `raw_tick` into minute OHLC,
+    - upsert `ohlcv_bar`,
+    - update `backfill_jobs` (`running`/`completed`/`partial`/`failed_no_source_data`),
+    - update `replay_audit` completion/error fields,
+    - resolve covered `gap_log` rows when ranges become complete.
+  - wired `replay-controller` into `docker-compose.yml` with registry mount and environment contract.
+  - updated policy manifest (`policy/technology-allocation.yaml`) and LLD service catalog to register replay-controller under deterministic core.
+  - updated ingestion env docs, live runbook, and `DEV-00013` ticket notes.
+  - extended `tests/dev-0013/run.sh` to validate replay-controller presence and tests.
+- Verification:
+  - replay-controller unit tests pass.
+  - updated `tests/dev-0013/run.sh` passes.
+  - `make enforce-section-5-1` passes with replay-controller policy registration.
+- Next recommended action:
+  - add broker-history source adapters for ranges where `raw_tick` does not yet hold full 90-day history.

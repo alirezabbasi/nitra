@@ -15,3 +15,4 @@ Current entries:
 - `BUG-00001`: TimescaleDB bootstrap halts before creating `raw_tick` and related tables.
 - `BUG-00002`: `market-normalization` crash loop on duplicate processed-message ledger offsets.
 - `BUG-00003`: mock ingestion projected identical FX-like prices across all instruments (including crypto).
+- `BUG-00004`: manual chart backfill reported success without enforcing full 90-day `1m` continuity.

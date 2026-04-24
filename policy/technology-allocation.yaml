@@ -13,10 +13,14 @@
       "id": "market_ingestion_connectors",
       "catalog_ref": "## 1. Market Ingestion Service",
       "layer": "deterministic_core",
-      "allowed_runtimes": ["rust"],
+      "allowed_runtimes": [
+        "rust"
+      ],
       "current_runtime": "rust",
       "owner_status": "compliant",
-      "repo_paths": ["services/market-ingestion"],
+      "repo_paths": [
+        "services/market-ingestion"
+      ],
       "contracts": {
         "openapi_ref": "docs/design/nitra_system_lld/03_openapi_contracts.md",
         "asyncapi_ref": "docs/design/nitra_system_lld/04_asyncapi_event_contracts.md"
@@ -26,10 +30,14 @@
       "id": "market_normalization_replay",
       "catalog_ref": "## 2. Market Normalization and Replay Service",
       "layer": "deterministic_core",
-      "allowed_runtimes": ["rust"],
+      "allowed_runtimes": [
+        "rust"
+      ],
       "current_runtime": "rust",
       "owner_status": "compliant",
-      "repo_paths": ["services/market-normalization"],
+      "repo_paths": [
+        "services/market-normalization"
+      ],
       "contracts": {
         "openapi_ref": "docs/design/nitra_system_lld/03_openapi_contracts.md",
         "asyncapi_ref": "docs/design/nitra_system_lld/04_asyncapi_event_contracts.md"
@@ -39,10 +47,33 @@
       "id": "bar_gap_backfill",
       "catalog_ref": "## 4. Gap Detection and Backfill Controller",
       "layer": "deterministic_core",
-      "allowed_runtimes": ["rust"],
+      "allowed_runtimes": [
+        "rust"
+      ],
       "current_runtime": "rust",
       "owner_status": "compliant",
-      "repo_paths": ["services/bar-aggregation", "services/gap-detection", "services/backfill-worker"],
+      "repo_paths": [
+        "services/bar-aggregation",
+        "services/gap-detection",
+        "services/backfill-worker"
+      ],
+      "contracts": {
+        "openapi_ref": "docs/design/nitra_system_lld/03_openapi_contracts.md",
+        "asyncapi_ref": "docs/design/nitra_system_lld/04_asyncapi_event_contracts.md"
+      }
+    },
+    {
+      "id": "replay_controller",
+      "catalog_ref": "## 4.1 Replay Controller",
+      "layer": "deterministic_core",
+      "allowed_runtimes": [
+        "rust"
+      ],
+      "current_runtime": "rust",
+      "owner_status": "compliant",
+      "repo_paths": [
+        "services/replay-controller"
+      ],
       "contracts": {
         "openapi_ref": "docs/design/nitra_system_lld/03_openapi_contracts.md",
         "asyncapi_ref": "docs/design/nitra_system_lld/04_asyncapi_event_contracts.md"
@@ -52,10 +83,14 @@
       "id": "structure_engine",
       "catalog_ref": "## 5. Structure Engine",
       "layer": "deterministic_core",
-      "allowed_runtimes": ["rust"],
+      "allowed_runtimes": [
+        "rust"
+      ],
       "current_runtime": "rust",
       "owner_status": "compliant",
-      "repo_paths": ["services/structure-engine"],
+      "repo_paths": [
+        "services/structure-engine"
+      ],
       "contracts": {
         "openapi_ref": "docs/design/nitra_system_lld/03_openapi_contracts.md",
         "asyncapi_ref": "docs/design/nitra_system_lld/04_asyncapi_event_contracts.md"
@@ -65,10 +100,14 @@
       "id": "risk_engine",
       "catalog_ref": "## 10. Risk Engine",
       "layer": "deterministic_core",
-      "allowed_runtimes": ["rust"],
+      "allowed_runtimes": [
+        "rust"
+      ],
       "current_runtime": "rust",
       "owner_status": "compliant",
-      "repo_paths": ["services/risk-engine"],
+      "repo_paths": [
+        "services/risk-engine"
+      ],
       "contracts": {
         "openapi_ref": "docs/design/nitra_system_lld/03_openapi_contracts.md",
         "asyncapi_ref": "docs/design/nitra_system_lld/04_asyncapi_event_contracts.md"
@@ -78,7 +117,9 @@
       "id": "portfolio_engine",
       "catalog_ref": "## 11. Portfolio Engine",
       "layer": "deterministic_core",
-      "allowed_runtimes": ["rust"],
+      "allowed_runtimes": [
+        "rust"
+      ],
       "current_runtime": "none",
       "owner_status": "blocked",
       "repo_paths": [],
@@ -91,10 +132,14 @@
       "id": "execution_gateway",
       "catalog_ref": "## 12. Execution Gateway (OMS)",
       "layer": "deterministic_core",
-      "allowed_runtimes": ["rust"],
+      "allowed_runtimes": [
+        "rust"
+      ],
       "current_runtime": "rust",
       "owner_status": "compliant",
-      "repo_paths": ["services/execution-gateway"],
+      "repo_paths": [
+        "services/execution-gateway"
+      ],
       "contracts": {
         "openapi_ref": "docs/design/nitra_system_lld/03_openapi_contracts.md",
         "asyncapi_ref": "docs/design/nitra_system_lld/04_asyncapi_event_contracts.md"
@@ -104,7 +149,9 @@
       "id": "feature_service",
       "catalog_ref": "## 6. Feature Service",
       "layer": "probabilistic_ai",
-      "allowed_runtimes": ["python"],
+      "allowed_runtimes": [
+        "python"
+      ],
       "current_runtime": "none",
       "owner_status": "blocked",
       "repo_paths": [],
@@ -118,7 +165,9 @@
       "id": "research_orchestrator",
       "catalog_ref": "## 7. Research Orchestrator",
       "layer": "probabilistic_ai",
-      "allowed_runtimes": ["python"],
+      "allowed_runtimes": [
+        "python"
+      ],
       "current_runtime": "none",
       "owner_status": "blocked",
       "repo_paths": [],
@@ -132,7 +181,9 @@
       "id": "model_training",
       "catalog_ref": "## 8. Model Training Service",
       "layer": "probabilistic_ai",
-      "allowed_runtimes": ["python"],
+      "allowed_runtimes": [
+        "python"
+      ],
       "current_runtime": "none",
       "owner_status": "blocked",
       "repo_paths": [],
@@ -146,10 +197,14 @@
       "id": "online_inference_gateway",
       "catalog_ref": "## 9. Online Inference Gateway",
       "layer": "probabilistic_ai",
-      "allowed_runtimes": ["python"],
+      "allowed_runtimes": [
+        "python"
+      ],
       "current_runtime": "python",
       "owner_status": "compliant",
-      "repo_paths": ["services/inference-gateway"],
+      "repo_paths": [
+        "services/inference-gateway"
+      ],
       "contracts": {
         "openapi_ref": "docs/design/nitra_system_lld/03_openapi_contracts.md",
         "asyncapi_ref": "docs/design/nitra_system_lld/04_asyncapi_event_contracts.md",
@@ -160,7 +215,9 @@
       "id": "rag_indexer",
       "catalog_ref": "## 13. RAG Indexer",
       "layer": "probabilistic_ai",
-      "allowed_runtimes": ["python"],
+      "allowed_runtimes": [
+        "python"
+      ],
       "current_runtime": "none",
       "owner_status": "blocked",
       "repo_paths": [],
@@ -174,10 +231,14 @@
       "id": "llm_analyst",
       "catalog_ref": "## 14. LLM Analyst and Critic Service",
       "layer": "probabilistic_ai",
-      "allowed_runtimes": ["python"],
+      "allowed_runtimes": [
+        "python"
+      ],
       "current_runtime": "python",
       "owner_status": "compliant",
-      "repo_paths": ["services/llm-analyst"],
+      "repo_paths": [
+        "services/llm-analyst"
+      ],
       "contracts": {
         "openapi_ref": "docs/design/nitra_system_lld/03_openapi_contracts.md",
         "asyncapi_ref": "docs/design/nitra_system_lld/04_asyncapi_event_contracts.md",
@@ -188,10 +249,14 @@
       "id": "operator_ui",
       "catalog_ref": "## 16. Operator and Charting UI",
       "layer": "ui",
-      "allowed_runtimes": ["typescript"],
+      "allowed_runtimes": [
+        "typescript"
+      ],
       "current_runtime": "python",
       "owner_status": "blocked",
-      "repo_paths": ["services/charting"],
+      "repo_paths": [
+        "services/charting"
+      ],
       "migration": {
         "rust_target": "N/A",
         "migration_ticket": "TBD",

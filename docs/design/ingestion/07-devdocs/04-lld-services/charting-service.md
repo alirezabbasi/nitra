@@ -23,7 +23,11 @@ Instrument selection is populated dynamically from database-backed market discov
 6. Service queries TimescaleDB table `ohlcv_bar` and returns chart-ready candles.
 7. If higher timeframe bars are missing, UI derives them from available `1m` bars.
 8. Web app polls `/api/v1/ticks/hot` and synthesizes/updates a provisional current candle between persisted bar updates.
-9. User can trigger `Backfill 90d` from header; service rebuilds `1m` bars for the selected market from available source tick history.
+9. User can trigger `Backfill 90d` from header; service enforces strict 90-day `1m` continuity:
+   - rebuild from `raw_tick` first,
+   - detect any missing `1m` buckets,
+   - fetch missing ranges from venue history adapter,
+   - return incomplete status if any minute remains missing.
 
 ## API Contract
 
@@ -44,11 +48,14 @@ Instrument selection is populated dynamically from database-backed market discov
 
 - `POST /api/v1/backfill/90d`
   - request body: `{"venue":"<venue>","symbol":"<symbol>"}`
-  - behavior: rebuilds/upserts selected-symbol `1m` bars for the last 90 days using currently available `raw_tick` data
-  - returns upsert count and source-range coverage details
+  - behavior:
+    - checks last 90 days (closed-minute window) in `ohlcv_bar` for selected `venue + symbol`
+    - if any `1m` gap exists, first rebuilds from `raw_tick`, then fetches missing ranges from venue history
+    - requires full `90d x 1m` continuity to report success (`complete_90d_1m=true`)
+  - returns coverage counts (`missing_before_fetch_count`, `missing_after_fetch_count`) and adapter status
 
 Note:
-- If source data does not have full 90-day depth, endpoint returns partial coverage and upserts what exists.
+- If venue adapter is unavailable or venue does not provide full minute history, endpoint returns explicit incomplete status with remaining missing-minute count.
 
 ## Environment Variables
 
@@ -57,6 +64,9 @@ Note:
 - `CHARTING_DEFAULT_LIMIT`
 - `CHARTING_REFRESH_SECS`
 - `DATABASE_URL` (injected by compose)
+- `OANDA_API_TOKEN` (for OANDA history fetch adapter)
+- `OANDA_REST_URL` (default `https://api-fxpractice.oanda.com`)
+- `COINBASE_REST_URL` (default `https://api.exchange.coinbase.com`)
 
 ## Implementation Files
 

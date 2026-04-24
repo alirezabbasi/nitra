@@ -162,6 +162,33 @@ Enforcement command:
 
 ---
 
+## 4.1 Replay Controller
+
+**Purpose**
+- Execute `replay.commands` and materialize missing `1m` candles for deterministic backfill ranges.
+
+**Responsibilities**
+- consume `replay.commands`
+- execute deterministic replay range processing
+- rebuild `1m` bars into `ohlcv_bar` from available source ticks
+- update `backfill_jobs` lifecycle (`running`/`completed`/`partial`/`failed_no_source_data`)
+- update `replay_audit` completion status and moved-count metrics
+
+**Consumes**
+- `replay.commands`
+
+**Produces**
+- `ohlcv_bar` range updates
+- replay/backfill status transitions in Timescale tables
+
+**Technology (mandatory)**
+- Rust
+
+**Operational note**
+- End-to-end 90-day fulfillment depends on source tick availability for replay ranges.
+
+---
+
 ## 5. Structure Engine
 
 **Purpose**
