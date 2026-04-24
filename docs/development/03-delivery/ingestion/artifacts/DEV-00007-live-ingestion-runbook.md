@@ -100,20 +100,27 @@ curl -sS -X POST http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/adapter
 curl -sS -X POST http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/adapter-check -H 'content-type: application/json' -d '{"venue":"capital","symbol":"EURUSD"}' | jq
 ```
 
-7. Replay source-depth verification (BUG-00006 fix path):
+7. Gap watchdog status and explicit window backfill:
+
+```bash
+curl -sS http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/watchdog | jq
+curl -sS -X POST http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/window -H 'content-type: application/json' -d '{"venue":"coinbase","symbol":"ADAUSD","from_ts":"2026-04-24T00:00:00Z","to_ts":"2026-04-24T06:00:00Z"}' | jq
+```
+
+8. Replay source-depth verification (BUG-00006 fix path):
 
 ```bash
 docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, COUNT(*) FROM backfill_jobs GROUP BY status ORDER BY status;"
 docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, COUNT(*) FROM replay_audit GROUP BY status ORDER BY status;"
 ```
 
-8. Optional DEV-00006 checks:
+9. Optional DEV-00006 checks:
 
 ```bash
 make test-dev-00006
 ```
 
-9. Optional duplicate-injection integration drill (requires Docker access):
+10. Optional duplicate-injection integration drill (requires Docker access):
 
 ```bash
 DEV00006_INTEGRATION=1 tests/dev-00006/run.sh

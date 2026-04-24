@@ -23,6 +23,9 @@ Last updated: 2026-04-24
 - `DEV-00014` implementation added in charting backfill path: Capital history adapter, Coinbase fallback route, and session-aware FX weekend continuity policy.
 - `DEV-00013` replay path upgraded with venue-history fallback adapters (`oanda`/`coinbase`/`capital`) for ranges that remain incomplete after raw-tick replay.
 - `DEV-00014` adapter hardening completed with retry behavior improvements and live probe endpoint `POST /api/v1/backfill/adapter-check`.
+- Backfill execution priority updated to recent-first (`newest -> oldest`) for missing ranges.
+- Added charting watchdog automation + explicit window endpoint (`/api/v1/backfill/watchdog`, `/api/v1/backfill/window`) for automatic and operator-driven gap recovery.
+- Charting non-`1m` timeframes now derive from `1m` backfilled history, improving full-range availability after 90d coverage rebuild.
 
 ## Current
 

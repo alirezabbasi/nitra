@@ -363,3 +363,24 @@ Append one entry at the end of each substantial session.
 - Next recommended action:
   - run live compose validation with broker credentials and collect post-fix `backfill_jobs`/`replay_audit` status evidence before marking `DEV-00013` and `DEV-00014` done.
 
+---
+
+## 2026-04-25 — Session Entry 017
+
+- Objective:
+  - improve 90d backfill operability with recent-first gap fill priority, automatic gap watchdog, and full-timeframe chart availability after `1m` backfill.
+- Work completed:
+  - updated charting backfill scheduler to process missing windows newest-to-oldest (recent continuity first).
+  - refactored charting backfill logic into reusable window runner and added explicit endpoint:
+    - `POST /api/v1/backfill/window` (`from_ts`/`to_ts`).
+  - added charting startup watchdog loop with status endpoint:
+    - `GET /api/v1/backfill/watchdog`
+    - periodic scan of recent symbols for 90d `1m` continuity gaps with bounded auto-backfill.
+  - updated charting data APIs (`markets/available`, `bars/hot`, `bars/history`) so non-`1m` timeframes are derived from `1m` history coverage.
+  - removed chart frontend lazy-load guard that blocked history expansion when timeframe data came from `1m` derivation.
+  - updated compose/env/runbook/ticket/memory docs and DEV-0014 checks for new watchdog/window behavior.
+- Verification:
+  - `PYTHONPYCACHEPREFIX=/tmp python -m py_compile services/charting/app.py` passes.
+  - `tests/dev-0014/run.sh` passes.
+- Next recommended action:
+  - run live runtime validation for watchdog-triggered recovery and verify 5m/15m/1h chart depth after `Backfill 90d`.

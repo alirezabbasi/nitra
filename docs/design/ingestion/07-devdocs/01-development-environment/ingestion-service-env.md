@@ -19,6 +19,18 @@ This page defines environment variables for the minimal ingestion runtime wired 
 - `CAPITAL_EPIC_MAP` optional JSON map for canonical symbol -> epic (for example `{"EURUSD":"CS.D.EURUSD.MINI.IP"}`)
 - `CHARTING_VENUE_FETCH_TIMEOUT_SECS` default `8` (per-request timeout for venue history backfill calls)
 - `CHARTING_VENUE_FETCH_MAX_ERRORS` default `3` (fail-fast threshold before aborting long backfill loops)
+- `CHARTING_GAP_WATCHDOG_ENABLED` default `true` (periodic 90d gap scanner/backfill trigger)
+- `CHARTING_GAP_WATCHDOG_INTERVAL_SECS` default `300` (watchdog scan interval)
+- `CHARTING_GAP_WATCHDOG_MARKETS_PER_CYCLE` default `8` (symbols scanned per cycle)
+- `CHARTING_GAP_WATCHDOG_LOOKBACK_HOURS` default `48` (recent-symbol discovery lookback on `ohlcv_bar`)
+- `CHARTING_GAP_WATCHDOG_MAX_RANGES_PER_RUN` default `48` (caps missing-range chunks processed per watchdog run)
+
+Operational notes:
+- Backfill range priority is newest-to-oldest so recent continuity is restored first.
+- New APIs:
+  - `POST /api/v1/backfill/window` for explicit `from_ts`/`to_ts` backfill windows.
+  - `GET /api/v1/backfill/watchdog` for watchdog runtime status.
+- For non-`1m` chart timeframes, charting API derives candles from `1m` storage, so once `1m` backfill is complete, higher timeframes become available without waiting for native timeframe persistence.
 
 ## market-ingestion services (parallel)
 

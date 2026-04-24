@@ -63,6 +63,7 @@ On service startup, the system must validate coverage in `ohlcv_bar` and automat
 - Implemented replay-controller venue-history fallback adapters:
   - when replay range remains incomplete after `raw_tick` rebuild, fetches venue candles from `oanda`, `coinbase` (with public fallback), or `capital`.
   - upserts fetched bars into `ohlcv_bar` and re-evaluates range completeness before assigning final replay/backfill status.
+- Charting runtime now derives non-`1m` timeframe responses from `1m` backfilled storage, ensuring 90-day view continuity across timeframe switches once `1m` coverage is complete.
 
 ## Verification Plan
 

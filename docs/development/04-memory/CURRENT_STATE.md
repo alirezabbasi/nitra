@@ -32,11 +32,16 @@ Last updated: 2026-04-24
 - Implemented replay-controller venue-history fallback adapters (`oanda`/`coinbase`/`capital`) so replay ranges can fetch broker candles when `raw_tick` depth is insufficient.
 - Hardened charting venue adapters for transient network errors and numeric payload variance; added `POST /api/v1/backfill/adapter-check` live probe endpoint.
 - Updated compose/env contracts and dev test packs (`tests/dev-0013`, `tests/dev-0014`) for replay-history and adapter-hardening coverage.
+- Backfill range execution priority updated to newest-first so recent continuity is restored before deep-history windows.
+- Added charting watchdog automation to scan latest 90d `1m` continuity gaps and auto-trigger bounded backfill windows.
+- Added charting explicit-range backfill endpoint (`/api/v1/backfill/window`) and watchdog status endpoint (`/api/v1/backfill/watchdog`).
+- Updated charting timeframe APIs so non-`1m` candles are derived from `1m` coverage, enabling full-history timeframe availability after `1m` backfill completion.
 
 ### Current
 
 - `DEV-00013` implementation now includes replay venue-history fallback; runtime evidence collection is in progress.
 - `DEV-00014` implementation now includes adapter hardening + live probe endpoint; runtime evidence collection is in progress.
+- `DEV-00014` now also includes watchdog automation and recent-first backfill priority; live runtime validation is still required.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
