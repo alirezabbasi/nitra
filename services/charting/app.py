@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
 
 import psycopg
 import uvicorn
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -62,6 +63,132 @@ def charting_config() -> dict:
         "default_timeframe": DEFAULT_TIMEFRAME,
         "default_limit": DEFAULT_LIMIT,
         "default_refresh_secs": DEFAULT_REFRESH_SECS,
+    }
+
+
+def broker_symbol_candidates(venue: str, symbol: str) -> list[str]:
+    out = [symbol]
+    if venue.lower() == "oanda" and len(symbol) == 6 and symbol.isalpha():
+        out.append(f"{symbol[:3]}_{symbol[3:]}")
+    dedup: list[str] = []
+    for item in out:
+        if item not in dedup:
+            dedup.append(item)
+    return dedup
+
+
+@app.post("/api/v1/backfill/90d")
+def backfill_90d(
+    venue: str = Body(min_length=1, max_length=64),
+    symbol: str = Body(min_length=1, max_length=64),
+) -> dict:
+    venue_norm = venue.strip().lower()
+    symbol_norm = symbol.strip().upper()
+    end_dt = datetime.now(timezone.utc)
+    start_dt = end_dt - timedelta(days=90)
+    broker_symbols = broker_symbol_candidates(venue_norm, symbol_norm)
+
+    coverage_query = """
+    SELECT
+      MIN(event_ts_received) AS min_ts,
+      MAX(event_ts_received) AS max_ts,
+      COUNT(*) AS tick_count
+    FROM raw_tick
+    WHERE venue = %s
+      AND broker_symbol = ANY(%s)
+      AND event_ts_received >= %s
+      AND event_ts_received < %s
+      AND COALESCE(mid, (bid + ask) / 2.0, last) IS NOT NULL
+    """
+
+    bars_query = """
+    WITH ticks AS (
+      SELECT
+        date_trunc('minute', event_ts_received) AS bucket_start,
+        event_ts_received AS ts,
+        COALESCE(mid, (bid + ask) / 2.0, last) AS price
+      FROM raw_tick
+      WHERE venue = %s
+        AND broker_symbol = ANY(%s)
+        AND event_ts_received >= %s
+        AND event_ts_received < %s
+        AND COALESCE(mid, (bid + ask) / 2.0, last) IS NOT NULL
+    )
+    SELECT
+      bucket_start,
+      (ARRAY_AGG(price ORDER BY ts ASC))[1] AS open,
+      MAX(price) AS high,
+      MIN(price) AS low,
+      (ARRAY_AGG(price ORDER BY ts DESC))[1] AS close,
+      COUNT(*)::bigint AS trade_count,
+      MAX(ts) AS last_event_ts
+    FROM ticks
+    GROUP BY bucket_start
+    ORDER BY bucket_start ASC
+    """
+
+    upsert_query = """
+    INSERT INTO ohlcv_bar (
+      venue, canonical_symbol, timeframe, bucket_start,
+      open, high, low, close, volume, trade_count, last_event_ts
+    ) VALUES (%s,%s,'1m',%s,%s,%s,%s,%s,%s,%s,%s)
+    ON CONFLICT (venue, canonical_symbol, timeframe, bucket_start)
+    DO UPDATE SET
+      open = EXCLUDED.open,
+      high = EXCLUDED.high,
+      low = EXCLUDED.low,
+      close = EXCLUDED.close,
+      volume = EXCLUDED.volume,
+      trade_count = EXCLUDED.trade_count,
+      last_event_ts = GREATEST(ohlcv_bar.last_event_ts, EXCLUDED.last_event_ts),
+      updated_at = now()
+    """
+
+    with psycopg.connect(db_url()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(coverage_query, (venue_norm, broker_symbols, start_dt, end_dt))
+            coverage = cur.fetchone()
+            min_ts, max_ts, tick_count = coverage
+
+            cur.execute(bars_query, (venue_norm, broker_symbols, start_dt, end_dt))
+            bars = cur.fetchall()
+
+            if bars:
+                payload = [
+                    (
+                        venue_norm,
+                        symbol_norm,
+                        bucket_start,
+                        float(o),
+                        float(h),
+                        float(l),
+                        float(c),
+                        None,
+                        int(trade_count),
+                        last_event_ts,
+                    )
+                    for bucket_start, o, h, l, c, trade_count, last_event_ts in bars
+                    if None not in (bucket_start, o, h, l, c, last_event_ts)
+                ]
+                cur.executemany(upsert_query, payload)
+
+        conn.commit()
+
+    requested_minutes = int((end_dt - start_dt).total_seconds() // 60)
+    source_minutes = len(bars)
+    return {
+        "venue": venue_norm,
+        "symbol": symbol_norm,
+        "requested_window": {"start": start_dt.isoformat(), "end": end_dt.isoformat()},
+        "requested_minutes": requested_minutes,
+        "source_tick_count": int(tick_count or 0),
+        "source_tick_range": {
+            "min_ts": min_ts.isoformat() if min_ts else None,
+            "max_ts": max_ts.isoformat() if max_ts else None,
+        },
+        "bars_upserted": source_minutes,
+        "coverage_ratio": (source_minutes / requested_minutes) if requested_minutes > 0 else 0.0,
+        "note": "Backfill uses currently available source history. If source has less than 90 days, partial coverage is expected.",
     }
 
 

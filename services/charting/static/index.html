@@ -68,7 +68,6 @@
       }
 
       .tool-btn,
-      .tf-btn,
       .select {
         border: 1px solid transparent;
         color: var(--muted);
@@ -80,8 +79,7 @@
         font-size: 12px;
       }
 
-      .tool-btn,
-      .tf-btn {
+      .tool-btn {
         cursor: pointer;
       }
 
@@ -92,13 +90,83 @@
         color: #e3e7f0;
       }
 
-      .tool-btn:hover,
-      .tf-btn:hover {
+      #timeframe-select {
+        min-width: 0;
+        width: 8ch;
+        padding-left: 8px;
+        padding-right: 18px;
+      }
+
+      .combo {
+        position: relative;
+        display: flex;
+        align-items: center;
+        min-width: 260px;
+      }
+
+      .combo .select {
+        width: 100%;
+        min-width: 0;
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+      }
+
+      .combo-toggle {
+        border: 1px solid #3a4660;
+        border-left: 0;
+        color: #e3e7f0;
+        background: #27324a;
+        border-top-right-radius: 6px;
+        border-bottom-right-radius: 6px;
+        height: 30px;
+        min-width: 28px;
+        cursor: pointer;
+      }
+
+      .combo-menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        background: #1f2638;
+        border: 1px solid #3a4660;
+        border-radius: 6px;
+        max-height: 260px;
+        overflow: auto;
+        z-index: 30;
+      }
+
+      .combo-menu.hidden {
+        display: none;
+      }
+
+      .combo-item {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color: #e3e7f0;
+        text-align: left;
+        padding: 8px 10px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .combo-item:hover,
+      .combo-item.active {
+        background: #27324a;
+      }
+
+      .combo-empty {
+        padding: 8px 10px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .tool-btn:hover {
         background: #252d3f;
         color: var(--text);
       }
 
-      .tf-btn.active,
       .tool-btn.active {
         background: #27324a;
         color: #e3e7f0;
@@ -139,28 +207,28 @@
       <div class="topbar">
         <div class="brand">NITRA · KLine</div>
         <div class="divider"></div>
-        <div class="tool-group">
-          <input
-            id="market-search"
-            class="select"
-            list="market-options"
-            title="Search Venue · Instrument"
-            placeholder="Search venue/instrument"
-            autocomplete="off"
-          />
-          <datalist id="market-options"></datalist>
+        <div class="tool-group combo" id="market-combo">
+          <input id="market-search" class="select" title="Search Venue · Instrument" placeholder="Search venue/instrument" autocomplete="off" />
+          <button class="combo-toggle" id="market-toggle" title="Show available markets">▼</button>
+          <div id="market-dropdown" class="combo-menu hidden"></div>
         </div>
         <div class="divider"></div>
-        <div class="tool-group" id="timeframes">
-          <button class="tf-btn active" data-tf="1m">1m</button>
-          <button class="tf-btn" data-tf="5m">5m</button>
-          <button class="tf-btn" data-tf="15m">15m</button>
-          <button class="tf-btn" data-tf="1h">1h</button>
+        <div class="tool-group">
+          <select id="timeframe-select" class="select" title="Timeframe">
+            <option value="1m">1m</option>
+            <option value="5m">5m</option>
+            <option value="15m">15m</option>
+            <option value="30m">30m</option>
+            <option value="1h">1h</option>
+            <option value="4h">4h</option>
+            <option value="1d">1d</option>
+          </select>
         </div>
         <div class="divider"></div>
         <div class="tool-group">
           <button class="tool-btn" id="reload-btn">Reload</button>
           <button class="tool-btn" id="fit-btn">Fit</button>
+          <button class="tool-btn" id="backfill-btn">Backfill 90d</button>
         </div>
         <div id="status" class="live-status">Loading...</div>
       </div>
@@ -172,17 +240,20 @@
 
     <script>
       const marketSearchEl = document.getElementById("market-search");
-      const marketOptionsEl = document.getElementById("market-options");
+      const marketToggleEl = document.getElementById("market-toggle");
+      const marketDropdownEl = document.getElementById("market-dropdown");
+      const marketComboEl = document.getElementById("market-combo");
       const statusEl = document.getElementById("status");
       const reloadBtn = document.getElementById("reload-btn");
       const fitBtn = document.getElementById("fit-btn");
-      const timeframeRoot = document.getElementById("timeframes");
+      const backfillBtn = document.getElementById("backfill-btn");
+      const timeframeSelectEl = document.getElementById("timeframe-select");
 
       const state = {
         timeframe: "1m",
         markets: [],
         selected: null,
-        marketLabelToKey: new Map(),
+        comboOpen: false,
         persistedBars: [],
         liveBars: [],
         liveCursorMs: null,
@@ -458,9 +529,7 @@
 
       function setActiveTimeframe(tf) {
         state.timeframe = tf;
-        Array.from(timeframeRoot.querySelectorAll(".tf-btn")).forEach((btn) => {
-          btn.classList.toggle("active", btn.dataset.tf === tf);
-        });
+        timeframeSelectEl.value = tf;
       }
 
       function getSelectedMarket(venue, symbol) {
@@ -478,44 +547,93 @@
         return getSelectedMarket(venue, symbol);
       }
 
-      function renderMarketSelector() {
-        marketOptionsEl.innerHTML = "";
-        state.marketLabelToKey = new Map();
-
+      function openMarketDropdown(showAll = false) {
         if (!state.markets.length) {
-          marketSearchEl.value = "";
-          marketSearchEl.placeholder = "No market";
-          state.selected = null;
+          marketDropdownEl.classList.add("hidden");
+          state.comboOpen = false;
           return;
         }
+        state.comboOpen = true;
+        marketDropdownEl.classList.remove("hidden");
+        renderMarketDropdown(showAll ? "" : marketSearchEl.value);
+      }
 
-        marketSearchEl.placeholder = "Search venue/instrument";
+      function closeMarketDropdown() {
+        state.comboOpen = false;
+        marketDropdownEl.classList.add("hidden");
+      }
 
+      function filterMarkets(queryText) {
+        const query = (queryText || "").trim().toLowerCase();
         const markets = [...state.markets].sort((a, b) => {
           const s = a.symbol.localeCompare(b.symbol);
           if (s !== 0) return s;
           return a.venue.localeCompare(b.venue);
         });
+        if (!query) {
+          return markets;
+        }
+        return markets.filter((m) => formatMarket(m).toLowerCase().includes(query));
+      }
 
-        for (const market of markets) {
-          const option = document.createElement("option");
-          const label = formatMarket(market);
-          option.value = label;
-          marketOptionsEl.appendChild(option);
-          state.marketLabelToKey.set(label.toLowerCase(), marketKey(market));
+      function selectMarket(market) {
+        state.selected = market;
+        marketSearchEl.value = formatMarket(market);
+      }
+
+      function renderMarketDropdown(queryText = "") {
+        marketDropdownEl.innerHTML = "";
+        const filtered = filterMarkets(queryText);
+        if (!filtered.length) {
+          const empty = document.createElement("div");
+          empty.className = "combo-empty";
+          empty.textContent = "No matching market";
+          marketDropdownEl.appendChild(empty);
+          return;
         }
 
+        for (const market of filtered) {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "combo-item";
+          if (state.selected && state.selected.venue === market.venue && state.selected.symbol === market.symbol) {
+            btn.classList.add("active");
+          }
+          btn.textContent = formatMarket(market);
+          btn.addEventListener("click", async () => {
+            selectMarket(market);
+            closeMarketDropdown();
+            await loadBars();
+            startLivePolling();
+          });
+          marketDropdownEl.appendChild(btn);
+        }
+      }
+
+      function renderMarketSelector() {
+        if (!state.markets.length) {
+          marketSearchEl.value = "";
+          marketSearchEl.placeholder = "No market";
+          state.selected = null;
+          closeMarketDropdown();
+          return;
+        }
+
+        marketSearchEl.placeholder = "Search venue/instrument";
+        const filteredAll = filterMarkets("");
         const existing = state.selected ? getSelectedMarket(state.selected.venue, state.selected.symbol) : null;
-        state.selected = existing || markets[0];
+        state.selected = existing || filteredAll[0];
         marketSearchEl.value = state.selected ? formatMarket(state.selected) : "";
+        if (state.comboOpen) {
+          renderMarketDropdown(marketSearchEl.value);
+        }
       }
 
       function selectedMarketFromInput() {
         const label = marketSearchEl.value.trim().toLowerCase();
         if (!label) return null;
-        const key = state.marketLabelToKey.get(label);
-        if (!key) return null;
-        return getSelectedMarketByKey(key);
+        const matches = state.markets.filter((m) => formatMarket(m).toLowerCase() === label);
+        return matches[0] || null;
       }
 
       async function loadMarkets() {
@@ -594,21 +712,60 @@
         }
       }
 
+      marketSearchEl.addEventListener("input", () => {
+        openMarketDropdown(false);
+      });
+
+      marketSearchEl.addEventListener("focus", () => {
+        openMarketDropdown(true);
+      });
+
+      marketSearchEl.addEventListener("click", () => {
+        if (!state.comboOpen) {
+          openMarketDropdown(true);
+        }
+      });
+
+      marketToggleEl.addEventListener("click", (event) => {
+        event.preventDefault();
+        if (state.comboOpen) {
+          closeMarketDropdown();
+        } else {
+          openMarketDropdown(true);
+        }
+      });
+
       marketSearchEl.addEventListener("change", async () => {
         const next = selectedMarketFromInput();
         if (!next) {
           marketSearchEl.value = state.selected ? formatMarket(state.selected) : "";
           return;
         }
-        state.selected = next;
+        selectMarket(next);
+        closeMarketDropdown();
         await loadBars();
         startLivePolling();
       });
 
-      timeframeRoot.addEventListener("click", async (event) => {
-        const btn = event.target.closest(".tf-btn");
-        if (!btn) return;
-        const tf = btn.dataset.tf;
+      marketSearchEl.addEventListener("keydown", async (event) => {
+        if (event.key !== "Enter") return;
+        const next = selectedMarketFromInput();
+        if (!next) return;
+        event.preventDefault();
+        selectMarket(next);
+        closeMarketDropdown();
+        await loadBars();
+        startLivePolling();
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!marketComboEl.contains(event.target)) {
+          closeMarketDropdown();
+        }
+      });
+
+      timeframeSelectEl.addEventListener("change", async () => {
+        const tf = timeframeSelectEl.value;
         if (!tf || tf === state.timeframe) return;
         setActiveTimeframe(tf);
         await reloadAll();
@@ -622,6 +779,40 @@
 
       fitBtn.addEventListener("click", () => {
         fitChart();
+      });
+
+      backfillBtn.addEventListener("click", async () => {
+        if (!state.selected) {
+          setStatus("No market selected");
+          return;
+        }
+        const old = backfillBtn.textContent;
+        backfillBtn.disabled = true;
+        backfillBtn.textContent = "Backfilling...";
+        try {
+          const response = await fetch("/api/v1/backfill/90d", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              venue: state.selected.venue,
+              symbol: state.selected.symbol,
+            }),
+          });
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const payload = await response.json();
+          await loadBars();
+          fitChart();
+          setStatus(
+            `backfill done · bars:${payload.bars_upserted} · source:${payload.source_tick_count} ticks`
+          );
+        } catch (error) {
+          setStatus(`Backfill error: ${error.message}`);
+        } finally {
+          backfillBtn.disabled = false;
+          backfillBtn.textContent = old;
+        }
       });
 
       window.addEventListener("resize", () => {
