@@ -133,6 +133,9 @@ services:
       CHARTING_TIMEFRAME: ${CHARTING_TIMEFRAME}
       CHARTING_DEFAULT_LIMIT: ${CHARTING_DEFAULT_LIMIT}
       CHARTING_REFRESH_SECS: ${CHARTING_REFRESH_SECS}
+      OANDA_API_TOKEN: ${OANDA_API_TOKEN}
+      OANDA_REST_URL: ${OANDA_REST_URL:-https://api-fxpractice.oanda.com}
+      COINBASE_REST_URL: ${COINBASE_REST_URL:-https://api.exchange.coinbase.com}
     ports:
       - "${CHARTING_PORT}:8080"
     depends_on:
@@ -246,11 +249,11 @@ services:
       - ./services/llm-analyst:/app
     command: ["sleep", "infinity"]
 
-  market-ingestion:
+  market-ingestion-oanda:
     build:
       context: ./services/market-ingestion
       dockerfile: Dockerfile
-    container_name: market-ingestion
+    container_name: market-ingestion-oanda
     environment:
       KAFKA_BROKERS: ${KAFKA_BROKERS}
       INGESTION_RAW_TOPIC: ${OANDA_RAW_TOPIC}
@@ -262,15 +265,6 @@ services:
       CONNECTOR_MODE: oanda
       OANDA_STREAM_URL: ${OANDA_STREAM_URL}
       OANDA_API_TOKEN: ${OANDA_API_TOKEN}
-      CAPITAL_API_URL: ${CAPITAL_API_URL}
-      CAPITAL_API_KEY: ${CAPITAL_API_KEY}
-      CAPITAL_IDENTIFIER: ${CAPITAL_IDENTIFIER}
-      CAPITAL_API_PASSWORD: ${CAPITAL_API_PASSWORD}
-      CAPITAL_EPIC_ALLOWLIST: ${CAPITAL_EPIC_ALLOWLIST}
-      CAPITAL_POLL_INTERVAL_SECS: ${CAPITAL_POLL_INTERVAL_SECS}
-      COINBASE_WS_URL: ${COINBASE_WS_URL}
-      COINBASE_PRODUCT_ALLOWLIST: ${COINBASE_PRODUCT_ALLOWLIST}
-      COINBASE_CHANNELS: ${COINBASE_CHANNELS}
     depends_on:
       kafka:
         condition: service_healthy
@@ -290,17 +284,11 @@ services:
       INGESTION_ENABLED_INSTRUMENTS: ${CAPITAL_ENABLED_INSTRUMENTS}
       INGESTION_INTERVAL_SECS: ${CAPITAL_POLL_INTERVAL_SECS}
       CONNECTOR_MODE: capital
-      OANDA_STREAM_URL: ${OANDA_STREAM_URL}
-      OANDA_API_TOKEN: ${OANDA_API_TOKEN}
       CAPITAL_API_URL: ${CAPITAL_API_URL}
       CAPITAL_API_KEY: ${CAPITAL_API_KEY}
       CAPITAL_IDENTIFIER: ${CAPITAL_IDENTIFIER}
       CAPITAL_API_PASSWORD: ${CAPITAL_API_PASSWORD}
       CAPITAL_EPIC_ALLOWLIST: ${CAPITAL_EPIC_ALLOWLIST}
-      CAPITAL_POLL_INTERVAL_SECS: ${CAPITAL_POLL_INTERVAL_SECS}
-      COINBASE_WS_URL: ${COINBASE_WS_URL}
-      COINBASE_PRODUCT_ALLOWLIST: ${COINBASE_PRODUCT_ALLOWLIST}
-      COINBASE_CHANNELS: ${COINBASE_CHANNELS}
     depends_on:
       kafka:
         condition: service_healthy
@@ -320,14 +308,6 @@ services:
       INGESTION_ENABLED_INSTRUMENTS: ${COINBASE_ENABLED_INSTRUMENTS}
       INGESTION_INTERVAL_SECS: ${COINBASE_POLL_INTERVAL_SECS}
       CONNECTOR_MODE: coinbase
-      OANDA_STREAM_URL: ${OANDA_STREAM_URL}
-      OANDA_API_TOKEN: ${OANDA_API_TOKEN}
-      CAPITAL_API_URL: ${CAPITAL_API_URL}
-      CAPITAL_API_KEY: ${CAPITAL_API_KEY}
-      CAPITAL_IDENTIFIER: ${CAPITAL_IDENTIFIER}
-      CAPITAL_API_PASSWORD: ${CAPITAL_API_PASSWORD}
-      CAPITAL_EPIC_ALLOWLIST: ${CAPITAL_EPIC_ALLOWLIST}
-      CAPITAL_POLL_INTERVAL_SECS: ${CAPITAL_POLL_INTERVAL_SECS}
       COINBASE_WS_URL: ${COINBASE_WS_URL}
       COINBASE_PRODUCT_ALLOWLIST: ${COINBASE_PRODUCT_ALLOWLIST}
       COINBASE_CHANNELS: ${COINBASE_CHANNELS}
@@ -418,6 +398,26 @@ services:
         condition: service_healthy
       timescaledb:
         condition: service_healthy
+    restart: unless-stopped
+
+  replay-controller:
+    build:
+      context: ./services/replay-controller
+      dockerfile: Dockerfile
+    container_name: replay-controller
+    environment:
+      KAFKA_BROKERS: kafka:9092
+      REPLAY_INPUT_TOPIC: replay.commands
+      REPLAY_GROUP_ID: nitra-replay-controller-v1
+      REPLAY_SYMBOL_REGISTRY_PATH: /etc/nitra/registry.v1.json
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+    volumes:
+      - ./infra/symbols/registry.v1.json:/etc/nitra/registry.v1.json:ro
     restart: unless-stopped
 
 volumes:

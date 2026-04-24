@@ -21,7 +21,7 @@
 2. Start stack: `docker compose up -d`.
 3. Verify services: `docker compose ps`.
 4. Check core logs:
-   - `docker compose logs -f --tail=200 market-ingestion market-ingestion-capital market-ingestion-coinbase market-normalization`
+   - `docker compose logs -f --tail=200 market-ingestion-oanda market-ingestion-capital market-ingestion-coinbase market-normalization`
 
 ## Ownership Model
 

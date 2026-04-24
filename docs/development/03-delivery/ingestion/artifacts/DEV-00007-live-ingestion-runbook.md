@@ -5,7 +5,7 @@ This runbook is for development-only startup and validation of NITRA live ingest
 ## Scope
 
 Covered path:
-- `market-ingestion` + `market-ingestion-capital` + `market-ingestion-coinbase` -> `market-normalization` -> `bar-aggregation` -> `gap-detection` -> `backfill-worker`
+- `market-ingestion-oanda` + `market-ingestion-capital` + `market-ingestion-coinbase` -> `market-normalization` -> `bar-aggregation` -> `gap-detection` -> `backfill-worker` -> `replay-controller`
 
 Required baseline:
 - Kafka topics from `infra/kafka/topics.csv`
@@ -40,13 +40,13 @@ make kafka-bootstrap
 3. Confirm key services are running:
 
 ```bash
-docker compose ps timescaledb kafka charting market-ingestion market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker
+docker compose ps timescaledb kafka charting market-ingestion-oanda market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker replay-controller
 ```
 
 4. Optional logs (follow):
 
 ```bash
-docker compose logs -f --tail=200 charting market-ingestion market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker
+docker compose logs -f --tail=200 charting market-ingestion-oanda market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker replay-controller
 ```
 
 Charting UI:
@@ -89,6 +89,7 @@ docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c
 docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT COUNT(*) AS tracked_symbols FROM coverage_state;"
 docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, COUNT(*) FROM gap_log GROUP BY status ORDER BY status;"
 docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, COUNT(*) FROM backfill_jobs GROUP BY status ORDER BY status;"
+docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, COUNT(*) FROM replay_audit GROUP BY status ORDER BY status;"
 ```
 
 6. Optional DEV-00006 checks:
@@ -126,7 +127,7 @@ If ingestion services are unstable:
 1. Stop only ingestion services:
 
 ```bash
-docker compose stop market-ingestion market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker
+docker compose stop market-ingestion-oanda market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker replay-controller
 ```
 
 2. Keep core stateful services running (`timescaledb`, `kafka`) for investigation.
@@ -134,7 +135,7 @@ docker compose stop market-ingestion market-ingestion-capital market-ingestion-c
 4. Restart ingestion services only:
 
 ```bash
-docker compose up -d --build market-ingestion market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker
+docker compose up -d --build market-ingestion-oanda market-ingestion-capital market-ingestion-coinbase market-normalization bar-aggregation gap-detection backfill-worker replay-controller
 ```
 
 ## Troubleshooting
@@ -144,7 +145,7 @@ docker compose up -d --build market-ingestion market-ingestion-capital market-in
 - Retry: `make kafka-bootstrap`
 
 2. No rows in `raw_tick`:
-- Check ingestion logs for all three connectors (`market-ingestion`, `market-ingestion-capital`, `market-ingestion-coinbase`).
+- Check ingestion logs for all three connectors (`market-ingestion-oanda`, `market-ingestion-capital`, `market-ingestion-coinbase`).
 - Confirm topic alignment: `raw.market.oanda`, `raw.market.capital`, `raw.market.coinbase`.
 
 3. `raw_tick` grows but `ohlcv_bar` empty:

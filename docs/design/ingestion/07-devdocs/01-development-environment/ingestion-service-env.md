@@ -8,12 +8,15 @@ This page defines environment variables for the minimal ingestion runtime wired 
 - `CHARTING_TIMEFRAME` default `1m`
 - `CHARTING_DEFAULT_LIMIT` default `300`
 - `CHARTING_REFRESH_SECS` default `5`
+- `OANDA_API_TOKEN` optional; required for strict venue-history backfill on OANDA symbols
+- `OANDA_REST_URL` default `https://api-fxpractice.oanda.com`
+- `COINBASE_REST_URL` default `https://api.exchange.coinbase.com`
 
 ## market-ingestion services (parallel)
 
 The compose runtime starts three ingestion services simultaneously:
 
-- `market-ingestion` (OANDA)
+- `market-ingestion-oanda` (OANDA)
 - `market-ingestion-capital` (CAPITAL)
 - `market-ingestion-coinbase` (COINBASE)
 
@@ -98,3 +101,14 @@ COINBASE profile:
 - `BACKFILL_STARTUP_PROCESS_OPEN_GAPS` default `true`
 - `BACKFILL_FETCH_CHUNK_MINUTES` default `60`
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
+
+## replay-controller
+
+- `KAFKA_BROKERS` default `kafka:9092`
+- `REPLAY_INPUT_TOPIC` default `replay.commands`
+- `REPLAY_GROUP_ID` default `nitra-replay-controller-v1`
+- `REPLAY_SYMBOL_REGISTRY_PATH` default `/etc/nitra/registry.v1.json`
+- `DATABASE_URL` required (compose sets from `POSTGRES_*`)
+
+Notes:
+- Current replay executor rebuilds `1m` bars from available `raw_tick` source data in the requested range and updates `backfill_jobs` + `replay_audit` statuses accordingly.
