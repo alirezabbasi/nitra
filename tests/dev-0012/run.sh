@@ -14,6 +14,8 @@ done
 cargo check --manifest-path services/bar-aggregation/Cargo.toml >/dev/null
 cargo check --manifest-path services/gap-detection/Cargo.toml >/dev/null
 cargo check --manifest-path services/backfill-worker/Cargo.toml >/dev/null
+rg -n 'choose_event_timestamp' services/bar-aggregation/src/main.rs >/dev/null
+rg -n 'falls_back_to_received_when_exchange_stale' services/bar-aggregation/src/main.rs >/dev/null
 
 rg -n 'BAR_INPUT_TOPIC: normalized.quote.fx' docker-compose.yml >/dev/null
 rg -n 'BAR_OUTPUT_TOPIC: bar.1m' docker-compose.yml >/dev/null

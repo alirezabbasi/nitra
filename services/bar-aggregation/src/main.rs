@@ -1,4 +1,4 @@
-use chrono::{DateTime, Timelike, Utc};
+use chrono::{DateTime, Duration as ChronoDuration, Timelike, Utc};
 use futures_util::StreamExt;
 use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
 use rdkafka::message::BorrowedMessage;
@@ -29,16 +29,38 @@ fn env_or(name: &str, default: &str) -> String {
     env::var(name).unwrap_or_else(|_| default.to_string())
 }
 
-fn parse_ts(value: Option<&str>) -> DateTime<Utc> {
+fn parse_ts_opt(value: Option<&str>) -> Option<DateTime<Utc>> {
     if let Some(raw) = value {
         if let Ok(parsed) = DateTime::parse_from_rfc3339(raw) {
-            return parsed.with_timezone(&Utc);
+            return Some(parsed.with_timezone(&Utc));
         }
         if let Ok(parsed) = DateTime::parse_from_rfc3339(&raw.replace('Z', "+00:00")) {
-            return parsed.with_timezone(&Utc);
+            return Some(parsed.with_timezone(&Utc));
         }
     }
-    Utc::now()
+    None
+}
+
+fn choose_event_timestamp(event: &Value) -> DateTime<Utc> {
+    let now = Utc::now();
+    let received_ts =
+        parse_ts_opt(event.get("event_ts_received").and_then(|v| v.as_str())).unwrap_or(now);
+    let exchange_ts = parse_ts_opt(event.get("event_ts_exchange").and_then(|v| v.as_str()));
+
+    match exchange_ts {
+        Some(ts) => {
+            // Some venue adapters can emit frozen/stale exchange timestamps.
+            // Bucket on receive-time in that case so minute-roll persists continue.
+            let stale_cutoff = now - ChronoDuration::minutes(10);
+            let future_cutoff = now + ChronoDuration::minutes(2);
+            if ts < stale_cutoff || ts > future_cutoff {
+                received_ts
+            } else {
+                ts
+            }
+        }
+        None => received_ts,
+    }
 }
 
 fn minute_bucket(ts: DateTime<Utc>) -> DateTime<Utc> {
@@ -252,7 +274,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             continue;
         }
 
-        let event_ts = parse_ts(event.get("event_ts_exchange").and_then(|v| v.as_str()));
+        let event_ts = choose_event_timestamp(&event);
         let bucket = minute_bucket(event_ts);
         let key = (venue.to_string(), symbol.to_string());
         let value = mid.unwrap_or(0.0);
@@ -314,4 +336,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn choose_event_timestamp_uses_exchange_when_fresh() {
+        let now = Utc::now();
+        let event = json!({
+            "event_ts_exchange": (now - ChronoDuration::seconds(30)).to_rfc3339(),
+            "event_ts_received": now.to_rfc3339(),
+        });
+        let chosen = choose_event_timestamp(&event);
+        assert!(chosen <= now);
+        assert!(chosen >= now - ChronoDuration::minutes(1));
+    }
+
+    #[test]
+    fn choose_event_timestamp_falls_back_to_received_when_exchange_stale() {
+        let now = Utc::now();
+        let received = now - ChronoDuration::seconds(5);
+        let event = json!({
+            "event_ts_exchange": (now - ChronoDuration::hours(2)).to_rfc3339(),
+            "event_ts_received": received.to_rfc3339(),
+        });
+        let chosen = choose_event_timestamp(&event);
+        let drift = (chosen - received).num_seconds().abs();
+        assert!(drift <= 1);
+    }
 }
