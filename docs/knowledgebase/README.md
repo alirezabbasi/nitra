@@ -5,6 +5,7 @@ This folder stores practical incident knowledge and post-fix operating guidance.
 ## Structure
 
 - `charting/` chart runtime/UI incidents and fixes.
+- `ingestion/` ingestion pipeline incidents and deterministic recovery patterns.
 - Future domains can be added as sibling folders (for example `ingestion/`, `normalization/`, `ops/`).
 
 ## Record Format
