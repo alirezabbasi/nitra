@@ -375,6 +375,7 @@
       const jumpTimeBtn = document.getElementById("jump-time-btn");
       const jumpIndexEl = document.getElementById("jump-index");
       const jumpIndexBtn = document.getElementById("jump-index-btn");
+      const UI_PREFS_KEY = "nitra.chart.ui_prefs.v1";
 
       const state = {
         timeframe: "1m",
@@ -384,6 +385,7 @@
         formatMode: "compact",
         markets: [],
         selected: null,
+        preferredMarket: null,
         comboOpen: false,
         persistedBars: [],
         liveBars: [],
@@ -413,6 +415,73 @@
 
       function setStatus(text) {
         statusEl.textContent = text;
+      }
+
+      function hasSelectOption(selectEl, value) {
+        return Array.from(selectEl.options || []).some((opt) => opt.value === value);
+      }
+
+      function loadUiPrefs() {
+        try {
+          const raw = localStorage.getItem(UI_PREFS_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object") return null;
+          return parsed;
+        } catch (_error) {
+          return null;
+        }
+      }
+
+      function persistUiPrefs() {
+        try {
+          const payload = {
+            timeframe: state.timeframe,
+            locale: state.locale,
+            timezone: state.timezone,
+            zoomAnchor: state.zoomAnchor,
+            formatMode: state.formatMode,
+            market:
+              state.selected && state.selected.venue && state.selected.symbol
+                ? { venue: state.selected.venue, symbol: state.selected.symbol }
+                : null,
+          };
+          localStorage.setItem(UI_PREFS_KEY, JSON.stringify(payload));
+        } catch (_error) {
+          // ignore storage errors (privacy mode, quota, etc.)
+        }
+      }
+
+      function applyUiPrefs() {
+        const prefs = loadUiPrefs();
+        if (!prefs) return;
+
+        if (typeof prefs.timeframe === "string" && hasSelectOption(timeframeSelectEl, prefs.timeframe)) {
+          state.timeframe = prefs.timeframe;
+          timeframeSelectEl.value = prefs.timeframe;
+        }
+        if (typeof prefs.locale === "string" && hasSelectOption(localeSelectEl, prefs.locale)) {
+          state.locale = prefs.locale;
+          localeSelectEl.value = prefs.locale;
+        }
+        if (typeof prefs.timezone === "string" && hasSelectOption(timezoneSelectEl, prefs.timezone)) {
+          state.timezone = prefs.timezone;
+          timezoneSelectEl.value = prefs.timezone;
+        }
+        if (typeof prefs.zoomAnchor === "string" && hasSelectOption(zoomAnchorSelectEl, prefs.zoomAnchor)) {
+          state.zoomAnchor = prefs.zoomAnchor;
+          zoomAnchorSelectEl.value = prefs.zoomAnchor;
+        }
+        if (typeof prefs.formatMode === "string" && hasSelectOption(formatSelectEl, prefs.formatMode)) {
+          state.formatMode = prefs.formatMode;
+          formatSelectEl.value = prefs.formatMode;
+        }
+        if (prefs.market && typeof prefs.market.venue === "string" && typeof prefs.market.symbol === "string") {
+          state.preferredMarket = {
+            venue: prefs.market.venue,
+            symbol: prefs.market.symbol,
+          };
+        }
       }
 
       function syncRealtimeButtonState() {
@@ -1089,6 +1158,7 @@
       function setActiveTimeframe(tf) {
         state.timeframe = tf;
         timeframeSelectEl.value = tf;
+        persistUiPrefs();
       }
 
       function getSelectedMarket(venue, symbol) {
@@ -1125,6 +1195,7 @@
       function selectMarket(market) {
         state.selected = market;
         marketSearchEl.value = formatMarket(market);
+        persistUiPrefs();
       }
 
       function renderMarketDropdown(queryText = "") {
@@ -1168,8 +1239,14 @@
         marketSearchEl.placeholder = "Search venue/instrument";
         const filteredAll = filterMarkets("");
         const existing = state.selected ? getSelectedMarket(state.selected.venue, state.selected.symbol) : null;
-        state.selected = existing || filteredAll[0];
+        const preferred =
+          !existing && state.preferredMarket
+            ? getSelectedMarket(state.preferredMarket.venue, state.preferredMarket.symbol)
+            : null;
+        state.selected = existing || preferred || filteredAll[0];
+        state.preferredMarket = null;
         marketSearchEl.value = state.selected ? formatMarket(state.selected) : "";
+        persistUiPrefs();
         if (state.comboOpen) renderMarketDropdown(marketSearchEl.value);
       }
 
@@ -1434,21 +1511,25 @@
       localeSelectEl.addEventListener("change", () => {
         state.locale = localeSelectEl.value;
         applyChartPreferences();
+        persistUiPrefs();
       });
 
       timezoneSelectEl.addEventListener("change", () => {
         state.timezone = timezoneSelectEl.value;
         applyChartPreferences();
+        persistUiPrefs();
       });
 
       zoomAnchorSelectEl.addEventListener("change", () => {
         state.zoomAnchor = zoomAnchorSelectEl.value;
         applyChartPreferences();
+        persistUiPrefs();
       });
 
       formatSelectEl.addEventListener("change", () => {
         state.formatMode = formatSelectEl.value;
         applyFormatting();
+        persistUiPrefs();
       });
 
       lockScrollBtn.addEventListener("click", () => {
@@ -1542,7 +1623,8 @@
 
       window.addEventListener("resize", () => fitChart());
 
-      setActiveTimeframe("1m");
+      applyUiPrefs();
+      setActiveTimeframe(state.timeframe);
       syncRealtimeButtonState();
       if (initChart()) {
         bindPointerInspector();
