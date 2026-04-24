@@ -275,6 +275,7 @@ services:
       OANDA_REST_URL: ${OANDA_REST_URL}
       OANDA_ACCOUNT_ID: ${OANDA_ACCOUNT_ID}
       OANDA_API_TOKEN: ${OANDA_API_TOKEN}
+      OANDA_INSTRUMENT_MAP: ${OANDA_INSTRUMENT_MAP:-}
     depends_on:
       kafka:
         condition: service_healthy

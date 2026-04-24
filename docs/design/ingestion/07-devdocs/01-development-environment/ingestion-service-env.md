@@ -43,6 +43,8 @@ OANDA profile:
 - `OANDA_REST_URL` default `https://api-fxpractice.oanda.com` (used for pricing REST fallback/normalization of stream host)
 - `OANDA_ACCOUNT_ID`
 - `OANDA_API_TOKEN`
+- `OANDA_INSTRUMENT_MAP` optional JSON map for canonical symbol -> OANDA instrument
+  (for example `{"NAS100":"NAS100_USD","US30":"US30_USD","XAUUSD":"XAU_USD"}`)
 
 CAPITAL profile:
 

@@ -4,7 +4,7 @@ use rdkafka::ClientConfig;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE};
 use reqwest::{Client, StatusCode};
 use serde_json::{json, Value};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -74,10 +74,45 @@ fn parse_f64(value: Option<&Value>) -> Option<f64> {
     value.as_str()?.parse::<f64>().ok()
 }
 
-fn oanda_instrument(symbol: &str) -> String {
+fn oanda_instrument_map() -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    let mapping_raw = env::var("OANDA_INSTRUMENT_MAP").unwrap_or_default();
+    if mapping_raw.trim().is_empty() {
+        return out;
+    }
+
+    if let Ok(parsed) = serde_json::from_str::<Value>(&mapping_raw) {
+        if let Some(obj) = parsed.as_object() {
+            for (key, value) in obj {
+                if let Some(mapped) = value.as_str() {
+                    let canonical = compact_symbol(key);
+                    let venue_symbol = mapped.trim().to_uppercase();
+                    if !canonical.is_empty() && !venue_symbol.is_empty() {
+                        out.insert(canonical, venue_symbol);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+fn oanda_instrument(symbol: &str, mapping: &HashMap<String, String>) -> String {
     let compact = compact_symbol(symbol);
+    if let Some(mapped) = mapping.get(&compact) {
+        return mapped.clone();
+    }
+
+    let raw = symbol.trim().to_uppercase();
+    if raw.contains('_') {
+        return raw;
+    }
+
     if compact.len() == 6 && compact.chars().all(|ch| ch.is_ascii_alphabetic()) {
         return format!("{}_{}", &compact[0..3], &compact[3..6]);
+    }
+    if compact.ends_with("USD") && compact.len() > 3 {
+        return format!("{}_USD", &compact[..compact.len() - 3]);
     }
     compact
 }
@@ -313,7 +348,17 @@ async fn fetch_oanda_quotes(
         rest_url_override.trim_end_matches('/').to_string()
     };
 
-    let instruments: Vec<String> = symbols.iter().map(|v| oanda_instrument(v)).collect();
+    let oanda_mapping = oanda_instrument_map();
+    let mut instrument_to_canonical: HashMap<String, String> = HashMap::new();
+    let instruments: Vec<String> = symbols
+        .iter()
+        .map(|v| {
+            let canonical = compact_symbol(v);
+            let instrument = oanda_instrument(v, &oanda_mapping);
+            instrument_to_canonical.insert(compact_symbol(&instrument), canonical);
+            instrument
+        })
+        .collect();
     let url = format!(
         "{}/v3/accounts/{}/pricing?instruments={}",
         api_base,
@@ -341,7 +386,11 @@ async fn fetch_oanda_quotes(
             .get("instrument")
             .and_then(|v| v.as_str())
             .unwrap_or_default();
-        let broker_symbol = compact_symbol(instrument);
+        let instrument_compact = compact_symbol(instrument);
+        let broker_symbol = instrument_to_canonical
+            .get(&instrument_compact)
+            .cloned()
+            .unwrap_or(instrument_compact);
         if !enabled.contains(&broker_symbol) {
             continue;
         }
