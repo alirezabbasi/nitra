@@ -19,6 +19,10 @@ rg -n 'CREATE TABLE IF NOT EXISTS backfill_jobs' infra/timescaledb/init/004_gap_
 
 rg -n 'GAP_STARTUP_COVERAGE_DAYS' docker-compose.yml >/dev/null
 rg -n 'GAP_SYMBOL_REGISTRY_PATH' docker-compose.yml >/dev/null
+rg -n 'GAP_PERIODIC_SCAN_ENABLED' docker-compose.yml >/dev/null
+rg -n 'GAP_PERIODIC_SCAN_INTERVAL_SECS' docker-compose.yml >/dev/null
+rg -n 'periodic_coverage_scan' services/gap-detection/src/main.rs >/dev/null
+rg -n 'stream_recovery' services/gap-detection/src/main.rs >/dev/null
 rg -n 'BACKFILL_FETCH_CHUNK_MINUTES' docker-compose.yml >/dev/null
 rg -n 'REPLAY_INPUT_TOPIC: replay.commands' docker-compose.yml >/dev/null
 rg -n 'REPLAY_HISTORY_ENABLED' docker-compose.yml >/dev/null

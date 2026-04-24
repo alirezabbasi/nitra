@@ -20,8 +20,8 @@ rg -n 'continuity_policy' services/charting/app.py >/dev/null
 rg -n 'fx_weekday_only_policy' services/charting/app.py >/dev/null
 rg -n '/api/v1/backfill/adapter-check' services/charting/app.py >/dev/null
 rg -n '/api/v1/backfill/window' services/charting/app.py >/dev/null
-rg -n '/api/v1/backfill/watchdog' services/charting/app.py >/dev/null
-rg -n 'CHARTING_GAP_WATCHDOG_ENABLED' services/charting/app.py >/dev/null
+rg -n '/api/v1/coverage/status' services/charting/app.py >/dev/null
+rg -n '/api/v1/coverage/metrics' services/charting/app.py >/dev/null
 rg -n 'reversed\(ranges\)' services/charting/app.py >/dev/null
 rg -n 'def parse_float' services/charting/app.py >/dev/null
 
