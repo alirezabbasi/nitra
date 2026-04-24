@@ -36,13 +36,14 @@ Last updated: 2026-04-24
 ## Recommended next implementation sequence
 
 1. `DEV-00013`: startup 90-day `1m` coverage enforcement and missing-only backfill for all active instruments
-2. Structure engine baseline (service skeleton + input/output contracts)
-3. Risk engine deterministic checks baseline
-4. Execution gateway order-state machine baseline
-5. Audit/journal events for deterministic decision path
-6. Feature platform bootstrap (contract-first)
-7. Inference gateway service logic with schema validation
-8. RAG/LLM advisory path with strict boundaries
+2. `DEV-00014`: venue-history adapters + session-aware continuity policy completion for 90-day coverage
+3. Structure engine baseline (service skeleton + input/output contracts)
+4. Risk engine deterministic checks baseline
+5. Execution gateway order-state machine baseline
+6. Audit/journal events for deterministic decision path
+7. Feature platform bootstrap (contract-first)
+8. Inference gateway service logic with schema validation
+9. RAG/LLM advisory path with strict boundaries
 
 ## Gate policy between modules
 

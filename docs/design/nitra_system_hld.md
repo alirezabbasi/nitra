@@ -269,6 +269,9 @@ Responsible for transforming raw streams into canonical internal representations
 
 **Coverage policy (mandatory)**
 - charting operational baseline is always `now` back to `now - 90 days` on `1m`
+- continuity policy decision:
+  - FX venues (`oanda`, `capital`) require continuity on trading-session minutes only (weekend-closed minutes are excluded from required coverage)
+  - crypto venues require all minutes (`24/7`) in the 90-day window
 - the system must not rely on manual operator action to repair missing historical windows after restart
 - startup coverage check/backfill runs before normal steady-state status is reported healthy
 

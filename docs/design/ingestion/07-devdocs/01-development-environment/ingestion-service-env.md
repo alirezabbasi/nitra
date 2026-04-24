@@ -11,6 +11,12 @@ This page defines environment variables for the minimal ingestion runtime wired 
 - `OANDA_API_TOKEN` optional; required for strict venue-history backfill on OANDA symbols
 - `OANDA_REST_URL` default `https://api-fxpractice.oanda.com`
 - `COINBASE_REST_URL` default `https://api.exchange.coinbase.com`
+- `COINBASE_PUBLIC_REST_URL` default `https://api.coinbase.com` (fallback public candles route)
+- `CAPITAL_API_URL` (required for Capital history adapter)
+- `CAPITAL_API_KEY` (required for Capital history adapter)
+- `CAPITAL_IDENTIFIER` (required for Capital history adapter)
+- `CAPITAL_API_PASSWORD` (required for Capital history adapter)
+- `CAPITAL_EPIC_MAP` optional JSON map for canonical symbol -> epic (for example `{"EURUSD":"CS.D.EURUSD.MINI.IP"}`)
 - `CHARTING_VENUE_FETCH_TIMEOUT_SECS` default `8` (per-request timeout for venue history backfill calls)
 - `CHARTING_VENUE_FETCH_MAX_ERRORS` default `3` (fail-fast threshold before aborting long backfill loops)
 

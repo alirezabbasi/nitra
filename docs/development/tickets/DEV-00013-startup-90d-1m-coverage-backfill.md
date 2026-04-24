@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress (replay-controller executor implemented; full 90-day completion still depends on source history depth / broker-history adapters)
+In Progress (runtime replay path implemented; venue-history completion and session-aware continuity policy tracked under `DEV-00014`)
 
 ## Summary
 
@@ -61,7 +61,7 @@ On service startup, the system must validate coverage in `ohlcv_bar` and automat
   - rebuilds `1m` bars from replay ranges using available `raw_tick` source data.
   - updates `backfill_jobs`, `replay_audit`, and resolves covered gaps in `gap_log`.
 - Remaining dependency:
-  - broker-history adapters are still required where `raw_tick` does not already contain the requested 90-day range.
+  - final venue-history completion hardening and continuity-policy validation tracked in `DEV-00014`.
 
 ## Verification Plan
 

@@ -26,8 +26,11 @@ Instrument selection is populated dynamically from database-backed market discov
 9. User can trigger `Backfill 90d` from header; service enforces strict 90-day `1m` continuity:
    - rebuild from `raw_tick` first,
    - detect any missing `1m` buckets,
-   - fetch missing ranges from venue history adapter,
-   - return incomplete status if any minute remains missing.
+   - fetch missing ranges from venue history adapters (`oanda`, `capital`, `coinbase` with exchange->public fallback),
+   - apply continuity policy by market profile:
+     - FX (`oanda`/`capital`, non-crypto): weekend closed minutes are excluded from required continuity
+     - crypto: all minutes are required (`24/7`)
+   - return incomplete status if any required minute remains missing.
 
 ## API Contract
 
@@ -51,7 +54,7 @@ Instrument selection is populated dynamically from database-backed market discov
   - behavior:
     - checks last 90 days (closed-minute window) in `ohlcv_bar` for selected `venue + symbol`
     - if any `1m` gap exists, first rebuilds from `raw_tick`, then fetches missing ranges from venue history
-    - requires full `90d x 1m` continuity to report success (`complete_90d_1m=true`)
+    - requires full required-continuity window to report success (`complete_90d_1m=true`)
   - returns coverage counts (`missing_before_fetch_count`, `missing_after_fetch_count`) and adapter status
 
 Note:
@@ -67,6 +70,12 @@ Note:
 - `OANDA_API_TOKEN` (for OANDA history fetch adapter)
 - `OANDA_REST_URL` (default `https://api-fxpractice.oanda.com`)
 - `COINBASE_REST_URL` (default `https://api.exchange.coinbase.com`)
+- `COINBASE_PUBLIC_REST_URL` (default `https://api.coinbase.com`)
+- `CAPITAL_API_URL`
+- `CAPITAL_API_KEY`
+- `CAPITAL_IDENTIFIER`
+- `CAPITAL_API_PASSWORD`
+- `CAPITAL_EPIC_MAP` (optional symbol->epic JSON mapping)
 - `CHARTING_VENUE_FETCH_TIMEOUT_SECS` (default `8`)
 - `CHARTING_VENUE_FETCH_MAX_ERRORS` (default `3`)
 

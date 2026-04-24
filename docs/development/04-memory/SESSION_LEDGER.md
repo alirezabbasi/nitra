@@ -235,3 +235,26 @@ Append one entry at the end of each substantial session.
   - `make enforce-section-5-1` passes with replay-controller policy registration.
 - Next recommended action:
   - add broker-history source adapters for ranges where `raw_tick` does not yet hold full 90-day history.
+
+---
+
+## 2026-04-24 — Session Entry 012
+
+- Objective:
+  - execute venue-history completion items for 90-day backfill and formalize continuity policy decision.
+- Work completed:
+  - created delivery ticket `DEV-00014` for venue-history adapters and session-aware continuity policy.
+  - implemented charting backfill runtime updates in `services/charting/app.py`:
+    - Capital REST history adapter (`POST /api/v1/session` + `GET /api/v1/prices/{epic}` with session refresh),
+    - Coinbase fallback route from Exchange candles endpoint to Advanced Trade public candles endpoint,
+    - session-aware continuity policy:
+      - FX venues (`oanda`, `capital`) exclude weekend-closed minutes from required continuity,
+      - crypto venues require full `24/7` minute continuity.
+  - expanded charting compose/env contract for new adapter credentials/endpoints and runtime controls.
+  - updated HLD/LLD and devdocs with continuity-policy decision and adapter routing details.
+  - added baseline test pack `tests/dev-0014/run.sh` and Make target `test-dev-0014`.
+- Verification:
+  - Python syntax checks pass for `services/charting/app.py`.
+  - live backfill probes executed for `oanda`, `coinbase`, and `capital` with explicit response diagnostics.
+- Next recommended action:
+  - complete live adapter hardening (network/runtime edge cases) and promote `DEV-00014` from in-progress to done.

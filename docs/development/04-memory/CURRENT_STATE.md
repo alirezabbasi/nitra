@@ -24,17 +24,20 @@ Last updated: 2026-04-24
 - Added formal architecture requirement: startup must guarantee rolling 90-day `1m` coverage in `ohlcv_bar` for all active instruments.
 - Registered `DEV-00013` to implement deterministic startup coverage audit + missing-only broker backfill.
 - Implemented `replay-controller` executor for `replay.commands` with deterministic `ohlcv_bar` rebuild and backfill/audit status transitions.
+- Implemented charting-side venue-history adapter expansion (`DEV-00014` in progress): Capital REST historical fetch, Coinbase fallback route, and session-aware continuity policy for FX weekend closure.
 
 ### Current
 
 - `DEV-00013` is in progress with replay execution now wired (`gap-detection` + `backfill-worker` + `replay-controller`).
+- `DEV-00014` is in progress with implementation complete in code; live validation and adapter hardening continue.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Implement broker-history adapters for replay ranges where `raw_tick` source coverage is missing.
-2. Implement deterministic structure-engine runtime baseline.
-3. Implement deterministic risk-engine and execution-gateway runtime baselines.
+1. Validate `DEV-00014` end-to-end in live runtime and close remaining external adapter/network issues.
+2. Implement broker-history adapters in replay controller path for ranges where `raw_tick` source coverage is missing.
+3. Implement deterministic structure-engine runtime baseline.
+4. Implement deterministic risk-engine and execution-gateway runtime baselines.
 
 ### Risks/Blocks
 
@@ -42,6 +45,7 @@ Last updated: 2026-04-24
 - Risk of context drift if memory files are not updated at session close.
 - Open decision: priority ordering between replay controller and structure-engine first slice.
 - Open dependency: broker-history fulfillment still depends on source history adapters beyond current `raw_tick`-backed replay execution.
+- External risk: Coinbase Exchange candles endpoint may return 403 in some runtimes; fallback route health must be monitored.
 
 ## Program status
 

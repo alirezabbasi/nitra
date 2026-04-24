@@ -144,6 +144,9 @@ Enforcement command:
 - replay completion monitoring
 - startup coverage audit for all active `venue + symbol` pairs to validate full `1m` continuity from `now` to `now - 90 days`
 - missing-only backfill orchestration from broker history APIs until startup coverage target is satisfied
+- session-aware continuity policy:
+  - FX venues (`oanda`, `capital`) evaluate required continuity on trading-session minutes (weekend-closed minutes excluded)
+  - crypto venues evaluate required continuity on all minutes (`24/7`)
 
 **Consumes**
 - `md.bars.*`
@@ -186,6 +189,7 @@ Enforcement command:
 
 **Operational note**
 - End-to-end 90-day fulfillment depends on source tick availability for replay ranges.
+- Broker-history adapters are required to bridge beyond currently retained `raw_tick` depth.
 
 ---
 

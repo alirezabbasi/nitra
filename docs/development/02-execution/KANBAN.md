@@ -12,6 +12,7 @@ Last updated: 2026-04-24
 ## In Progress
 
 - [ ] `DEV-00013` enforce startup 90-day `1m` coverage and missing-only backfill for all active instruments.
+- [ ] `DEV-00014` implement venue-history adapters and session-aware continuity policy for 90-day backfill.
 
 ## Done
 
