@@ -18,5 +18,14 @@ rg -n 'CREATE TABLE IF NOT EXISTS trade_print' infra/timescaledb/init/003_market
 rg -n 'CREATE TABLE IF NOT EXISTS book_event' infra/timescaledb/init/003_market_event_entities.sql >/dev/null
 
 rg -n './infra/timescaledb/init:/docker-entrypoint-initdb.d:ro' docker-compose.yml >/dev/null
+rg -n -F '${TIMESCALEDB_DATA_PATH:-./.runtime-data/timescaledb}:/var/lib/postgresql/data' docker-compose.yml >/dev/null
+rg -n -F '${REDIS_DATA_PATH:-./.runtime-data/redis}:/data' docker-compose.yml >/dev/null
+rg -n -F '${KAFKA_DATA_PATH:-./.runtime-data/kafka}:/var/lib/kafka/data' docker-compose.yml >/dev/null
+rg -n -F '${MINIO_DATA_PATH:-./.runtime-data/minio}:/data' docker-compose.yml >/dev/null
+
+rg -n '^TIMESCALEDB_DATA_PATH=' .env.example >/dev/null
+rg -n '^REDIS_DATA_PATH=' .env.example >/dev/null
+rg -n '^KAFKA_DATA_PATH=' .env.example >/dev/null
+rg -n '^MINIO_DATA_PATH=' .env.example >/dev/null
 
 echo "[dev-00004] checks passed"
