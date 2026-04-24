@@ -143,6 +143,10 @@ docker compose restart
 
 Do not use destructive commands such as `docker compose down -v`.
 
+Persistence note:
+- Core runtime state uses bind-mounted paths under `.runtime-data/` by default (`timescaledb`, `kafka`, `redis`, `minio`).
+- Even if `down -v` is run, these bind-mounted datasets are retained unless `.runtime-data/` is manually removed.
+
 ## Rollback / Fallback
 
 If ingestion services are unstable:

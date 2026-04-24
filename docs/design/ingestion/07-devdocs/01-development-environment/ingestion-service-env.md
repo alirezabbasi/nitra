@@ -2,6 +2,17 @@
 
 This page defines environment variables for the minimal ingestion runtime wired in NITRA compose.
 
+## persistence paths (compose bind mounts)
+
+- `TIMESCALEDB_DATA_PATH` default `./.runtime-data/timescaledb`
+- `REDIS_DATA_PATH` default `./.runtime-data/redis`
+- `KAFKA_DATA_PATH` default `./.runtime-data/kafka`
+- `MINIO_DATA_PATH` default `./.runtime-data/minio`
+
+Operational notes:
+- Stateful services use bind mounts under `.runtime-data/` by default.
+- `docker compose down -v` removes named volumes, but bind-mounted runtime data remains unless those directories are manually deleted.
+
 ## charting
 
 - `CHARTING_PORT` default `8110`
