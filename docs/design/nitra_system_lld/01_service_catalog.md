@@ -188,8 +188,9 @@ Enforcement command:
 - Rust
 
 **Operational note**
-- End-to-end 90-day fulfillment depends on source tick availability for replay ranges.
-- Broker-history adapters are required to bridge beyond currently retained `raw_tick` depth.
+- Replay executes in two stages:
+  - deterministic rebuild from retained `raw_tick` ranges,
+  - venue-history adapter fallback (`oanda` / `coinbase` / `capital`) when range completeness remains below target.
 
 ---
 

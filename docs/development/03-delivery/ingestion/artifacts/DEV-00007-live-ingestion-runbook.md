@@ -92,13 +92,28 @@ docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c
 docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, COUNT(*) FROM replay_audit GROUP BY status ORDER BY status;"
 ```
 
-6. Optional DEV-00006 checks:
+6. Venue adapter live probe (DEV-00014 hardening):
+
+```bash
+curl -sS -X POST http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/adapter-check -H 'content-type: application/json' -d '{"venue":"coinbase","symbol":"BTCUSD"}' | jq
+curl -sS -X POST http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/adapter-check -H 'content-type: application/json' -d '{"venue":"oanda","symbol":"EURUSD"}' | jq
+curl -sS -X POST http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/adapter-check -H 'content-type: application/json' -d '{"venue":"capital","symbol":"EURUSD"}' | jq
+```
+
+7. Replay source-depth verification (BUG-00006 fix path):
+
+```bash
+docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, COUNT(*) FROM backfill_jobs GROUP BY status ORDER BY status;"
+docker compose exec -T timescaledb psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT status, COUNT(*) FROM replay_audit GROUP BY status ORDER BY status;"
+```
+
+8. Optional DEV-00006 checks:
 
 ```bash
 make test-dev-00006
 ```
 
-7. Optional duplicate-injection integration drill (requires Docker access):
+9. Optional duplicate-injection integration drill (requires Docker access):
 
 ```bash
 DEV00006_INTEGRATION=1 tests/dev-00006/run.sh

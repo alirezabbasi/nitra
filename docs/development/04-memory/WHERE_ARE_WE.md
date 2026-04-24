@@ -21,17 +21,19 @@ Last updated: 2026-04-24
 - `DEV-00013` runtime baseline implemented: startup 90-day coverage scan in `gap-detection`, gap persistence/events, and chunked backfill job/replay orchestration in `backfill-worker`.
 - `DEV-00013` replay execution step implemented: `replay-controller` now consumes `replay.commands` and updates `ohlcv_bar` plus backfill/replay status tables.
 - `DEV-00014` implementation added in charting backfill path: Capital history adapter, Coinbase fallback route, and session-aware FX weekend continuity policy.
+- `DEV-00013` replay path upgraded with venue-history fallback adapters (`oanda`/`coinbase`/`capital`) for ranges that remain incomplete after raw-tick replay.
+- `DEV-00014` adapter hardening completed with retry behavior improvements and live probe endpoint `POST /api/v1/backfill/adapter-check`.
 
 ## Current
 
 - Section 5.1 hard-gate enforcement active with deterministic-core migration batch completed.
-- `DEV-00013` is in progress with replay execution wired; remaining work is source-history depth where replay ranges have no `raw_tick` data.
-- `DEV-00014` is in progress pending live adapter validation hardening.
+- `DEV-00013` implementation is complete in code; runtime evidence capture is in progress.
+- `DEV-00014` implementation is complete in code; runtime evidence capture is in progress.
 
 ## Next
 
-1. Complete `DEV-00014` live validation and close adapter/runtime edge cases.
-2. Implement broker-history adapters in replay path to fulfill ranges beyond currently available `raw_tick` depth.
+1. Run live compose validation and collect post-fix `backfill_jobs` / `replay_audit` evidence.
+2. Promote `DEV-00013` and `DEV-00014` from in-progress to done after evidence capture.
 3. Implement deterministic structure-engine runtime baseline.
 4. Implement deterministic risk/execution runtime baselines.
 
@@ -39,7 +41,7 @@ Last updated: 2026-04-24
 
 - Context drift if session close memory updates are skipped.
 - Delivery risk shifted to deterministic engine implementation depth (structure/risk/execution).
-- Open dependency: replay execution is wired, but 90-day completion still depends on source history availability/adapters.
+- Open dependency: live runtime credentials/network still required to validate all venue adapters end-to-end.
 - Runtime dependency: Coinbase venue history can be blocked on Exchange endpoint; fallback endpoint behavior must be monitored.
 
 ## Section 5.1 Compliance Snapshot

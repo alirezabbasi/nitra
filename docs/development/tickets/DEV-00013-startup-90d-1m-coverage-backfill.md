@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress (runtime replay path implemented; venue-history completion and session-aware continuity policy tracked under `DEV-00014`)
+Implemented in code (runtime validation evidence collection in progress)
 
 ## Summary
 
@@ -60,8 +60,9 @@ On service startup, the system must validate coverage in `ohlcv_bar` and automat
   - consumes `replay.commands`.
   - rebuilds `1m` bars from replay ranges using available `raw_tick` source data.
   - updates `backfill_jobs`, `replay_audit`, and resolves covered gaps in `gap_log`.
-- Remaining dependency:
-  - final venue-history completion hardening and continuity-policy validation tracked in `DEV-00014`.
+- Implemented replay-controller venue-history fallback adapters:
+  - when replay range remains incomplete after `raw_tick` rebuild, fetches venue candles from `oanda`, `coinbase` (with public fallback), or `capital`.
+  - upserts fetched bars into `ohlcv_bar` and re-evaluates range completeness before assigning final replay/backfill status.
 
 ## Verification Plan
 

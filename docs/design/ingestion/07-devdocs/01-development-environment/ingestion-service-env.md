@@ -123,7 +123,18 @@ COINBASE profile:
 - `REPLAY_INPUT_TOPIC` default `replay.commands`
 - `REPLAY_GROUP_ID` default `nitra-replay-controller-v1`
 - `REPLAY_SYMBOL_REGISTRY_PATH` default `/etc/nitra/registry.v1.json`
+- `REPLAY_HISTORY_ENABLED` default `true` (attempt venue-history adapter fetch when raw ticks are insufficient for replay range)
+- `REPLAY_HISTORY_TIMEOUT_SECS` default `8` (HTTP timeout for venue-history requests)
+- `REPLAY_OANDA_REST_URL` default `${OANDA_REST_URL}`
+- `REPLAY_OANDA_API_TOKEN` default `${OANDA_API_TOKEN}` (required for OANDA history adapter)
+- `REPLAY_COINBASE_REST_URL` default `${COINBASE_REST_URL}`
+- `REPLAY_COINBASE_PUBLIC_REST_URL` default `${COINBASE_PUBLIC_REST_URL}` (fallback candles route when Exchange endpoint is blocked)
+- `REPLAY_CAPITAL_API_URL` default `${CAPITAL_API_URL}`
+- `REPLAY_CAPITAL_API_KEY` default `${CAPITAL_API_KEY}`
+- `REPLAY_CAPITAL_IDENTIFIER` default `${CAPITAL_IDENTIFIER}`
+- `REPLAY_CAPITAL_API_PASSWORD` default `${CAPITAL_API_PASSWORD}`
+- `REPLAY_CAPITAL_EPIC_MAP` default `${CAPITAL_EPIC_MAP}` (optional canonical symbol -> epic map)
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 Notes:
-- Current replay executor rebuilds `1m` bars from available `raw_tick` source data in the requested range and updates `backfill_jobs` + `replay_audit` statuses accordingly.
+- Replay executor first rebuilds `1m` bars from `raw_tick`; if the range remains incomplete, it attempts venue-history adapters (`oanda`/`coinbase`/`capital`) before finalizing status.

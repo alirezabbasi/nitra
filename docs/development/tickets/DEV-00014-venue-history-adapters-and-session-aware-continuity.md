@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented (verification in progress against live broker network/runtime constraints)
+Implemented (adapter hardening completed; live runtime validation checklist added)
 
 ## Summary
 
@@ -49,6 +49,7 @@ Complete the missing runtime pieces for manual/automatic 90-day backfill:
 ## Deliverables
 
 - Runtime code updates in `services/charting/app.py`
+- Adapter health probe endpoint `POST /api/v1/backfill/adapter-check` for live-network diagnostics
 - Compose/env contract updates for charting adapter credentials and fallback endpoints
 - LLD + env docs updates
 - Test pack baseline under `tests/dev-0014`

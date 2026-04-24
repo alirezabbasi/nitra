@@ -29,17 +29,20 @@ Last updated: 2026-04-24
 - Registered ingestion bug records `BUG-00005` (mock Coinbase feed) and `BUG-00006` (startup backfill source-depth failure mode).
 - Removed runtime mock ingestion generation and replaced `market-ingestion` with venue-sourced fetch paths (OANDA/Capital/Coinbase) plus fail-closed `CONNECTOR_MODE=mock` rejection and anti-mock test guardrails.
 - Completed chart UX parity upgrade ticket `DEV-00015`: realtime return, jump-to-time/index, zoom/scroll locks, range/crosshair metadata, history lazy loading, snapshot export, locale/timezone/format controls, and interaction-density/margin tuning.
+- Implemented replay-controller venue-history fallback adapters (`oanda`/`coinbase`/`capital`) so replay ranges can fetch broker candles when `raw_tick` depth is insufficient.
+- Hardened charting venue adapters for transient network errors and numeric payload variance; added `POST /api/v1/backfill/adapter-check` live probe endpoint.
+- Updated compose/env contracts and dev test packs (`tests/dev-0013`, `tests/dev-0014`) for replay-history and adapter-hardening coverage.
 
 ### Current
 
-- `DEV-00013` is in progress with replay execution now wired (`gap-detection` + `backfill-worker` + `replay-controller`).
-- `DEV-00014` is in progress with implementation complete in code; live validation and adapter hardening continue.
+- `DEV-00013` implementation now includes replay venue-history fallback; runtime evidence collection is in progress.
+- `DEV-00014` implementation now includes adapter hardening + live probe endpoint; runtime evidence collection is in progress.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Validate `DEV-00014` end-to-end in live runtime and close remaining external adapter/network issues.
-2. Implement broker-history adapters in replay controller path for ranges where `raw_tick` source coverage is missing.
+1. Run live compose validation and capture post-fix `backfill_jobs` / `replay_audit` status distribution evidence.
+2. Promote `DEV-00013` and `DEV-00014` from in-progress to done after runtime evidence is captured.
 3. Implement deterministic structure-engine runtime baseline.
 4. Implement deterministic risk-engine and execution-gateway runtime baselines.
 
@@ -48,7 +51,7 @@ Last updated: 2026-04-24
 - Risk of architecture drift toward ingestion-only progress.
 - Risk of context drift if memory files are not updated at session close.
 - Open decision: priority ordering between replay controller and structure-engine first slice.
-- Open dependency: broker-history fulfillment still depends on source history adapters beyond current `raw_tick`-backed replay execution.
+- Open dependency: broker-history adapter correctness still needs live credentials/network validation in target runtime.
 - External risk: Coinbase Exchange candles endpoint may return 403 in some runtimes; fallback route health must be monitored.
 - Runtime restart needed to clear historical mock-origin rows from operational validation windows.
 

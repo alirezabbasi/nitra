@@ -337,3 +337,29 @@ Append one entry at the end of each substantial session.
   - `tests/dev-0015/run.sh`
 - Next recommended action:
   - run live browser validation for mobile/desktop interaction ergonomics and tune control defaults.
+---
+
+## 2026-04-24 — Session Entry 016
+
+- Objective:
+  - execute CURRENT_STATE next actions for `DEV-00014` hardening and `DEV-00013` replay broker-history completion.
+- Work completed:
+  - implemented replay-controller venue-history fallback adapters in `services/replay-controller/src/main.rs`:
+    - OANDA candles adapter,
+    - Coinbase Exchange candles with Advanced Trade fallback,
+    - Capital authenticated history adapter with session refresh.
+  - updated replay-controller compose/env contract with explicit history-adapter controls and credential mapping.
+  - hardened charting venue adapters for transient HTTP errors (`429/5xx`) and payload numeric parsing variance.
+  - added live validation endpoint `POST /api/v1/backfill/adapter-check` in charting service.
+  - updated test packs:
+    - `tests/dev-0013/run.sh` now verifies replay history adapter wiring,
+    - `tests/dev-0014/run.sh` now verifies adapter-check endpoint and numeric parse helper.
+  - updated delivery/runbook/env docs and bug/ticket state notes (`DEV-00013`, `DEV-00014`, `BUG-00006`).
+- Verification:
+  - `cargo test --manifest-path services/replay-controller/Cargo.toml` passes.
+  - `tests/dev-0013/run.sh` passes.
+  - `tests/dev-0014/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+- Next recommended action:
+  - run live compose validation with broker credentials and collect post-fix `backfill_jobs`/`replay_audit` status evidence before marking `DEV-00013` and `DEV-00014` done.
+
