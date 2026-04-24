@@ -34,6 +34,13 @@ def int_env(name: str, default: int) -> int:
         return default
 
 
+def bool_env(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def db_url() -> str:
     from_env = os.getenv("DATABASE_URL")
     if from_env:
@@ -54,6 +61,11 @@ VENUE_FETCH_MAX_ERRORS = max(1, int_env("CHARTING_VENUE_FETCH_MAX_ERRORS", 3))
 OANDA_REST_URL = env("OANDA_REST_URL", "https://api-fxpractice.oanda.com")
 COINBASE_REST_URL = env("COINBASE_REST_URL", "https://api.exchange.coinbase.com")
 COINBASE_PUBLIC_REST_URL = env("COINBASE_PUBLIC_REST_URL", "https://api.coinbase.com")
+WATCHDOG_ENABLED = bool_env("CHARTING_GAP_WATCHDOG_ENABLED", True)
+WATCHDOG_INTERVAL_SECS = max(60, int_env("CHARTING_GAP_WATCHDOG_INTERVAL_SECS", 300))
+WATCHDOG_MARKETS_PER_CYCLE = max(1, int_env("CHARTING_GAP_WATCHDOG_MARKETS_PER_CYCLE", 8))
+WATCHDOG_LOOKBACK_HOURS = max(1, int_env("CHARTING_GAP_WATCHDOG_LOOKBACK_HOURS", 48))
+WATCHDOG_MAX_RANGES_PER_RUN = max(1, int_env("CHARTING_GAP_WATCHDOG_MAX_RANGES_PER_RUN", 48))
 
 CRYPTO_BASES = {
     "BTC",
@@ -72,6 +84,9 @@ CRYPTO_BASES = {
 _CAPITAL_SESSION_LOCK = threading.Lock()
 _CAPITAL_SESSION_HEADERS: dict[str, str] = {}
 _CAPITAL_SESSION_EXPIRY: datetime | None = None
+_BACKFILL_LOCKS_GUARD = threading.Lock()
+_BACKFILL_LOCKS: dict[tuple[str, str], threading.Lock] = {}
+_WATCHDOG_THREAD: threading.Thread | None = None
 
 app = FastAPI(title="nitra-charting")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -112,6 +127,87 @@ def canonical_window_90d() -> tuple[datetime, datetime]:
     end_dt = now.replace(second=0, microsecond=0) - timedelta(minutes=1)
     start_dt = end_dt - timedelta(days=90) + timedelta(minutes=1)
     return start_dt, end_dt
+
+
+def timeframe_minutes(timeframe: str) -> int:
+    tf = timeframe.strip().lower()
+    if tf.endswith("m") and tf[:-1].isdigit():
+        return max(1, int(tf[:-1]))
+    if tf.endswith("h") and tf[:-1].isdigit():
+        return max(1, int(tf[:-1]) * 60)
+    if tf.endswith("d") and tf[:-1].isdigit():
+        return max(1, int(tf[:-1]) * 1440)
+    return 1
+
+
+def timeframe_bucket_start(ts: datetime, tf_minutes: int) -> datetime:
+    minute_ts = int(ts.astimezone(timezone.utc).replace(second=0, microsecond=0).timestamp())
+    bucket_seconds = max(60, tf_minutes * 60)
+    bucket = (minute_ts // bucket_seconds) * bucket_seconds
+    return datetime.fromtimestamp(bucket, tz=timezone.utc)
+
+
+def aggregate_1m_rows(rows: list[tuple], tf_minutes: int) -> list[tuple]:
+    if tf_minutes <= 1:
+        return rows
+    out: list[tuple] = []
+    current: dict | None = None
+    for bucket_start, open_, high, low, close, volume, trade_count in rows:
+        if None in (bucket_start, open_, high, low, close):
+            continue
+        slot = timeframe_bucket_start(bucket_start, tf_minutes)
+        if current is None or current["bucket_start"] != slot:
+            if current is not None:
+                out.append(
+                    (
+                        current["bucket_start"],
+                        current["open"],
+                        current["high"],
+                        current["low"],
+                        current["close"],
+                        current["volume"],
+                        current["trade_count"],
+                    )
+                )
+            current = {
+                "bucket_start": slot,
+                "open": float(open_),
+                "high": float(high),
+                "low": float(low),
+                "close": float(close),
+                "volume": float(volume or 0.0),
+                "trade_count": int(trade_count or 0),
+            }
+            continue
+        current["high"] = max(current["high"], float(high))
+        current["low"] = min(current["low"], float(low))
+        current["close"] = float(close)
+        current["volume"] += float(volume or 0.0)
+        current["trade_count"] += int(trade_count or 0)
+    if current is not None:
+        out.append(
+            (
+                current["bucket_start"],
+                current["open"],
+                current["high"],
+                current["low"],
+                current["close"],
+                current["volume"],
+                current["trade_count"],
+            )
+        )
+    return out
+
+
+def get_backfill_lock(venue: str, symbol: str) -> threading.Lock:
+    key = (venue.lower(), symbol.upper())
+    with _BACKFILL_LOCKS_GUARD:
+        existing = _BACKFILL_LOCKS.get(key)
+        if existing is not None:
+            return existing
+        lock = threading.Lock()
+        _BACKFILL_LOCKS[key] = lock
+        return lock
 
 
 def is_crypto_symbol(symbol: str) -> bool:
@@ -627,9 +723,10 @@ def fetch_from_venue(venue: str, symbol: str, ranges: list[tuple[datetime, datet
     fetched = 0
     errors: list[str] = []
     failed_calls = 0
-    for start_dt, end_dt in ranges:
+    # Process newest ranges first so recent chart continuity is restored before older history.
+    for start_dt, end_dt in reversed(ranges):
         chunks = chunk_range(start_dt, end_dt, chunk_minutes=chunk_minutes)
-        for chunk_start, chunk_end in chunks:
+        for chunk_start, chunk_end in reversed(chunks):
             try:
                 if venue == "oanda":
                     bars = fetch_oanda_range(symbol, chunk_start, chunk_end)
@@ -727,101 +824,259 @@ def backfill_90d(
     venue: str = Body(min_length=1, max_length=64),
     symbol: str = Body(min_length=1, max_length=64),
 ) -> dict:
+    start_dt, end_dt = canonical_window_90d()
+    return run_backfill_window(
+        venue=venue.strip().lower(),
+        symbol=symbol.strip().upper(),
+        start_dt=start_dt,
+        end_dt=end_dt,
+        trigger="manual_90d",
+        wait_for_lock=True,
+    )
+
+
+def run_backfill_window(
+    *,
+    venue: str,
+    symbol: str,
+    start_dt: datetime,
+    end_dt: datetime,
+    trigger: str,
+    wait_for_lock: bool,
+    max_ranges: int | None = None,
+) -> dict:
     venue_norm = venue.strip().lower()
     symbol_norm = symbol.strip().upper()
     weekday_only = fx_weekday_only_policy(venue_norm, symbol_norm)
-    start_dt, end_dt = canonical_window_90d()
     broker_symbols = broker_symbol_candidates(venue_norm, symbol_norm)
     requested_minutes = expected_minutes(start_dt, end_dt, weekday_only=weekday_only)
-    first_missing_after = []
+    first_missing_after: list[str] = []
     missing_ranges: list[tuple[datetime, datetime]] = []
     upserted_from_ticks = 0
     source_tick_count = 0
     min_ts = None
     max_ts = None
+    missing_before_count = 0
 
-    with psycopg.connect(db_url()) as conn:
-        upserted_from_ticks, source_tick_count, min_ts, max_ts = upsert_from_raw_ticks(
-            conn, venue_norm, symbol_norm, broker_symbols, start_dt, end_dt
-        )
-        conn.commit()
+    lock = get_backfill_lock(venue_norm, symbol_norm)
+    locked = lock.acquire(blocking=wait_for_lock)
+    if not locked:
+        return {
+            "venue": venue_norm,
+            "symbol": symbol_norm,
+            "requested_window": {"start": start_dt.isoformat(), "end": end_dt.isoformat()},
+            "requested_minutes": requested_minutes,
+            "complete_90d_1m": False,
+            "continuity_policy": "weekday_only_for_fx" if weekday_only else "all_minutes",
+            "trigger": trigger,
+            "status": "skipped_lock_busy",
+            "venue_fetch_error": "backfill already running for symbol",
+        }
 
-        missing_before = fetch_missing_minutes(
-            conn, venue_norm, symbol_norm, start_dt, end_dt, weekday_only=weekday_only
-        )
-        missing_ranges = merge_missing_minutes(missing_before)
-        missing_before_count = len(missing_before)
+    try:
+        with psycopg.connect(db_url()) as conn:
+            upserted_from_ticks, source_tick_count, min_ts, max_ts = upsert_from_raw_ticks(
+                conn, venue_norm, symbol_norm, broker_symbols, start_dt, end_dt
+            )
+            conn.commit()
 
-    venue_fetch_rows = 0
-    venue_fetch_error = ""
-    if missing_ranges:
-        venue_fetch_rows, venue_fetch_error = fetch_from_venue(venue_norm, symbol_norm, missing_ranges)
-        if venue_fetch_rows == 0 and not venue_fetch_error:
-            venue_fetch_error = "venue returned no candles for missing ranges (likely non-trading windows or unavailable history)"
+            missing_before = fetch_missing_minutes(
+                conn, venue_norm, symbol_norm, start_dt, end_dt, weekday_only=weekday_only
+            )
+            missing_ranges = merge_missing_minutes(missing_before)
+            missing_before_count = len(missing_before)
 
-    with psycopg.connect(db_url()) as conn:
-        missing_after = fetch_missing_minutes(
-            conn, venue_norm, symbol_norm, start_dt, end_dt, weekday_only=weekday_only
-        )
-        first_missing_after = [m.isoformat() for m in missing_after[:5]]
+        if max_ranges is not None and len(missing_ranges) > max_ranges:
+            missing_ranges = missing_ranges[-max_ranges:]
 
-    complete = len(missing_after) == 0
-    covered_minutes = requested_minutes - len(missing_after)
+        venue_fetch_rows = 0
+        venue_fetch_error = ""
+        if missing_ranges:
+            venue_fetch_rows, venue_fetch_error = fetch_from_venue(venue_norm, symbol_norm, missing_ranges)
+            if venue_fetch_rows == 0 and not venue_fetch_error:
+                venue_fetch_error = "venue returned no candles for missing ranges (likely non-trading windows or unavailable history)"
+
+        with psycopg.connect(db_url()) as conn:
+            missing_after = fetch_missing_minutes(
+                conn, venue_norm, symbol_norm, start_dt, end_dt, weekday_only=weekday_only
+            )
+            first_missing_after = [m.isoformat() for m in missing_after[:5]]
+
+        complete = len(missing_after) == 0
+        covered_minutes = requested_minutes - len(missing_after)
+        return {
+            "venue": venue_norm,
+            "symbol": symbol_norm,
+            "requested_window": {"start": start_dt.isoformat(), "end": end_dt.isoformat()},
+            "requested_minutes": requested_minutes,
+            "source_tick_count": source_tick_count,
+            "source_tick_range": {
+                "min_ts": min_ts.isoformat() if min_ts else None,
+                "max_ts": max_ts.isoformat() if max_ts else None,
+            },
+            "bars_upserted_from_ticks": upserted_from_ticks,
+            "venue_rows_fetched": venue_fetch_rows,
+            "missing_before_fetch_count": missing_before_count,
+            "missing_range_count": len(missing_ranges),
+            "missing_after_fetch_count": len(missing_after),
+            "coverage_ratio": (covered_minutes / requested_minutes) if requested_minutes > 0 else 0.0,
+            "complete_90d_1m": complete,
+            "continuity_policy": "weekday_only_for_fx" if weekday_only else "all_minutes",
+            "first_missing_minutes": first_missing_after if not complete else [],
+            "venue_fetch_error": venue_fetch_error,
+            "trigger": trigger,
+            "range_priority": "recent_to_old",
+            "status": "ok",
+            "note": "Strict coverage mode: backfill rebuilds from raw_tick, then fetches missing required 1m windows from venue adapters. For FX venues, closed-market weekend minutes are excluded from required continuity.",
+        }
+    finally:
+        lock.release()
+
+
+def parse_window_ts(raw: str) -> datetime:
+    ts = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return ts.astimezone(timezone.utc).replace(second=0, microsecond=0)
+
+
+@app.post("/api/v1/backfill/window")
+def backfill_window(
+    venue: str = Body(min_length=1, max_length=64),
+    symbol: str = Body(min_length=1, max_length=64),
+    from_ts: str = Body(min_length=1, max_length=64),
+    to_ts: str = Body(min_length=1, max_length=64),
+) -> dict:
+    start_dt = parse_window_ts(from_ts)
+    end_dt = parse_window_ts(to_ts)
+    if end_dt < start_dt:
+        raise HTTPException(status_code=400, detail="invalid window: to_ts is before from_ts")
+    return run_backfill_window(
+        venue=venue.strip().lower(),
+        symbol=symbol.strip().upper(),
+        start_dt=start_dt,
+        end_dt=end_dt,
+        trigger="manual_window",
+        wait_for_lock=True,
+    )
+
+
+def list_watchdog_targets(conn: psycopg.Connection) -> list[tuple[str, str]]:
+    query = """
+    SELECT
+      venue,
+      canonical_symbol
+    FROM ohlcv_bar
+    WHERE timeframe = '1m'
+      AND bucket_start >= now() - (%s::int * interval '1 hour')
+    GROUP BY venue, canonical_symbol
+    ORDER BY MAX(bucket_start) DESC
+    LIMIT %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(query, (WATCHDOG_LOOKBACK_HOURS, WATCHDOG_MARKETS_PER_CYCLE))
+        return [(row[0], row[1]) for row in cur.fetchall()]
+
+
+def watchdog_loop() -> None:
+    while True:
+        try:
+            with psycopg.connect(db_url()) as conn:
+                targets = list_watchdog_targets(conn)
+            if targets:
+                start_dt, end_dt = canonical_window_90d()
+                for venue, symbol in targets:
+                    result = run_backfill_window(
+                        venue=venue,
+                        symbol=symbol,
+                        start_dt=start_dt,
+                        end_dt=end_dt,
+                        trigger="watchdog_90d_gap_scan",
+                        wait_for_lock=False,
+                        max_ranges=WATCHDOG_MAX_RANGES_PER_RUN,
+                    )
+                    if result.get("missing_before_fetch_count", 0) > 0:
+                        print(
+                            "[charting-watchdog] backfill",
+                            venue,
+                            symbol,
+                            result.get("missing_before_fetch_count"),
+                            "->",
+                            result.get("missing_after_fetch_count"),
+                            result.get("status"),
+                        )
+        except Exception as exc:
+            print(f"[charting-watchdog] cycle error: {exc}")
+        time.sleep(WATCHDOG_INTERVAL_SECS)
+
+
+@app.on_event("startup")
+def start_gap_watchdog() -> None:
+    global _WATCHDOG_THREAD
+    if not WATCHDOG_ENABLED:
+        return
+    if _WATCHDOG_THREAD and _WATCHDOG_THREAD.is_alive():
+        return
+    _WATCHDOG_THREAD = threading.Thread(
+        target=watchdog_loop,
+        daemon=True,
+        name="charting-gap-watchdog",
+    )
+    _WATCHDOG_THREAD.start()
+
+
+@app.get("/api/v1/backfill/watchdog")
+def backfill_watchdog_status() -> dict:
+    thread_alive = bool(_WATCHDOG_THREAD and _WATCHDOG_THREAD.is_alive())
     return {
-        "venue": venue_norm,
-        "symbol": symbol_norm,
-        "requested_window": {"start": start_dt.isoformat(), "end": end_dt.isoformat()},
-        "requested_minutes": requested_minutes,
-        "source_tick_count": source_tick_count,
-        "source_tick_range": {
-            "min_ts": min_ts.isoformat() if min_ts else None,
-            "max_ts": max_ts.isoformat() if max_ts else None,
-        },
-        "bars_upserted_from_ticks": upserted_from_ticks,
-        "venue_rows_fetched": venue_fetch_rows,
-        "missing_before_fetch_count": missing_before_count,
-        "missing_after_fetch_count": len(missing_after),
-        "coverage_ratio": (covered_minutes / requested_minutes) if requested_minutes > 0 else 0.0,
-        "complete_90d_1m": complete,
-        "continuity_policy": "weekday_only_for_fx" if weekday_only else "all_minutes",
-        "first_missing_minutes": first_missing_after if not complete else [],
-        "venue_fetch_error": venue_fetch_error,
-        "note": "Strict coverage mode: backfill rebuilds from raw_tick, then fetches missing required 1m windows from venue adapters. For FX venues, closed-market weekend minutes are excluded from required continuity.",
+        "enabled": WATCHDOG_ENABLED,
+        "thread_alive": thread_alive,
+        "interval_secs": WATCHDOG_INTERVAL_SECS,
+        "markets_per_cycle": WATCHDOG_MARKETS_PER_CYCLE,
+        "lookback_hours": WATCHDOG_LOOKBACK_HOURS,
+        "max_ranges_per_run": WATCHDOG_MAX_RANGES_PER_RUN,
     }
 
 
 @app.get("/api/v1/markets/available")
 def markets_available(timeframe: str = Query(default=DEFAULT_TIMEFRAME, min_length=1, max_length=16)) -> dict:
+    tf = timeframe.strip().lower()
+    tf_minutes = timeframe_minutes(tf)
     query = """
     SELECT
       venue,
       canonical_symbol,
-      timeframe,
       MAX(bucket_start) AS last_bar_ts,
       COUNT(*) AS bar_count
     FROM ohlcv_bar
-    WHERE timeframe = %s
-    GROUP BY venue, canonical_symbol, timeframe
+    WHERE timeframe = '1m'
+    GROUP BY venue, canonical_symbol
     ORDER BY venue, canonical_symbol
     """
     with psycopg.connect(db_url()) as conn:
         with conn.cursor() as cur:
-            cur.execute(query, (timeframe,))
+            cur.execute(query)
             rows = cur.fetchall()
 
     markets = []
-    for venue, symbol, row_timeframe, last_bar_ts, bar_count in rows:
+    for venue, symbol, last_bar_ts, bar_count in rows:
+        if tf_minutes <= 1:
+            derived_count = int(bar_count)
+            derived_ts = last_bar_ts
+        else:
+            derived_count = max(1, (int(bar_count) + tf_minutes - 1) // tf_minutes)
+            derived_ts = timeframe_bucket_start(last_bar_ts, tf_minutes) if last_bar_ts else None
         markets.append(
             {
                 "venue": venue,
                 "symbol": symbol,
-                "timeframe": row_timeframe,
-                "last_bar_ts": last_bar_ts.isoformat() if last_bar_ts else None,
-                "bar_count": int(bar_count),
+                "timeframe": tf,
+                "last_bar_ts": derived_ts.isoformat() if derived_ts else None,
+                "bar_count": derived_count,
             }
         )
 
-    return {"timeframe": timeframe, "markets": markets}
+    return {"timeframe": tf, "markets": markets}
 
 
 @app.get("/api/v1/bars/hot")
@@ -831,7 +1086,9 @@ def bars_hot(
     timeframe: str = Query(default=DEFAULT_TIMEFRAME, min_length=1, max_length=16),
     limit: int = Query(default=DEFAULT_LIMIT, ge=10, le=3000),
 ) -> dict:
-    query = """
+    tf = timeframe.strip().lower()
+    tf_minutes = timeframe_minutes(tf)
+    base_query = """
     SELECT
       bucket_start,
       open,
@@ -848,17 +1105,25 @@ def bars_hot(
     LIMIT %s
     """
 
+    rows: list[tuple]
     with psycopg.connect(db_url()) as conn:
         with conn.cursor() as cur:
-            cur.execute(query, (venue, symbol, timeframe, limit))
-            rows = cur.fetchall()
+            if tf_minutes <= 1:
+                cur.execute(base_query, (venue, symbol, "1m", limit))
+                rows = cur.fetchall()
+            else:
+                raw_limit = min(200_000, (limit * tf_minutes) + (tf_minutes * 2))
+                cur.execute(base_query, (venue, symbol, "1m", raw_limit))
+                raw_rows_desc = cur.fetchall()
+                raw_rows_asc = list(reversed(raw_rows_desc))
+                rows = list(reversed(aggregate_1m_rows(raw_rows_asc, tf_minutes)[-limit:]))
 
     bars = _rows_to_bars(rows)
 
     return {
         "venue": venue,
         "symbol": symbol,
-        "timeframe": timeframe,
+        "timeframe": tf,
         "bars": bars,
     }
 
@@ -891,7 +1156,9 @@ def bars_history(
     limit: int = Query(default=500, ge=10, le=3000),
 ) -> dict:
     before_dt = datetime.fromtimestamp(before_s, tz=timezone.utc)
-    query = """
+    tf = timeframe.strip().lower()
+    tf_minutes = timeframe_minutes(tf)
+    base_query = """
     SELECT
       bucket_start,
       open,
@@ -909,17 +1176,30 @@ def bars_history(
     LIMIT %s
     """
 
+    rows: list[tuple]
+    has_more: bool
     with psycopg.connect(db_url()) as conn:
         with conn.cursor() as cur:
-            cur.execute(query, (venue, symbol, timeframe, before_dt, limit + 1))
-            rows = cur.fetchall()
+            if tf_minutes <= 1:
+                cur.execute(base_query, (venue, symbol, "1m", before_dt, limit + 1))
+                rows = cur.fetchall()
+                has_more = len(rows) > limit
+                rows = rows[:limit]
+            else:
+                raw_limit = min(200_000, ((limit + 1) * tf_minutes) + (tf_minutes * 2))
+                cur.execute(base_query, (venue, symbol, "1m", before_dt, raw_limit))
+                raw_rows_desc = cur.fetchall()
+                raw_rows_asc = list(reversed(raw_rows_desc))
+                aggregated = aggregate_1m_rows(raw_rows_asc, tf_minutes)
+                has_more = len(aggregated) > limit
+                selected = aggregated[-limit:]
+                rows = list(reversed(selected))
 
-    has_more = len(rows) > limit
-    bars = _rows_to_bars(rows[:limit])
+    bars = _rows_to_bars(rows)
     return {
         "venue": venue,
         "symbol": symbol,
-        "timeframe": timeframe,
+        "timeframe": tf,
         "bars": bars,
         "has_more": has_more,
     }

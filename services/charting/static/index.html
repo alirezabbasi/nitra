@@ -1047,7 +1047,7 @@
       }
 
       async function loadOlderBarsIfNeeded(rangePayload = null) {
-        if (!state.selected || state.historyLoading || !state.hasMoreHistory || state.derivedFromOneMinute) return;
+        if (!state.selected || state.historyLoading || !state.hasMoreHistory) return;
 
         const { fromIndex } = extractVisibleRange(rangePayload);
         if (!Number.isFinite(Number(fromIndex)) || Number(fromIndex) > 28) return;
