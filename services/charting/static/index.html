@@ -34,16 +34,23 @@
         width: 100%;
         height: 100%;
         display: grid;
-        grid-template-rows: 48px 1fr;
+        grid-template-rows: 78px 1fr;
       }
 
       .topbar {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0 10px;
+        display: grid;
+        grid-template-rows: 38px 38px;
+        gap: 2px;
+        padding: 0 8px;
         border-bottom: 1px solid var(--line);
         background: var(--panel);
+      }
+
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
       }
 
       .brand {
@@ -51,31 +58,35 @@
         font-weight: 700;
         letter-spacing: 0.02em;
         color: #e7ebf4;
-        padding: 0 10px;
+        padding: 0 8px;
+        white-space: nowrap;
       }
 
       .tool-group {
         display: flex;
         align-items: center;
         gap: 4px;
+        min-width: 0;
       }
 
       .divider {
         width: 1px;
         height: 20px;
         background: var(--line);
-        margin: 0 6px;
+        margin: 0 2px;
       }
 
       .tool-btn,
-      .select {
+      .select,
+      .num,
+      .dt {
         border: 1px solid transparent;
         color: var(--muted);
         background: transparent;
         border-radius: 6px;
-        height: 30px;
-        min-width: 30px;
-        padding: 0 10px;
+        height: 28px;
+        min-width: 28px;
+        padding: 0 8px;
         font-size: 12px;
       }
 
@@ -83,25 +94,57 @@
         cursor: pointer;
       }
 
-      .select {
-        min-width: 220px;
+      .tool-btn:hover {
+        background: #252d3f;
+        color: var(--text);
+      }
+
+      .tool-btn.active {
+        background: #27324a;
+        color: #e3e7f0;
+        border-color: #3a4660;
+      }
+
+      .select,
+      .num,
+      .dt {
         border-color: #3a4660;
         background: #27324a;
         color: #e3e7f0;
       }
 
+      .num {
+        width: 88px;
+      }
+
+      .dt {
+        width: 176px;
+      }
+
       #timeframe-select {
+        width: 70px;
         min-width: 0;
-        width: 8ch;
-        padding-left: 8px;
-        padding-right: 18px;
+      }
+
+      #locale-select {
+        width: 82px;
+      }
+
+      #timezone-select {
+        width: 120px;
+      }
+
+      #zoom-anchor-select,
+      #format-select {
+        width: 100px;
       }
 
       .combo {
         position: relative;
         display: flex;
         align-items: center;
-        min-width: 260px;
+        min-width: 250px;
+        max-width: 340px;
       }
 
       .combo .select {
@@ -118,8 +161,8 @@
         background: #27324a;
         border-top-right-radius: 6px;
         border-bottom-right-radius: 6px;
-        height: 30px;
-        min-width: 28px;
+        height: 28px;
+        min-width: 26px;
         cursor: pointer;
       }
 
@@ -162,15 +205,30 @@
         font-size: 12px;
       }
 
-      .tool-btn:hover {
-        background: #252d3f;
-        color: var(--text);
+      .range-wrap {
+        display: flex;
+        align-items: center;
+        gap: 4px;
       }
 
-      .tool-btn.active {
-        background: #27324a;
-        color: #e3e7f0;
-        border-color: #3a4660;
+      .range-wrap input[type="range"] {
+        width: 82px;
+      }
+
+      .label {
+        color: var(--muted);
+        font-size: 11px;
+        white-space: nowrap;
+      }
+
+      .meta {
+        margin-left: auto;
+        color: var(--muted);
+        font-size: 11px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 46vw;
       }
 
       .chart-wrap {
@@ -178,26 +236,27 @@
         display: block;
       }
 
-      .live-status {
-        margin-left: auto;
-        color: var(--muted);
-        font-size: 12px;
-        white-space: nowrap;
-      }
-
       #kline {
         width: 100%;
         height: 100%;
       }
 
-      @media (max-width: 980px) {
-        .brand {
+      @media (max-width: 1200px) {
+        .brand,
+        #timezone-select,
+        .label,
+        #left-min-bars,
+        #right-min-bars,
+        #jump-index {
           display: none;
         }
 
-        .select {
-          min-width: 150px;
-          max-width: 170px;
+        .app {
+          grid-template-rows: 84px 1fr;
+        }
+
+        .meta {
+          max-width: 30vw;
         }
       }
     </style>
@@ -205,15 +264,13 @@
   <body>
     <div class="app">
       <div class="topbar">
-        <div class="brand">NITRA · KLine</div>
-        <div class="divider"></div>
-        <div class="tool-group combo" id="market-combo">
-          <input id="market-search" class="select" title="Search Venue · Instrument" placeholder="Search venue/instrument" autocomplete="off" />
-          <button class="combo-toggle" id="market-toggle" title="Show available markets">▼</button>
-          <div id="market-dropdown" class="combo-menu hidden"></div>
-        </div>
-        <div class="divider"></div>
-        <div class="tool-group">
+        <div class="row">
+          <div class="brand">NITRA · KLine UX</div>
+          <div class="tool-group combo" id="market-combo">
+            <input id="market-search" class="select" title="Search Venue · Instrument" placeholder="Search venue/instrument" autocomplete="off" />
+            <button class="combo-toggle" id="market-toggle" title="Show available markets">▼</button>
+            <div id="market-dropdown" class="combo-menu hidden"></div>
+          </div>
           <select id="timeframe-select" class="select" title="Timeframe">
             <option value="1m">1m</option>
             <option value="5m">5m</option>
@@ -223,14 +280,51 @@
             <option value="4h">4h</option>
             <option value="1d">1d</option>
           </select>
-        </div>
-        <div class="divider"></div>
-        <div class="tool-group">
+          <select id="locale-select" class="select" title="Locale">
+            <option value="en-US">en-US</option>
+            <option value="zh-CN">zh-CN</option>
+          </select>
+          <select id="timezone-select" class="select" title="Timezone">
+            <option value="UTC">UTC</option>
+            <option value="Asia/Tehran">Asia/Tehran</option>
+            <option value="America/New_York">America/New_York</option>
+            <option value="Europe/London">Europe/London</option>
+          </select>
           <button class="tool-btn" id="reload-btn">Reload</button>
           <button class="tool-btn" id="fit-btn">Fit</button>
+          <button class="tool-btn" id="realtime-btn">Realtime</button>
+          <button class="tool-btn" id="snapshot-btn">Snapshot</button>
           <button class="tool-btn" id="backfill-btn">Backfill 90d</button>
+          <div id="status" class="meta">Loading...</div>
         </div>
-        <div id="status" class="live-status">Loading...</div>
+        <div class="row">
+          <button class="tool-btn" id="lock-scroll-btn" title="Toggle chart panning">Scroll: On</button>
+          <button class="tool-btn" id="lock-zoom-btn" title="Toggle chart zooming">Zoom: On</button>
+          <select id="zoom-anchor-select" class="select" title="Zoom anchor">
+            <option value="cursor">Anchor: Cursor</option>
+            <option value="last_bar">Anchor: Last Bar</option>
+          </select>
+          <select id="format-select" class="select" title="Number formatting">
+            <option value="compact">Format: Compact</option>
+            <option value="raw">Format: Raw</option>
+          </select>
+          <div class="range-wrap">
+            <span class="label">Bar</span>
+            <input id="bar-space-range" type="range" min="1" max="50" step="1" value="8" />
+          </div>
+          <div class="range-wrap">
+            <span class="label">Right</span>
+            <input id="right-offset-range" type="range" min="0" max="240" step="2" value="24" />
+          </div>
+          <span class="label">L/R min</span>
+          <input id="left-min-bars" class="num" type="number" min="0" step="1" value="2" />
+          <input id="right-min-bars" class="num" type="number" min="0" step="1" value="2" />
+          <input id="jump-timestamp" class="dt" type="datetime-local" title="Jump to timestamp" />
+          <button class="tool-btn" id="jump-time-btn">Jump Time</button>
+          <input id="jump-index" class="num" type="number" step="1" placeholder="Data index" title="Jump to data index" />
+          <button class="tool-btn" id="jump-index-btn">Jump Index</button>
+          <div id="meta" class="meta">range:- | cursor:-</div>
+        </div>
       </div>
 
       <section class="chart-wrap">
@@ -243,14 +337,41 @@
       const marketToggleEl = document.getElementById("market-toggle");
       const marketDropdownEl = document.getElementById("market-dropdown");
       const marketComboEl = document.getElementById("market-combo");
+
       const statusEl = document.getElementById("status");
+      const metaEl = document.getElementById("meta");
+
       const reloadBtn = document.getElementById("reload-btn");
       const fitBtn = document.getElementById("fit-btn");
+      const realtimeBtn = document.getElementById("realtime-btn");
+      const snapshotBtn = document.getElementById("snapshot-btn");
       const backfillBtn = document.getElementById("backfill-btn");
+
       const timeframeSelectEl = document.getElementById("timeframe-select");
+      const localeSelectEl = document.getElementById("locale-select");
+      const timezoneSelectEl = document.getElementById("timezone-select");
+      const zoomAnchorSelectEl = document.getElementById("zoom-anchor-select");
+      const formatSelectEl = document.getElementById("format-select");
+
+      const lockScrollBtn = document.getElementById("lock-scroll-btn");
+      const lockZoomBtn = document.getElementById("lock-zoom-btn");
+
+      const barSpaceRangeEl = document.getElementById("bar-space-range");
+      const rightOffsetRangeEl = document.getElementById("right-offset-range");
+      const leftMinBarsEl = document.getElementById("left-min-bars");
+      const rightMinBarsEl = document.getElementById("right-min-bars");
+
+      const jumpTimeEl = document.getElementById("jump-timestamp");
+      const jumpTimeBtn = document.getElementById("jump-time-btn");
+      const jumpIndexEl = document.getElementById("jump-index");
+      const jumpIndexBtn = document.getElementById("jump-index-btn");
 
       const state = {
         timeframe: "1m",
+        locale: "en-US",
+        timezone: "UTC",
+        zoomAnchor: "cursor",
+        formatMode: "compact",
         markets: [],
         selected: null,
         comboOpen: false,
@@ -259,12 +380,31 @@
         liveCursorMs: null,
         liveTimer: null,
         liveInFlight: false,
+        autoFollowRealtime: true,
+        scrollEnabled: true,
+        zoomEnabled: true,
+        barSpace: 8,
+        rightOffset: 24,
+        leftMinBars: 2,
+        rightMinBars: 2,
+        hasMoreHistory: true,
+        historyLoading: false,
+        lazyLoadDebounce: null,
+        derivedFromOneMinute: false,
       };
 
       let chart = null;
 
       function setStatus(text) {
         statusEl.textContent = text;
+      }
+
+      function compactNumber(value) {
+        if (!Number.isFinite(value)) return String(value);
+        if (Math.abs(value) < 1000) return `${value}`;
+        if (Math.abs(value) < 1_000_000) return `${(value / 1000).toFixed(2)}K`;
+        if (Math.abs(value) < 1_000_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+        return `${(value / 1_000_000_000).toFixed(2)}B`;
       }
 
       function initChart() {
@@ -274,12 +414,22 @@
         }
 
         chart = window.klinecharts.init("kline", {
+          locale: state.locale,
+          timezone: state.timezone,
+          zoomAnchor: state.zoomAnchor,
           styles: {
             grid: {
               horizontal: { color: "#2a3041" },
               vertical: { color: "#2a3041" },
             },
             candle: {
+              type: "candle_solid",
+              candle: {
+                priceMark: {
+                  high: { text: { color: "#cad4ea" } },
+                  low: { text: { color: "#cad4ea" } },
+                },
+              },
               bar: {
                 upColor: "#26a69a",
                 downColor: "#ef5350",
@@ -306,13 +456,15 @@
             },
           },
         });
+
+        applyChartPreferences();
+        applyFormatting();
+        subscribeChartActions();
         return true;
       }
 
       function replaceChartData(bars) {
-        if (!chart) {
-          return false;
-        }
+        if (!chart) return false;
         if (typeof chart.applyNewData === "function") {
           chart.applyNewData(bars);
           return true;
@@ -322,6 +474,55 @@
           return true;
         }
         return false;
+      }
+
+      function applyChartPreferences() {
+        if (!chart) return;
+        if (typeof chart.setZoomAnchor === "function") {
+          chart.setZoomAnchor(state.zoomAnchor);
+        }
+        if (typeof chart.setBarSpace === "function") {
+          chart.setBarSpace(state.barSpace);
+        }
+        if (typeof chart.setOffsetRightDistance === "function") {
+          chart.setOffsetRightDistance(state.rightOffset);
+        }
+        if (typeof chart.setLeftMinVisibleBarCount === "function") {
+          chart.setLeftMinVisibleBarCount(state.leftMinBars);
+        }
+        if (typeof chart.setRightMinVisibleBarCount === "function") {
+          chart.setRightMinVisibleBarCount(state.rightMinBars);
+        }
+        if (typeof chart.setScrollEnabled === "function") {
+          chart.setScrollEnabled(state.scrollEnabled);
+        }
+        if (typeof chart.setZoomEnabled === "function") {
+          chart.setZoomEnabled(state.zoomEnabled);
+        }
+        if (typeof chart.setLocale === "function") {
+          chart.setLocale(state.locale);
+        }
+        if (typeof chart.setTimezone === "function") {
+          chart.setTimezone(state.timezone);
+        }
+        lockScrollBtn.textContent = `Scroll: ${state.scrollEnabled ? "On" : "Off"}`;
+        lockZoomBtn.textContent = `Zoom: ${state.zoomEnabled ? "On" : "Off"}`;
+      }
+
+      function applyFormatting() {
+        if (!chart || typeof chart.setFormatter !== "function") {
+          return;
+        }
+        if (state.formatMode === "raw") {
+          chart.setFormatter({
+            formatBigNumber: (v) => `${v}`,
+          });
+          return;
+        }
+
+        chart.setFormatter({
+          formatBigNumber: (v) => compactNumber(Number(v)),
+        });
       }
 
       function formatMarket(market) {
@@ -354,9 +555,7 @@
         for (const bar of bars) {
           const bucketTs = bucketStartMs(bar.timestamp, tfMs);
           if (!current || current.timestamp !== bucketTs) {
-            if (current) {
-              grouped.push(current);
-            }
+            if (current) grouped.push(current);
             current = {
               timestamp: bucketTs,
               open: bar.open,
@@ -374,22 +573,32 @@
           current.volume += Number(bar.volume || 0);
         }
 
-        if (current) {
-          grouped.push(current);
-        }
+        if (current) grouped.push(current);
         return grouped;
       }
 
+      function extractVisibleRange(payload) {
+        const source = payload || (chart && typeof chart.getVisibleRange === "function" ? chart.getVisibleRange() : null);
+        if (!source || typeof source !== "object") {
+          return { fromIndex: null, toIndex: null };
+        }
+        const fromIndex = source.from ?? source.fromIndex ?? source.realFrom ?? source.displayFrom ?? null;
+        const toIndex = source.to ?? source.toIndex ?? source.realTo ?? source.displayTo ?? null;
+        return { fromIndex, toIndex };
+      }
+
+      function syncMeta(payload = null) {
+        const { fromIndex, toIndex } = extractVisibleRange(payload);
+        const left = Number.isFinite(Number(fromIndex)) ? Number(fromIndex) : "-";
+        const right = Number.isFinite(Number(toIndex)) ? Number(toIndex) : "-";
+        const follow = state.autoFollowRealtime ? "follow:on" : "follow:off";
+        metaEl.textContent = `range:${left}..${right} | bars:${state.liveBars.length} | ${follow}`;
+      }
+
       function fitChart() {
-        if (!chart) {
-          return;
-        }
-        if (typeof chart.resize === "function") {
-          chart.resize();
-        }
-        if (typeof chart.scrollToRealTime === "function") {
-          chart.scrollToRealTime();
-        }
+        if (!chart) return;
+        if (typeof chart.resize === "function") chart.resize();
+        syncMeta();
       }
 
       function stopLivePolling() {
@@ -402,39 +611,23 @@
 
       function mergeBarsWithTicks(baseBars, ticks, tfMs, persistedLastTs) {
         const bars = baseBars.map((b) => ({ ...b }));
-        if (!ticks.length) {
-          return bars;
-        }
+        if (!ticks.length) return bars;
 
         for (const tick of ticks) {
           const tickTs = Number(tick.ts_ms);
           const price = Number(tick.price);
-          if (!Number.isFinite(tickTs) || !Number.isFinite(price)) {
-            continue;
-          }
+          if (!Number.isFinite(tickTs) || !Number.isFinite(price)) continue;
 
           const bucketTs = bucketStartMs(tickTs, tfMs);
-
-          if (persistedLastTs !== null && bucketTs < persistedLastTs) {
-            continue;
-          }
+          if (persistedLastTs !== null && bucketTs < persistedLastTs) continue;
 
           if (!bars.length) {
-            bars.push({
-              timestamp: bucketTs,
-              open: price,
-              high: price,
-              low: price,
-              close: price,
-              volume: 0,
-            });
+            bars.push({ timestamp: bucketTs, open: price, high: price, low: price, close: price, volume: 0 });
             continue;
           }
 
           const last = bars[bars.length - 1];
-          if (bucketTs < last.timestamp) {
-            continue;
-          }
+          if (bucketTs < last.timestamp) continue;
 
           if (bucketTs === last.timestamp) {
             last.high = Math.max(last.high, price);
@@ -457,9 +650,8 @@
       }
 
       async function pollLiveTicks() {
-        if (!state.selected || !chart || state.liveInFlight) {
-          return;
-        }
+        if (!state.selected || !chart || state.liveInFlight) return;
+
         state.liveInFlight = true;
         try {
           const params = new URLSearchParams({
@@ -468,24 +660,22 @@
             limit: "2000",
           });
 
-          if (state.liveCursorMs !== null) {
-            params.set("since_ms", String(state.liveCursorMs));
-          }
+          if (state.liveCursorMs !== null) params.set("since_ms", String(state.liveCursorMs));
 
           const payload = await getJson(`/api/v1/ticks/hot?${params.toString()}`);
           const ticks = payload.ticks || [];
-          if (!ticks.length) {
-            return;
-          }
+          if (!ticks.length) return;
 
           state.liveCursorMs = Number(ticks[ticks.length - 1].ts_ms);
           const tfMs = timeframeToMs(state.timeframe);
           const persistedLastTs = state.persistedBars.length ? state.persistedBars[state.persistedBars.length - 1].timestamp : null;
 
           state.liveBars = mergeBarsWithTicks(state.liveBars, ticks, tfMs, persistedLastTs);
-
           if (replaceChartData(state.liveBars)) {
-            fitChart();
+            if (state.autoFollowRealtime && typeof chart.scrollToRealTime === "function") {
+              chart.scrollToRealTime(80);
+            }
+            syncMeta();
             setStatus(`live ticks:${ticks.length} · ${new Date().toLocaleTimeString()}`);
           }
         } catch (error) {
@@ -503,9 +693,7 @@
 
       async function getJson(url) {
         const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         return response.json();
       }
 
@@ -527,6 +715,63 @@
         }));
       }
 
+      async function fetchHistoryBars(venue, symbol, timeframe, beforeTimestampMs, limit = 500) {
+        const params = new URLSearchParams({
+          venue,
+          symbol,
+          timeframe,
+          before_s: String(Math.floor(beforeTimestampMs / 1000)),
+          limit: String(limit),
+        });
+        const payload = await getJson(`/api/v1/bars/history?${params.toString()}`);
+        const bars = (payload.bars || []).map((b) => ({
+          timestamp: Number(b.time) * 1000,
+          open: Number(b.open),
+          high: Number(b.high),
+          low: Number(b.low),
+          close: Number(b.close),
+          volume: Number(b.volume || 0),
+        }));
+        return { bars, hasMore: Boolean(payload.has_more) };
+      }
+
+      async function loadOlderBarsIfNeeded(rangePayload = null) {
+        if (!state.selected || state.historyLoading || !state.hasMoreHistory || state.derivedFromOneMinute) return;
+
+        const { fromIndex } = extractVisibleRange(rangePayload);
+        if (!Number.isFinite(Number(fromIndex)) || Number(fromIndex) > 28) return;
+        if (!state.liveBars.length) return;
+
+        state.historyLoading = true;
+        try {
+          const beforeMs = state.liveBars[0].timestamp;
+          const result = await fetchHistoryBars(state.selected.venue, state.selected.symbol, state.timeframe, beforeMs, 600);
+          const older = result.bars;
+          if (!older.length) {
+            state.hasMoreHistory = false;
+            return;
+          }
+
+          const firstTs = state.liveBars[0].timestamp;
+          const dedupOlder = older.filter((b) => b.timestamp < firstTs);
+          if (!dedupOlder.length) {
+            state.hasMoreHistory = result.hasMore;
+            return;
+          }
+
+          state.persistedBars = [...dedupOlder, ...state.persistedBars];
+          state.liveBars = [...dedupOlder, ...state.liveBars];
+          replaceChartData(state.liveBars);
+          state.hasMoreHistory = result.hasMore;
+          syncMeta();
+          setStatus(`history +${dedupOlder.length} candles`);
+        } catch (error) {
+          setStatus(`History load error: ${error.message}`);
+        } finally {
+          state.historyLoading = false;
+        }
+      }
+
       function setActiveTimeframe(tf) {
         state.timeframe = tf;
         timeframeSelectEl.value = tf;
@@ -534,17 +779,6 @@
 
       function getSelectedMarket(venue, symbol) {
         return state.markets.find((m) => m.venue === venue && m.symbol === symbol) || null;
-      }
-
-      function marketKey(market) {
-        return `${market.venue}::${market.symbol}`;
-      }
-
-      function getSelectedMarketByKey(key) {
-        if (!key) return null;
-        const [venue, symbol] = key.split("::");
-        if (!venue || !symbol) return null;
-        return getSelectedMarket(venue, symbol);
       }
 
       function openMarketDropdown(showAll = false) {
@@ -570,9 +804,7 @@
           if (s !== 0) return s;
           return a.venue.localeCompare(b.venue);
         });
-        if (!query) {
-          return markets;
-        }
+        if (!query) return markets;
         return markets.filter((m) => formatMarket(m).toLowerCase().includes(query));
       }
 
@@ -624,9 +856,7 @@
         const existing = state.selected ? getSelectedMarket(state.selected.venue, state.selected.symbol) : null;
         state.selected = existing || filteredAll[0];
         marketSearchEl.value = state.selected ? formatMarket(state.selected) : "";
-        if (state.comboOpen) {
-          renderMarketDropdown(marketSearchEl.value);
-        }
+        if (state.comboOpen) renderMarketDropdown(marketSearchEl.value);
       }
 
       function selectedMarketFromInput() {
@@ -657,33 +887,32 @@
 
       async function loadBars() {
         if (!state.selected) {
-          if (chart) {
-            replaceChartData([]);
-          }
+          if (chart) replaceChartData([]);
           setStatus("No data");
           return;
         }
 
+        state.autoFollowRealtime = true;
+        state.hasMoreHistory = true;
+
         setStatus("Loading candles...");
-        let bars = await fetchBars(state.selected.venue, state.selected.symbol, state.timeframe, 500);
+        let bars = await fetchBars(state.selected.venue, state.selected.symbol, state.timeframe, 700);
+
         let derivedFromOneMinute = false;
         if (!bars.length && state.timeframe !== "1m") {
           const ratio = Math.max(1, Math.round(timeframeToMs(state.timeframe) / 60_000));
-          const oneMinuteLimit = Math.min(3000, 500 * ratio);
+          const oneMinuteLimit = Math.min(3000, 700 * ratio);
           const oneMinuteBars = await fetchBars(state.selected.venue, state.selected.symbol, "1m", oneMinuteLimit);
-          bars = aggregateBarsFromLowerTf(oneMinuteBars, state.timeframe).slice(-500);
+          bars = aggregateBarsFromLowerTf(oneMinuteBars, state.timeframe).slice(-700);
           derivedFromOneMinute = bars.length > 0;
         }
 
+        state.derivedFromOneMinute = derivedFromOneMinute;
         state.persistedBars = bars;
         state.liveBars = bars.map((b) => ({ ...b }));
 
         const tfMs = timeframeToMs(state.timeframe);
-        if (bars.length) {
-          state.liveCursorMs = bars[bars.length - 1].timestamp;
-        } else {
-          state.liveCursorMs = Date.now() - tfMs;
-        }
+        state.liveCursorMs = bars.length ? bars[bars.length - 1].timestamp : Date.now() - tfMs;
 
         if (!chart) {
           setStatus("Chart is not initialized");
@@ -695,9 +924,13 @@
           return;
         }
 
-        fitChart();
+        if (typeof chart.scrollToRealTime === "function") {
+          chart.scrollToRealTime(120);
+        }
+        syncMeta();
+
         if (derivedFromOneMinute) {
-          setStatus(`${state.liveBars.length} candles · live on · derived from 1m`);
+          setStatus(`${state.liveBars.length} candles · derived from 1m`);
         } else {
           setStatus(`${state.liveBars.length} candles · live on`);
         }
@@ -712,27 +945,116 @@
         }
       }
 
-      marketSearchEl.addEventListener("input", () => {
-        openMarketDropdown(false);
-      });
-
-      marketSearchEl.addEventListener("focus", () => {
-        openMarketDropdown(true);
-      });
-
-      marketSearchEl.addEventListener("click", () => {
-        if (!state.comboOpen) {
-          openMarketDropdown(true);
+      function jumpToRealtime() {
+        if (!chart || typeof chart.scrollToRealTime !== "function") return;
+        state.autoFollowRealtime = true;
+        chart.scrollToRealTime(180);
+        if (state.liveBars.length && typeof chart.executeAction === "function") {
+          const last = state.liveBars[state.liveBars.length - 1];
+          chart.executeAction("onCrosshairChange", { timestamp: Math.floor(last.timestamp / 1000) });
         }
+        syncMeta();
+      }
+
+      function exportSnapshot() {
+        if (!chart || typeof chart.getConvertPictureUrl !== "function") {
+          setStatus("Snapshot API unavailable");
+          return;
+        }
+        const url = chart.getConvertPictureUrl(false, "png", "#131722");
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `nitra-${state.selected ? state.selected.symbol : "chart"}-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setStatus("Snapshot exported");
+      }
+
+      async function jumpToTimestamp() {
+        if (!chart || !jumpTimeEl.value) return;
+        const targetMs = new Date(jumpTimeEl.value).getTime();
+        if (!Number.isFinite(targetMs)) return;
+        state.autoFollowRealtime = false;
+        if (typeof chart.scrollToTimestamp === "function") {
+          chart.scrollToTimestamp(Math.floor(targetMs / 1000), 160);
+        }
+        if (typeof chart.zoomAtTimestamp === "function") {
+          chart.zoomAtTimestamp(1.2, Math.floor(targetMs / 1000), 120);
+        }
+        syncMeta();
+      }
+
+      function jumpToDataIndex() {
+        if (!chart) return;
+        const idx = Number(jumpIndexEl.value);
+        if (!Number.isFinite(idx)) return;
+        state.autoFollowRealtime = false;
+        if (typeof chart.scrollToDataIndex === "function") {
+          chart.scrollToDataIndex(idx, 160);
+        }
+        syncMeta();
+      }
+
+      function subscribeChartActions() {
+        if (!chart || typeof chart.subscribeAction !== "function") return;
+
+        chart.subscribeAction("onVisibleRangeChange", (payload) => {
+          syncMeta(payload);
+          if (state.lazyLoadDebounce) clearTimeout(state.lazyLoadDebounce);
+          state.lazyLoadDebounce = setTimeout(() => {
+            loadOlderBarsIfNeeded(payload);
+          }, 120);
+        });
+
+        chart.subscribeAction("onScroll", () => {
+          state.autoFollowRealtime = false;
+          syncMeta();
+        });
+
+        chart.subscribeAction("onZoom", () => {
+          syncMeta();
+        });
+
+        chart.subscribeAction("onCrosshairChange", (payload) => {
+          if (!payload || typeof payload !== "object") return;
+          const timestamp = payload.timestamp || payload.kLineData?.timestamp;
+          const close = payload.kLineData?.close;
+          if (timestamp) {
+            const dt = new Date(Number(timestamp) * 1000);
+            const closeText = Number.isFinite(Number(close)) ? ` close:${Number(close).toFixed(6)}` : "";
+            metaEl.textContent = `${metaEl.textContent.split("|")[0]} | cursor:${dt.toISOString()}${closeText}`;
+          }
+        });
+      }
+
+      function bindPointerInspector() {
+        if (!chart || typeof chart.convertFromPixel !== "function") return;
+        const dom = document.getElementById("kline");
+        dom.addEventListener("mousemove", (event) => {
+          const rect = dom.getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+          const point = chart.convertFromPixel({ x, y });
+          if (point && typeof point === "object") {
+            const idx = point.dataIndex ?? "-";
+            const val = point.value !== undefined ? Number(point.value).toFixed(6) : "-";
+            const ts = point.timestamp ? new Date(Number(point.timestamp) * 1000).toISOString() : "-";
+            setStatus(`x:${Math.round(x)} y:${Math.round(y)} idx:${idx} val:${val} ts:${ts}`);
+          }
+        });
+      }
+
+      marketSearchEl.addEventListener("input", () => openMarketDropdown(false));
+      marketSearchEl.addEventListener("focus", () => openMarketDropdown(true));
+      marketSearchEl.addEventListener("click", () => {
+        if (!state.comboOpen) openMarketDropdown(true);
       });
 
       marketToggleEl.addEventListener("click", (event) => {
         event.preventDefault();
-        if (state.comboOpen) {
-          closeMarketDropdown();
-        } else {
-          openMarketDropdown(true);
-        }
+        if (state.comboOpen) closeMarketDropdown();
+        else openMarketDropdown(true);
       });
 
       marketSearchEl.addEventListener("change", async () => {
@@ -759,9 +1081,7 @@
       });
 
       document.addEventListener("click", (event) => {
-        if (!marketComboEl.contains(event.target)) {
-          closeMarketDropdown();
-        }
+        if (!marketComboEl.contains(event.target)) closeMarketDropdown();
       });
 
       timeframeSelectEl.addEventListener("change", async () => {
@@ -772,6 +1092,56 @@
         startLivePolling();
       });
 
+      localeSelectEl.addEventListener("change", () => {
+        state.locale = localeSelectEl.value;
+        applyChartPreferences();
+      });
+
+      timezoneSelectEl.addEventListener("change", () => {
+        state.timezone = timezoneSelectEl.value;
+        applyChartPreferences();
+      });
+
+      zoomAnchorSelectEl.addEventListener("change", () => {
+        state.zoomAnchor = zoomAnchorSelectEl.value;
+        applyChartPreferences();
+      });
+
+      formatSelectEl.addEventListener("change", () => {
+        state.formatMode = formatSelectEl.value;
+        applyFormatting();
+      });
+
+      lockScrollBtn.addEventListener("click", () => {
+        state.scrollEnabled = !state.scrollEnabled;
+        applyChartPreferences();
+      });
+
+      lockZoomBtn.addEventListener("click", () => {
+        state.zoomEnabled = !state.zoomEnabled;
+        applyChartPreferences();
+      });
+
+      barSpaceRangeEl.addEventListener("input", () => {
+        state.barSpace = Number(barSpaceRangeEl.value);
+        applyChartPreferences();
+      });
+
+      rightOffsetRangeEl.addEventListener("input", () => {
+        state.rightOffset = Number(rightOffsetRangeEl.value);
+        applyChartPreferences();
+      });
+
+      leftMinBarsEl.addEventListener("change", () => {
+        state.leftMinBars = Math.max(0, Number(leftMinBarsEl.value || 0));
+        applyChartPreferences();
+      });
+
+      rightMinBarsEl.addEventListener("change", () => {
+        state.rightMinBars = Math.max(0, Number(rightMinBarsEl.value || 0));
+        applyChartPreferences();
+      });
+
       reloadBtn.addEventListener("click", async () => {
         await reloadAll();
         startLivePolling();
@@ -779,6 +1149,22 @@
 
       fitBtn.addEventListener("click", () => {
         fitChart();
+      });
+
+      realtimeBtn.addEventListener("click", () => {
+        jumpToRealtime();
+      });
+
+      snapshotBtn.addEventListener("click", () => {
+        exportSnapshot();
+      });
+
+      jumpTimeBtn.addEventListener("click", async () => {
+        await jumpToTimestamp();
+      });
+
+      jumpIndexBtn.addEventListener("click", () => {
+        jumpToDataIndex();
       });
 
       backfillBtn.addEventListener("click", async () => {
@@ -798,21 +1184,14 @@
               symbol: state.selected.symbol,
             }),
           });
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-          }
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const payload = await response.json();
           await loadBars();
-          fitChart();
           if (payload.complete_90d_1m) {
-            setStatus(
-              `backfill complete · 90d OK · ticks:${payload.source_tick_count} · venue_rows:${payload.venue_rows_fetched}`
-            );
+            setStatus(`backfill complete · 90d OK · ticks:${payload.source_tick_count} · venue_rows:${payload.venue_rows_fetched}`);
           } else {
             const missing = payload.missing_after_fetch_count ?? "?";
-            setStatus(
-              `backfill incomplete · missing:${missing}m · venue_err:${payload.venue_fetch_error || "none"}`
-            );
+            setStatus(`backfill incomplete · missing:${missing}m · venue_err:${payload.venue_fetch_error || "none"}`);
           }
         } catch (error) {
           setStatus(`Backfill error: ${error.message}`);
@@ -822,12 +1201,11 @@
         }
       });
 
-      window.addEventListener("resize", () => {
-        fitChart();
-      });
+      window.addEventListener("resize", () => fitChart());
 
       setActiveTimeframe("1m");
       if (initChart()) {
+        bindPointerInspector();
         reloadAll().then(startLivePolling);
       }
     </script>

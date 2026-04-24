@@ -23,7 +23,8 @@ Instrument selection is populated dynamically from database-backed market discov
 6. Service queries TimescaleDB table `ohlcv_bar` and returns chart-ready candles.
 7. If higher timeframe bars are missing, UI derives them from available `1m` bars.
 8. Web app polls `/api/v1/ticks/hot` and synthesizes/updates a provisional current candle between persisted bar updates.
-9. User can trigger `Backfill 90d` from header; service enforces strict 90-day `1m` continuity:
+9. During left-edge exploration, web app calls `/api/v1/bars/history` to lazy-load older ranges without dropping live mode state.
+10. User can trigger `Backfill 90d` from header; service enforces strict 90-day `1m` continuity:
    - rebuild from `raw_tick` first,
    - detect any missing `1m` buckets,
    - fetch missing ranges from venue history adapters (`oanda`, `capital`, `coinbase` with exchange->public fallback),
@@ -45,6 +46,9 @@ Instrument selection is populated dynamically from database-backed market discov
 
 - `GET /api/v1/bars/hot?venue=<venue>&symbol=<symbol>&timeframe=1m&limit=300`
   - returns ordered OHLCV candlestick payload for UI rendering
+
+- `GET /api/v1/bars/history?venue=<venue>&symbol=<symbol>&timeframe=1m&before_s=<unix_s>&limit=500`
+  - returns older ordered OHLCV payload plus `has_more` for left-edge lazy pagination
 
 - `GET /api/v1/ticks/hot?venue=<venue>&symbol=<symbol>&since_ms=<unix_ms>&limit=500`
   - returns incremental tick prices from `raw_tick` used to move the current candle in real time
@@ -92,3 +96,18 @@ Note:
 - `docker compose ps charting`
 - `curl -sS http://localhost:8110/health`
 - open `http://localhost:8110/`
+
+## UX Controls Implemented (`DEV-00015`)
+
+- Realtime return button (`scrollToRealTime`)
+- Jump to timestamp and data index (`scrollToTimestamp`, `scrollToDataIndex`)
+- Zoom anchor mode (`cursor` / `last_bar`)
+- Bar density control (`setBarSpace`)
+- Right-edge breathing room (`setOffsetRightDistance`)
+- Left/right min visible-bar controls
+- Scroll/zoom lock toggles
+- Crosshair/range metadata updates via chart action subscriptions
+- Pixel/value coordinate inspector (`convertFromPixel`)
+- Snapshot export (`getConvertPictureUrl`)
+- Locale/timezone controls
+- Number format mode toggle (`compact`/`raw`)

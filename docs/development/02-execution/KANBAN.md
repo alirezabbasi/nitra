@@ -33,6 +33,7 @@ Last updated: 2026-04-24
 - [x] `DEV-00011` Rust migration for market normalization/replay.
 - [x] `DEV-00012` Rust migration for bar/gap/backfill controller.
 - [x] Implement replay controller to consume `replay.commands`.
+- [x] `DEV-00015` chart interaction UX parity upgrade (15 interaction features).
 
 ## Blocked
 

@@ -28,6 +28,7 @@ Last updated: 2026-04-24
 - Live validation audit (2026-04-24) confirmed Coinbase feed rows are still produced by mock ingestion source (`nitra.market_ingestion.mock`) and backfill pipeline is dominated by `failed_no_source_data`.
 - Registered ingestion bug records `BUG-00005` (mock Coinbase feed) and `BUG-00006` (startup backfill source-depth failure mode).
 - Removed runtime mock ingestion generation and replaced `market-ingestion` with venue-sourced fetch paths (OANDA/Capital/Coinbase) plus fail-closed `CONNECTOR_MODE=mock` rejection and anti-mock test guardrails.
+- Completed chart UX parity upgrade ticket `DEV-00015`: realtime return, jump-to-time/index, zoom/scroll locks, range/crosshair metadata, history lazy loading, snapshot export, locale/timezone/format controls, and interaction-density/margin tuning.
 
 ### Current
 

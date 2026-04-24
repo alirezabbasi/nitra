@@ -786,19 +786,22 @@ def bars_hot(
             cur.execute(query, (venue, symbol, timeframe, limit))
             rows = cur.fetchall()
 
-    if not rows:
-        return {
-            "venue": venue,
-            "symbol": symbol,
-            "timeframe": timeframe,
-            "bars": [],
-        }
+    bars = _rows_to_bars(rows)
 
-    bars = []
+    return {
+        "venue": venue,
+        "symbol": symbol,
+        "timeframe": timeframe,
+        "bars": bars,
+    }
+
+
+def _rows_to_bars(rows: list[tuple]) -> list[dict]:
+    out: list[dict] = []
     for bucket_start, o, h, l, c, volume, trade_count in reversed(rows):
         if None in (o, h, l, c):
             continue
-        bars.append(
+        out.append(
             {
                 "time": int(bucket_start.timestamp()),
                 "open": float(o),
@@ -809,12 +812,49 @@ def bars_hot(
                 "trade_count": int(trade_count),
             }
         )
+    return out
 
+
+@app.get("/api/v1/bars/history")
+def bars_history(
+    venue: str = Query(min_length=1, max_length=64),
+    symbol: str = Query(min_length=1, max_length=64),
+    timeframe: str = Query(default=DEFAULT_TIMEFRAME, min_length=1, max_length=16),
+    before_s: int = Query(ge=0),
+    limit: int = Query(default=500, ge=10, le=3000),
+) -> dict:
+    before_dt = datetime.fromtimestamp(before_s, tz=timezone.utc)
+    query = """
+    SELECT
+      bucket_start,
+      open,
+      high,
+      low,
+      close,
+      COALESCE(volume, 0),
+      COALESCE(trade_count, 0)
+    FROM ohlcv_bar
+    WHERE venue = %s
+      AND canonical_symbol = %s
+      AND timeframe = %s
+      AND bucket_start < %s
+    ORDER BY bucket_start DESC
+    LIMIT %s
+    """
+
+    with psycopg.connect(db_url()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(query, (venue, symbol, timeframe, before_dt, limit + 1))
+            rows = cur.fetchall()
+
+    has_more = len(rows) > limit
+    bars = _rows_to_bars(rows[:limit])
     return {
         "venue": venue,
         "symbol": symbol,
         "timeframe": timeframe,
         "bars": bars,
+        "has_more": has_more,
     }
 
 

@@ -308,3 +308,32 @@ Append one entry at the end of each substantial session.
   - `tests/dev-00009/run.sh` passes.
 - Next recommended action:
   - restart ingestion services and validate live DB samples (`raw_tick.source`) show only `nitra.market_ingestion.<venue>` sources for active venues.
+
+---
+
+## 2026-04-24 — Session Entry 015
+
+- Objective:
+  - close ingestion connector correction commit and implement chart interaction UX parity upgrade.
+- Work completed:
+  - committed ingestion correction batch (`2adcc4d`) including no-mock guardrails, connector runtime fixes, and bug registry updates.
+  - created ticket `DEV-00015` for chart interaction UX parity (15 feature set).
+  - implemented charting backend pagination endpoint `GET /api/v1/bars/history` for left-edge historical loading.
+  - implemented chart UX upgrades in `services/charting/static/index.html`:
+    - realtime return button,
+    - jump-to-timestamp and jump-to-index,
+    - zoom-anchor selector,
+    - bar-space + right-offset controls,
+    - left/right min visible bars controls,
+    - zoom/scroll lock toggles,
+    - range/crosshair metadata subscriptions,
+    - coordinate/value inspector via pixel conversion,
+    - snapshot export,
+    - locale/timezone and number-format controls,
+    - lazy history loading while maintaining live tick polling.
+  - added `DEV-00015` test pack and Make target wiring.
+- Verification:
+  - `PYTHONPYCACHEPREFIX=/tmp python -m py_compile services/charting/app.py`
+  - `tests/dev-0015/run.sh`
+- Next recommended action:
+  - run live browser validation for mobile/desktop interaction ergonomics and tune control defaults.
