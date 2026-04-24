@@ -391,7 +391,7 @@ async fn process_gap_locked(
     Ok(())
 }
 
-async fn process_open_startup_gaps(
+async fn process_open_gaps(
     conn: &Client,
     producer: &FutureProducer,
     replay_topic: &str,
@@ -405,7 +405,6 @@ async fn process_open_startup_gaps(
             FROM gap_log
             WHERE status = 'open'
               AND timeframe = '1m'
-              AND (source = 'startup_coverage_scan' OR source = 'stream')
             ORDER BY detected_at ASC
             ",
             &[],
@@ -474,7 +473,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .create()?;
 
     if startup_process_open_gaps {
-        process_open_startup_gaps(
+        process_open_gaps(
             &conn,
             &producer,
             &output_topic,

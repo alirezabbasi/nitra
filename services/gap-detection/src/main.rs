@@ -572,7 +572,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let startup_scan_enabled = env_bool_or("GAP_STARTUP_SCAN_ENABLED", true);
-    let startup_coverage_days = env_i64_or("GAP_STARTUP_COVERAGE_DAYS", 90);
+    // Hard floor: platform rule requires at least rolling 90-day 1m coverage.
+    let startup_coverage_days = env_i64_or("GAP_STARTUP_COVERAGE_DAYS", 90).max(90);
     let startup_db_lookback_hours = env_i64_or("GAP_ACTIVE_MARKET_DB_LOOKBACK_HOURS", 24);
     let registry_path = env_or("GAP_SYMBOL_REGISTRY_PATH", "/etc/nitra/registry.v1.json");
     let periodic_scan_enabled = env_bool_or("GAP_PERIODIC_SCAN_ENABLED", true);

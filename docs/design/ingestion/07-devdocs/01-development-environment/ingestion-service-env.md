@@ -122,7 +122,7 @@ COINBASE profile:
 - `GAP_OUTPUT_TOPIC` default `gap.events`
 - `GAP_GROUP_ID` default `nitra-gap-detection-v1`
 - `GAP_STARTUP_SCAN_ENABLED` default `true`
-- `GAP_STARTUP_COVERAGE_DAYS` default `90`
+- `GAP_STARTUP_COVERAGE_DAYS` default `90` (runtime-enforced minimum is `90`)
 - `GAP_ACTIVE_MARKET_DB_LOOKBACK_HOURS` default `24`
 - `GAP_PERIODIC_SCAN_ENABLED` default `true` (continuous 90d coverage scanner)
 - `GAP_PERIODIC_SCAN_INTERVAL_SECS` default `300` (periodic scan interval)

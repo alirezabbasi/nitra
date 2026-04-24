@@ -13,6 +13,7 @@ On service startup, the system must validate coverage in `ohlcv_bar` and automat
 Architectural ownership note:
 - 90-day coverage enforcement/backfill is ingestion-owned and must run independently of charting service availability.
 - Charting is a consumer/visualizer and optional trigger surface, not the owner of mandatory historical recovery.
+- Runtime rule: effective coverage window cannot be below 90 days (minimum floor enforced in `gap-detection`).
 
 ## Scope
 
