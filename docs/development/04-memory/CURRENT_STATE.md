@@ -25,6 +25,9 @@ Last updated: 2026-04-24
 - Registered `DEV-00013` to implement deterministic startup coverage audit + missing-only broker backfill.
 - Implemented `replay-controller` executor for `replay.commands` with deterministic `ohlcv_bar` rebuild and backfill/audit status transitions.
 - Implemented charting-side venue-history adapter expansion (`DEV-00014` in progress): Capital REST historical fetch, Coinbase fallback route, and session-aware continuity policy for FX weekend closure.
+- Live validation audit (2026-04-24) confirmed Coinbase feed rows are still produced by mock ingestion source (`nitra.market_ingestion.mock`) and backfill pipeline is dominated by `failed_no_source_data`.
+- Registered ingestion bug records `BUG-00005` (mock Coinbase feed) and `BUG-00006` (startup backfill source-depth failure mode).
+- Removed runtime mock ingestion generation and replaced `market-ingestion` with venue-sourced fetch paths (OANDA/Capital/Coinbase) plus fail-closed `CONNECTOR_MODE=mock` rejection and anti-mock test guardrails.
 
 ### Current
 
@@ -46,6 +49,7 @@ Last updated: 2026-04-24
 - Open decision: priority ordering between replay controller and structure-engine first slice.
 - Open dependency: broker-history fulfillment still depends on source history adapters beyond current `raw_tick`-backed replay execution.
 - External risk: Coinbase Exchange candles endpoint may return 403 in some runtimes; fallback route health must be monitored.
+- Runtime restart needed to clear historical mock-origin rows from operational validation windows.
 
 ## Program status
 

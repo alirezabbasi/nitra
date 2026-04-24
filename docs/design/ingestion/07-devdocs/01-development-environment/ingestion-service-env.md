@@ -40,6 +40,7 @@ OANDA profile:
 - `OANDA_ENABLED_INSTRUMENTS` default `EURUSD,GBPUSD,USDJPY`
 - `OANDA_POLL_INTERVAL_SECS` default `1.0`
 - `OANDA_STREAM_URL`
+- `OANDA_REST_URL` default `https://api-fxpractice.oanda.com` (used for pricing REST fallback/normalization of stream host)
 - `OANDA_ACCOUNT_ID`
 - `OANDA_API_TOKEN`
 
@@ -54,11 +55,13 @@ CAPITAL profile:
 - `CAPITAL_IDENTIFIER`
 - `CAPITAL_API_PASSWORD`
 - `CAPITAL_EPIC_ALLOWLIST`
+- `CAPITAL_EPIC_MAP` optional JSON map for canonical symbol -> venue epic (for example `{"EURUSD":"CS.D.EURUSD.MINI.IP"}`)
 
 Note:
 
 - Pair symbols are emitted in compact alphanumeric format only (for example `EURUSD`, `GBPUSD`, `BTCUSD`) with no `_`, `-`, or dot separators.
-- In mock mode, each instrument now uses its own baseline/volatility profile so crypto symbols are not projected with FX-like prices.
+- Synthetic/mock quote generation is prohibited in runtime ingestion services.
+- `CONNECTOR_MODE=mock` is explicitly rejected by `market-ingestion` (fail-closed startup behavior).
 
 COINBASE profile:
 
@@ -67,6 +70,8 @@ COINBASE profile:
 - `COINBASE_ENABLED_INSTRUMENTS` default `BTCUSD,ETHUSD,SOLUSD,ADAUSD,XRPUSD`
 - `COINBASE_POLL_INTERVAL_SECS` default `1.0`
 - `COINBASE_WS_URL`
+- `COINBASE_REST_URL` default `https://api.exchange.coinbase.com`
+- `COINBASE_PUBLIC_REST_URL` default `https://api.coinbase.com` (spot-price fallback when Exchange ticker endpoint is unavailable per product/runtime)
 - `COINBASE_PRODUCT_ALLOWLIST`
 - `COINBASE_CHANNELS`
 

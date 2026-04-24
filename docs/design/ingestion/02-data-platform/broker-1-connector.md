@@ -17,12 +17,12 @@
 
 1. Adapter service boots from environment-based config.
 2. Establishes publish path to Redpanda brokers.
-3. Runs source session by adapter mode:
-   - `oanda`: consumes line-delimited pricing stream.
-   - `capital`: authenticates and polls latest minute prices per configured epic.
-   - `coinbase`: opens websocket, subscribes to channels, extracts ticker/trade events.
+3. Runs source session by adapter mode (venue APIs only; no synthetic generation):
+   - `oanda`: pulls account pricing snapshot from OANDA API for configured instruments.
+   - `capital`: authenticates session and fetches latest minute prices per configured epic/symbol mapping.
+   - `coinbase`: fetches venue ticker snapshots per configured product.
 4. Emits periodic health snapshots.
-5. On session failure, emits degraded health and reconnects after configured backoff.
+5. On session failure, emits degraded health and retries; it never substitutes mock prices.
 
 ## Key Environment Variables
 

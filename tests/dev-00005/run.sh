@@ -3,8 +3,7 @@ set -euo pipefail
 
 for f in \
   services/ingestion/contracts.py \
-  services/ingestion/domain.py \
-  services/ingestion/mock_pricing.py; do
+  services/ingestion/domain.py; do
   [[ -f "$f" ]]
   python -m py_compile "$f"
 done
@@ -25,9 +24,9 @@ cargo check --manifest-path services/gap-detection/Cargo.toml >/dev/null
 [[ -f services/backfill-worker/src/main.rs ]]
 cargo check --manifest-path services/backfill-worker/Cargo.toml >/dev/null
 
-rg -n 'market-ingestion:' docker-compose.yml >/dev/null
 rg -n 'market-ingestion-capital:' docker-compose.yml >/dev/null
 rg -n 'market-ingestion-coinbase:' docker-compose.yml >/dev/null
+rg -n 'market-ingestion-oanda:' docker-compose.yml >/dev/null
 rg -n 'market-normalization:' docker-compose.yml >/dev/null
 rg -n 'bar-aggregation:' docker-compose.yml >/dev/null
 rg -n 'gap-detection:' docker-compose.yml >/dev/null
@@ -46,6 +45,11 @@ rg -n 'NORMALIZER_OUTPUT_TOPIC: normalized.quote.fx' docker-compose.yml >/dev/nu
 rg -n 'BAR_OUTPUT_TOPIC: bar.1m' docker-compose.yml >/dev/null
 rg -n 'GAP_OUTPUT_TOPIC: gap.events' docker-compose.yml >/dev/null
 rg -n 'BACKFILL_REPLAY_TOPIC: replay.commands' docker-compose.yml >/dev/null
+
+! rg -n -F 'nitra.market_ingestion.mock' services/market-ingestion/src/main.rs >/dev/null
+! rg -n -F 'rand::thread_rng' services/market-ingestion/src/main.rs >/dev/null
+! rg -n -F 'gen_range(' services/market-ingestion/src/main.rs >/dev/null
+! rg -n 'CONNECTOR_MODE\", \"mock\"' services/market-ingestion/src/main.rs >/dev/null
 
 [[ -f docs/design/ingestion/07-devdocs/01-development-environment/ingestion-service-env.md ]]
 [[ -f infra/symbols/registry.v1.json ]]

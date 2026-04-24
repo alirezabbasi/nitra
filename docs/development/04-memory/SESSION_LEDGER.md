@@ -258,3 +258,53 @@ Append one entry at the end of each substantial session.
   - live backfill probes executed for `oanda`, `coinbase`, and `capital` with explicit response diagnostics.
 - Next recommended action:
   - complete live adapter hardening (network/runtime edge cases) and promote `DEV-00014` from in-progress to done.
+
+---
+
+## 2026-04-24 — Session Entry 013
+
+- Objective:
+  - validate reported ingestion/runtime mismatch against implementation and docs (Coinbase price realism + 90-day backfill behavior).
+- Work completed:
+  - reloaded required project/ruleset/HLD context and audited ingestion/backfill implementation paths.
+  - verified `market-ingestion` runtime currently emits synthetic random quotes and tags events with `source = nitra.market_ingestion.mock`.
+  - captured live DB evidence showing Coinbase `raw_tick` rows are mock-sourced.
+  - captured live backfill status evidence showing dominant `failed_no_source_data`/`failed` states in `backfill_jobs` and `replay_audit`.
+  - confirmed deterministic replay path rebuilds bars from available `raw_tick` only (no broker-history fetch in replay controller).
+  - validated current test packs (`tests/dev-0013/run.sh`, `tests/dev-0014/run.sh`) pass but do not assert live venue-price correctness.
+  - registered new ingestion bugs:
+    - `BUG-00005` (Coinbase live feed still mock-generated)
+    - `BUG-00006` (startup 90-day backfill stalls on source-depth gaps)
+  - updated memory snapshot with audit findings and risks.
+- Verification:
+  - live SQL evidence from running compose stack (coinbase rows + backfill/replay/gap statuses).
+  - charting API probes for Coinbase ticks/bars and backfill timeout behavior.
+  - `tests/dev-0013/run.sh` passes.
+  - `tests/dev-0014/run.sh` passes.
+- Next recommended action:
+  - implement real venue ingestion adapter path (starting with Coinbase) and add replay-controller broker-history fetch adapters to close `BUG-00005` and `BUG-00006`.
+
+---
+
+## 2026-04-24 — Session Entry 014
+
+- Objective:
+  - enforce strict no-mock ingestion policy and ensure venue connectors ingest only venue-sourced prices.
+- Work completed:
+  - rewrote `services/market-ingestion/src/main.rs` to remove synthetic/random quote generation entirely.
+  - implemented venue-sourced ingestion fetch paths:
+    - Coinbase ticker API (`/products/{product}/ticker`)
+    - OANDA pricing API (`/v3/accounts/{account}/pricing`)
+    - Capital authenticated price fetch (`/api/v1/session` + `/api/v1/prices/{epic}?resolution=MINUTE&max=1`)
+  - enforced fail-closed connector policy: `CONNECTOR_MODE=mock` now aborts startup.
+  - removed obsolete runtime mock module: `services/ingestion/mock_pricing.py`.
+  - updated ingestion guard tests:
+    - `tests/dev-00005/run.sh` now checks no mock/random ingestion code patterns
+    - `tests/dev-00009/run.sh` repurposed as no-mock regression guard
+  - updated ingestion docs and bug registry state to reflect no-mock runtime policy and resolution status for `BUG-00005`.
+- Verification:
+  - `cargo check --manifest-path services/market-ingestion/Cargo.toml` passes.
+  - `tests/dev-00005/run.sh` passes.
+  - `tests/dev-00009/run.sh` passes.
+- Next recommended action:
+  - restart ingestion services and validate live DB samples (`raw_tick.source`) show only `nitra.market_ingestion.<venue>` sources for active venues.

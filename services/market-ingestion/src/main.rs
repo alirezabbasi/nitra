@@ -1,13 +1,25 @@
 use chrono::Utc;
-use rand::Rng;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::ClientConfig;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE};
+use reqwest::{Client, StatusCode};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::HashSet;
 use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
 use uuid::Uuid;
+
+#[derive(Clone, Debug)]
+struct VenueQuote {
+    broker_symbol: String,
+    source_symbol: String,
+    bid: f64,
+    ask: f64,
+    mid: f64,
+    event_ts_exchange: String,
+    sequence_id: String,
+}
 
 fn env_or(name: &str, default: &str) -> String {
     env::var(name).unwrap_or_else(|_| default.to_string())
@@ -50,129 +62,107 @@ fn compact_symbol_for_venue(venue: &str, symbol: &str) -> String {
     compact_symbol(symbol)
 }
 
-fn infer_asset_class(symbol: &str) -> &'static str {
-    let upper = symbol.to_uppercase();
-    if upper.len() >= 6 {
-        if let Some(base) = upper.strip_suffix("USD") {
-            if matches!(
-                base,
-                "BTC"
-                    | "ETH"
-                    | "SOL"
-                    | "ADA"
-                    | "XRP"
-                    | "LTC"
-                    | "DOGE"
-                    | "BNB"
-                    | "AVAX"
-                    | "DOT"
-                    | "LINK"
-            ) {
-                return "crypto";
-            }
-        }
-        if let Some(base) = upper.strip_suffix("USDT") {
-            if matches!(
-                base,
-                "BTC"
-                    | "ETH"
-                    | "SOL"
-                    | "ADA"
-                    | "XRP"
-                    | "LTC"
-                    | "DOGE"
-                    | "BNB"
-                    | "AVAX"
-                    | "DOT"
-                    | "LINK"
-            ) {
-                return "crypto";
-            }
-        }
-        if let Some(base) = upper.strip_suffix("USDC") {
-            if matches!(
-                base,
-                "BTC"
-                    | "ETH"
-                    | "SOL"
-                    | "ADA"
-                    | "XRP"
-                    | "LTC"
-                    | "DOGE"
-                    | "BNB"
-                    | "AVAX"
-                    | "DOT"
-                    | "LINK"
-            ) {
-                return "crypto";
-            }
-        }
-    }
-
-    "fx"
-}
-
-fn price_precision(symbol: &str) -> u32 {
-    let upper = symbol.to_uppercase();
-    if infer_asset_class(&upper) == "crypto" {
-        return 2;
-    }
-    if upper.ends_with("JPY") {
-        return 3;
-    }
-    5
-}
-
-fn initial_price(symbol: &str) -> f64 {
-    match symbol.to_uppercase().as_str() {
-        "EURUSD" => 1.0850,
-        "GBPUSD" => 1.2700,
-        "USDJPY" => 156.20,
-        "BTCUSD" => 67000.0,
-        "ETHUSD" => 3200.0,
-        "SOLUSD" => 150.0,
-        "ADAUSD" => 0.46,
-        "XRPUSD" => 0.54,
-        _ => {
-            let upper = symbol.to_uppercase();
-            if infer_asset_class(&upper) == "crypto" {
-                100.0
-            } else if upper.ends_with("JPY") {
-                150.0
-            } else {
-                1.0
-            }
-        }
-    }
-}
-
-fn spread_amount(symbol: &str, mid_price: f64) -> f64 {
-    if infer_asset_class(symbol) == "crypto" {
-        return (mid_price * 0.0005).max(0.10);
-    }
-    if symbol.to_uppercase().ends_with("JPY") {
-        return 0.01;
-    }
-    0.0001
-}
-
-fn step_amount(symbol: &str, mid_price: f64) -> f64 {
-    if infer_asset_class(symbol) == "crypto" {
-        return (mid_price * 0.0015).max(0.5);
-    }
-    if symbol.to_uppercase().ends_with("JPY") {
-        return 0.08;
-    }
-    (mid_price * 0.0002).max(0.00005)
-}
-
-fn round_to_precision(value: f64, precision: u32) -> f64 {
-    let factor = 10f64.powi(precision as i32);
-    (value * factor).round() / factor
-}
-
 fn iso_now_utc() -> String {
     Utc::now().to_rfc3339()
+}
+
+fn parse_f64(value: Option<&Value>) -> Option<f64> {
+    let value = value?;
+    if let Some(v) = value.as_f64() {
+        return Some(v);
+    }
+    value.as_str()?.parse::<f64>().ok()
+}
+
+fn oanda_instrument(symbol: &str) -> String {
+    let compact = compact_symbol(symbol);
+    if compact.len() == 6 && compact.chars().all(|ch| ch.is_ascii_alphabetic()) {
+        return format!("{}_{}", &compact[0..3], &compact[3..6]);
+    }
+    compact
+}
+
+fn coinbase_product(symbol: &str) -> String {
+    let compact = compact_symbol(symbol);
+    if compact.len() == 6 && compact.chars().all(|ch| ch.is_ascii_alphabetic()) {
+        return format!("{}-{}", &compact[0..3], &compact[3..6]);
+    }
+    if compact.ends_with("USD") && compact.len() > 3 {
+        let base = &compact[..compact.len() - 3];
+        if !base.is_empty() {
+            return format!("{}-USD", base);
+        }
+    }
+    compact
+}
+
+fn parse_capital_price(value: Option<&Value>) -> Option<f64> {
+    let value = value?;
+    if let Some(v) = value.as_f64() {
+        return Some(v);
+    }
+    if let Some(v) = value.as_str().and_then(|raw| raw.parse::<f64>().ok()) {
+        return Some(v);
+    }
+
+    let obj = value.as_object()?;
+    let bid = parse_f64(obj.get("bid"));
+    let ask = parse_f64(obj.get("ask"));
+    match (bid, ask) {
+        (Some(b), Some(a)) => Some((b + a) / 2.0),
+        (Some(b), None) => Some(b),
+        (None, Some(a)) => Some(a),
+        _ => None,
+    }
+}
+
+fn capital_base_url() -> String {
+    env_or("CAPITAL_API_URL", "https://api-capital.backend-capital.com")
+        .trim_end_matches('/')
+        .to_string()
+}
+
+fn capital_epic_candidates(symbol: &str) -> Vec<String> {
+    let mut candidates: Vec<String> = Vec::new();
+
+    let mapping_raw = env::var("CAPITAL_EPIC_MAP").unwrap_or_default();
+    if !mapping_raw.trim().is_empty() {
+        if let Ok(parsed) = serde_json::from_str::<Value>(&mapping_raw) {
+            if let Some(mapped) = parsed
+                .as_object()
+                .and_then(|obj| obj.get(&compact_symbol(symbol)))
+                .and_then(|v| v.as_str())
+            {
+                candidates.push(mapped.trim().to_string());
+            }
+        }
+    }
+
+    let compact = compact_symbol(symbol);
+    candidates.push(format!("CS.D.{}.MINI.IP", compact));
+    candidates.push(compact.clone());
+
+    let allowlist: HashSet<String> = csv_env("CAPITAL_EPIC_ALLOWLIST", "")
+        .iter()
+        .map(|v| v.to_uppercase())
+        .collect();
+
+    let mut out: Vec<String> = Vec::new();
+    for candidate in candidates {
+        if candidate.trim().is_empty() {
+            continue;
+        }
+        if !allowlist.is_empty() {
+            let up = candidate.to_uppercase();
+            if !allowlist.contains(&up) && !allowlist.contains(&compact) {
+                continue;
+            }
+        }
+        if !out.contains(&candidate) {
+            out.push(candidate);
+        }
+    }
+    out
 }
 
 fn build_envelope(payload: Value) -> Value {
@@ -203,12 +193,421 @@ async fn send_json(
     Ok(())
 }
 
+async fn fetch_coinbase_quotes(
+    client: &Client,
+    symbols: &[String],
+) -> Result<Vec<VenueQuote>, Box<dyn std::error::Error>> {
+    let base = env_or("COINBASE_REST_URL", "https://api.exchange.coinbase.com")
+        .trim_end_matches('/')
+        .to_string();
+    let public_base = env_or("COINBASE_PUBLIC_REST_URL", "https://api.coinbase.com")
+        .trim_end_matches('/')
+        .to_string();
+
+    let mut out = Vec::new();
+    for symbol in symbols {
+        let product = coinbase_product(symbol);
+        let url = format!("{}/products/{}/ticker", base, product);
+        let resp = client.get(&url).send().await?;
+        let payload: Value = if resp.status().is_success() {
+            resp.json().await?
+        } else if matches!(
+            resp.status(),
+            StatusCode::BAD_REQUEST | StatusCode::NOT_FOUND | StatusCode::FORBIDDEN
+        ) {
+            let fallback_url = format!("{}/v2/prices/{}/spot", public_base, product);
+            let fallback_resp = client.get(&fallback_url).send().await?;
+            if !fallback_resp.status().is_success() {
+                continue;
+            }
+            let fallback_payload: Value = fallback_resp.json().await?;
+            let Some(amount) = fallback_payload
+                .get("data")
+                .and_then(|v| v.get("amount"))
+                .and_then(|v| parse_f64(Some(v)))
+            else {
+                continue;
+            };
+            json!({
+                "bid": amount,
+                "ask": amount,
+                "price": amount,
+                "time": iso_now_utc(),
+                "trade_id": Uuid::new_v4().to_string(),
+            })
+        } else {
+            resp.error_for_status()?;
+            continue;
+        };
+
+        let mut bid = parse_f64(payload.get("bid"));
+        let mut ask = parse_f64(payload.get("ask"));
+        let price = parse_f64(payload.get("price"));
+
+        if bid.is_none() && ask.is_none() {
+            bid = price;
+            ask = price;
+        } else if bid.is_none() {
+            bid = ask;
+        } else if ask.is_none() {
+            ask = bid;
+        }
+
+        let (bid, ask) = match (bid, ask) {
+            (Some(b), Some(a)) => (b, a),
+            _ => continue,
+        };
+
+        let ts = payload
+            .get("time")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string())
+            .unwrap_or_else(iso_now_utc);
+
+        let sequence_id = payload
+            .get("trade_id")
+            .and_then(|v| v.as_i64())
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+        out.push(VenueQuote {
+            broker_symbol: compact_symbol_for_venue("coinbase", symbol),
+            source_symbol: product,
+            bid,
+            ask,
+            mid: (bid + ask) / 2.0,
+            event_ts_exchange: ts,
+            sequence_id,
+        });
+    }
+
+    Ok(out)
+}
+
+async fn fetch_oanda_quotes(
+    client: &Client,
+    symbols: &[String],
+) -> Result<Vec<VenueQuote>, Box<dyn std::error::Error>> {
+    let stream_url = env_or("OANDA_STREAM_URL", "https://stream-fxpractice.oanda.com");
+    let rest_url_override = env_or("OANDA_REST_URL", "");
+    let account_id = env_or("OANDA_ACCOUNT_ID", "");
+    let api_token = env_or("OANDA_API_TOKEN", "");
+
+    if account_id.trim().is_empty() || api_token.trim().is_empty() {
+        return Err(std::io::Error::other(
+            "oanda credentials missing: OANDA_ACCOUNT_ID/OANDA_API_TOKEN",
+        )
+        .into());
+    }
+
+    let api_base = if rest_url_override.trim().is_empty() {
+        stream_url
+            .replace("stream-fxpractice", "api-fxpractice")
+            .replace("stream-fxtrade", "api-fxtrade")
+            .split("/v3/")
+            .next()
+            .unwrap_or("https://api-fxpractice.oanda.com")
+            .trim_end_matches('/')
+            .to_string()
+    } else {
+        rest_url_override.trim_end_matches('/').to_string()
+    };
+
+    let instruments: Vec<String> = symbols.iter().map(|v| oanda_instrument(v)).collect();
+    let url = format!(
+        "{}/v3/accounts/{}/pricing?instruments={}",
+        api_base,
+        account_id,
+        instruments.join(",")
+    );
+
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", api_token))
+        .header("Accept-Datetime-Format", "RFC3339")
+        .send()
+        .await?;
+    let resp = resp.error_for_status()?;
+    let payload: Value = resp.json().await?;
+
+    let mut out = Vec::new();
+    let enabled: HashSet<String> = symbols.iter().map(|v| compact_symbol(v)).collect();
+    let Some(prices) = payload.get("prices").and_then(|v| v.as_array()) else {
+        return Ok(out);
+    };
+
+    for row in prices {
+        let instrument = row
+            .get("instrument")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        let broker_symbol = compact_symbol(instrument);
+        if !enabled.contains(&broker_symbol) {
+            continue;
+        }
+
+        let bid = row
+            .get("bids")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|entry| parse_f64(entry.get("price")));
+        let ask = row
+            .get("asks")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|entry| parse_f64(entry.get("price")));
+
+        let (bid, ask) = match (bid, ask) {
+            (Some(b), Some(a)) => (b, a),
+            _ => continue,
+        };
+
+        let ts = row
+            .get("time")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string())
+            .unwrap_or_else(iso_now_utc);
+
+        out.push(VenueQuote {
+            broker_symbol,
+            source_symbol: instrument.to_string(),
+            bid,
+            ask,
+            mid: (bid + ask) / 2.0,
+            event_ts_exchange: ts.clone(),
+            sequence_id: format!("{}:{}", instrument, ts),
+        });
+    }
+
+    Ok(out)
+}
+
+async fn capital_auth_headers(client: &Client) -> Result<HeaderMap, Box<dyn std::error::Error>> {
+    let api_key = env_or("CAPITAL_API_KEY", "");
+    let identifier = env_or("CAPITAL_IDENTIFIER", "");
+    let password = env_or("CAPITAL_API_PASSWORD", "");
+    if api_key.trim().is_empty() || identifier.trim().is_empty() || password.trim().is_empty() {
+        return Err(std::io::Error::other(
+            "capital credentials missing: CAPITAL_API_KEY/CAPITAL_IDENTIFIER/CAPITAL_API_PASSWORD",
+        )
+        .into());
+    }
+
+    let url = format!("{}/api/v1/session", capital_base_url());
+    let resp = client
+        .post(url)
+        .header("X-CAP-API-KEY", api_key.clone())
+        .header(CONTENT_TYPE, "application/json")
+        .header(ACCEPT, "application/json")
+        .json(&json!({
+            "identifier": identifier,
+            "password": password,
+            "encryptedPassword": false,
+        }))
+        .send()
+        .await?;
+    let resp = resp.error_for_status()?;
+
+    let cst = resp
+        .headers()
+        .get("CST")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| std::io::Error::other("capital CST header missing"))?
+        .to_string();
+    let security = resp
+        .headers()
+        .get("X-SECURITY-TOKEN")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| std::io::Error::other("capital X-SECURITY-TOKEN header missing"))?
+        .to_string();
+
+    let mut headers = HeaderMap::new();
+    headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+    headers.insert(
+        HeaderName::from_static("x-cap-api-key"),
+        HeaderValue::from_str(&api_key)?,
+    );
+    headers.insert(HeaderName::from_static("cst"), HeaderValue::from_str(&cst)?);
+    headers.insert(
+        HeaderName::from_static("x-security-token"),
+        HeaderValue::from_str(&security)?,
+    );
+    Ok(headers)
+}
+
+async fn fetch_capital_quote_for_epic(
+    client: &Client,
+    headers: &HeaderMap,
+    epic: &str,
+) -> Result<Option<VenueQuote>, Box<dyn std::error::Error>> {
+    let url = format!(
+        "{}/api/v1/prices/{}?resolution=MINUTE&max=1",
+        capital_base_url(),
+        epic
+    );
+
+    let resp = client.get(url).headers(headers.clone()).send().await?;
+    match resp.status() {
+        StatusCode::NOT_FOUND => return Ok(None),
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
+            return Err(std::io::Error::other("capital auth expired").into());
+        }
+        s if !s.is_success() => {
+            return Err(std::io::Error::other(format!(
+                "capital price request failed: {} for epic {}",
+                s, epic
+            ))
+            .into());
+        }
+        _ => {}
+    }
+    let payload: Value = resp.json().await?;
+
+    let Some(first) = payload
+        .get("prices")
+        .and_then(|v| v.as_array())
+        .and_then(|arr| arr.first())
+    else {
+        return Ok(None);
+    };
+
+    let close_price = first.get("closePrice");
+    let bid = parse_f64(close_price.and_then(|v| v.get("bid")))
+        .or_else(|| parse_capital_price(close_price));
+    let ask = parse_f64(close_price.and_then(|v| v.get("ask")))
+        .or_else(|| parse_capital_price(close_price));
+
+    let (bid, ask) = match (bid, ask) {
+        (Some(b), Some(a)) => (b, a),
+        (Some(b), None) => (b, b),
+        (None, Some(a)) => (a, a),
+        _ => return Ok(None),
+    };
+
+    let ts = first
+        .get("snapshotTimeUTC")
+        .and_then(|v| v.as_str())
+        .map(|v| format!("{}Z", v.trim_end_matches('Z')))
+        .unwrap_or_else(iso_now_utc);
+
+    Ok(Some(VenueQuote {
+        broker_symbol: compact_capital_symbol(epic),
+        source_symbol: epic.to_string(),
+        bid,
+        ask,
+        mid: (bid + ask) / 2.0,
+        event_ts_exchange: ts.clone(),
+        sequence_id: format!("{}:{}", epic, ts),
+    }))
+}
+
+fn is_capital_auth_error(err: &dyn std::error::Error) -> bool {
+    err.to_string().contains("capital auth expired")
+}
+
+async fn fetch_capital_quotes(
+    client: &Client,
+    symbols: &[String],
+    cached_headers: &mut Option<HeaderMap>,
+) -> Result<Vec<VenueQuote>, Box<dyn std::error::Error>> {
+    if cached_headers.is_none() {
+        *cached_headers = Some(capital_auth_headers(client).await?);
+    }
+
+    let mut out = Vec::new();
+    for symbol in symbols {
+        let candidates = capital_epic_candidates(symbol);
+        if candidates.is_empty() {
+            continue;
+        }
+
+        let mut found_for_symbol = false;
+        for epic in candidates {
+            let headers = cached_headers
+                .as_ref()
+                .ok_or_else(|| std::io::Error::other("capital session headers unavailable"))?;
+            let first_try = fetch_capital_quote_for_epic(client, headers, &epic).await;
+
+            let quote = match first_try {
+                Ok(v) => v,
+                Err(err) if is_capital_auth_error(err.as_ref()) => {
+                    *cached_headers = Some(capital_auth_headers(client).await?);
+                    let refreshed = cached_headers
+                        .as_ref()
+                        .ok_or_else(|| std::io::Error::other("capital session headers unavailable"))?;
+                    match fetch_capital_quote_for_epic(client, refreshed, &epic).await {
+                        Ok(v) => v,
+                        Err(retry_err) => {
+                            eprintln!(
+                                "market-ingestion capital quote error (epic={}): {}",
+                                epic, retry_err
+                            );
+                            continue;
+                        }
+                    }
+                }
+                Err(err) => {
+                    eprintln!(
+                        "market-ingestion capital quote error (epic={}): {}",
+                        epic, err
+                    );
+                    continue;
+                }
+            };
+
+            if let Some(mut q) = quote {
+                q.broker_symbol = compact_symbol_for_venue("capital", symbol);
+                out.push(q);
+                found_for_symbol = true;
+                break;
+            }
+        }
+
+        if !found_for_symbol {
+            continue;
+        }
+    }
+
+    Ok(out)
+}
+
+async fn emit_health(
+    producer: &FutureProducer,
+    topic: &str,
+    venue: &str,
+    symbols: &[String],
+    status: &str,
+    mode: &str,
+    emitted_count: usize,
+    last_error: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let health_payload = json!({
+        "service": "market-ingestion",
+        "status": status,
+        "mode": mode,
+        "venue": venue,
+        "enabled_instruments": symbols,
+        "emitted_count": emitted_count,
+        "last_error": last_error,
+        "ts": iso_now_utc(),
+    });
+
+    send_json(
+        producer,
+        topic,
+        venue,
+        &build_envelope(health_payload),
+    )
+    .await
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let brokers = env_or("KAFKA_BROKERS", "kafka:9092");
     let raw_topic = env_or("INGESTION_RAW_TOPIC", "raw.market.oanda");
     let health_topic = env_or("INGESTION_HEALTH_TOPIC", "connector.health");
-    let venue = env_or("INGESTION_VENUE", "oanda");
+    let venue = env_or("INGESTION_VENUE", "oanda").to_ascii_lowercase();
     let default_symbol = env_or("INGESTION_SYMBOL", "EURUSD");
     let mut source_symbols = csv_env("INGESTION_ENABLED_INSTRUMENTS", &default_symbol);
     if source_symbols.is_empty() {
@@ -222,74 +621,100 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .parse::<f64>()
         .unwrap_or(1.0)
         .max(0.1);
-    let connector_mode = env_or("CONNECTOR_MODE", "mock");
+
+    let connector_mode = env_or("CONNECTOR_MODE", &venue).to_ascii_lowercase();
+    if connector_mode == "mock" {
+        return Err(std::io::Error::other(
+            "CONNECTOR_MODE=mock is forbidden; ingestion must use venue-sourced data",
+        )
+        .into());
+    }
 
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", &brokers)
         .set("message.timeout.ms", "5000")
         .create()?;
 
-    let mut prices: HashMap<String, f64> = output_symbols
-        .iter()
-        .map(|symbol| (symbol.clone(), initial_price(symbol)))
-        .collect();
+    let client = Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()?;
+
+    let mut capital_headers: Option<HeaderMap> = None;
 
     loop {
-        for (source_symbol, output_symbol) in source_symbols.iter().zip(output_symbols.iter()) {
-            let current_mid = *prices
-                .get(output_symbol)
-                .unwrap_or(&initial_price(output_symbol));
-            let step = step_amount(output_symbol, current_mid);
-            let mut rng = rand::thread_rng();
-            let next_mid = (current_mid + rng.gen_range(-step..=step)).max(0.00001);
-            prices.insert(output_symbol.clone(), next_mid);
+        let fetch_result = match venue.as_str() {
+            "coinbase" => fetch_coinbase_quotes(&client, &source_symbols).await,
+            "oanda" => fetch_oanda_quotes(&client, &source_symbols).await,
+            "capital" => fetch_capital_quotes(&client, &source_symbols, &mut capital_headers).await,
+            _ => {
+                return Err(std::io::Error::other(format!(
+                    "unsupported INGESTION_VENUE '{}' (expected oanda/capital/coinbase)",
+                    venue
+                ))
+                .into());
+            }
+        };
 
-            let spread = spread_amount(output_symbol, next_mid);
-            let precision = price_precision(output_symbol);
-            let bid = round_to_precision((next_mid - (spread / 2.0)).max(0.00001), precision);
-            let ask = round_to_precision((next_mid + (spread / 2.0)).max(bid), precision);
-            let mid = round_to_precision((bid + ask) / 2.0, precision);
+        match fetch_result {
+            Ok(quotes) => {
+                for quote in &quotes {
+                    let raw_payload = json!({
+                        "venue": venue,
+                        "broker_symbol": quote.broker_symbol,
+                        "event_ts_received": iso_now_utc(),
+                        "payload": {
+                            "event_ts_exchange": quote.event_ts_exchange,
+                            "bid": quote.bid,
+                            "ask": quote.ask,
+                            "mid": quote.mid,
+                            "sequence_id": quote.sequence_id,
+                            "source_symbol": quote.source_symbol,
+                        },
+                        "source": format!("nitra.market_ingestion.{}", venue),
+                    });
 
-            let raw_payload = json!({
-                "venue": venue,
-                "broker_symbol": output_symbol,
-                "event_ts_received": iso_now_utc(),
-                "payload": {
-                    "bid": bid,
-                    "ask": ask,
-                    "mid": mid,
-                    "sequence_id": Uuid::new_v4().to_string(),
-                    "source_symbol": source_symbol,
-                },
-                "source": "nitra.market_ingestion.mock",
-            });
+                    send_json(
+                        &producer,
+                        &raw_topic,
+                        &quote.broker_symbol,
+                        &build_envelope(raw_payload),
+                    )
+                    .await?;
+                }
 
-            let health_payload = json!({
-                "service": "market-ingestion",
-                "status": "ok",
-                "mode": connector_mode,
-                "venue": venue,
-                "symbol": output_symbol,
-                "source_symbol": source_symbol,
-                "enabled_instruments": output_symbols,
-                "ts": iso_now_utc(),
-            });
-
-            send_json(
-                &producer,
-                &raw_topic,
-                output_symbol,
-                &build_envelope(raw_payload),
-            )
-            .await?;
-
-            send_json(
-                &producer,
-                &health_topic,
-                output_symbol,
-                &build_envelope(health_payload),
-            )
-            .await?;
+                let status = if quotes.is_empty() { "degraded" } else { "ok" };
+                let last_error = if quotes.is_empty() {
+                    Some("venue request returned zero quotes")
+                } else {
+                    None
+                };
+                emit_health(
+                    &producer,
+                    &health_topic,
+                    &venue,
+                    &output_symbols,
+                    status,
+                    &connector_mode,
+                    quotes.len(),
+                    last_error,
+                )
+                .await?;
+            }
+            Err(err) => {
+                let msg = err.to_string();
+                eprintln!("market-ingestion fetch error ({}): {}", venue, msg);
+                emit_health(
+                    &producer,
+                    &health_topic,
+                    &venue,
+                    &output_symbols,
+                    "degraded",
+                    &connector_mode,
+                    0,
+                    Some(&msg),
+                )
+                .await?;
+            }
         }
 
         sleep(Duration::from_secs_f64(interval_secs)).await;
