@@ -100,10 +100,11 @@ curl -sS -X POST http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/adapter
 curl -sS -X POST http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/adapter-check -H 'content-type: application/json' -d '{"venue":"capital","symbol":"EURUSD"}' | jq
 ```
 
-7. Gap watchdog status and explicit window backfill:
+7. Coverage status/metrics and explicit window backfill:
 
 ```bash
-curl -sS http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/watchdog | jq
+curl -sS "http://localhost:${CHARTING_PORT:-8110}/api/v1/coverage/status?window_hours=$((24*90))&limit=50" | jq
+curl -sS http://localhost:${CHARTING_PORT:-8110}/api/v1/coverage/metrics
 curl -sS -X POST http://localhost:${CHARTING_PORT:-8110}/api/v1/backfill/window -H 'content-type: application/json' -d '{"venue":"coinbase","symbol":"ADAUSD","from_ts":"2026-04-24T00:00:00Z","to_ts":"2026-04-24T06:00:00Z"}' | jq
 ```
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented (adapter hardening + recent-first fetch priority + watchdog automation added)
+Implemented (adapter hardening + recent-first fetch priority + coverage observability added)
 
 ## Summary
 
@@ -51,7 +51,9 @@ Complete the missing runtime pieces for manual/automatic 90-day backfill:
 - Runtime code updates in `services/charting/app.py`
 - Adapter health probe endpoint `POST /api/v1/backfill/adapter-check` for live-network diagnostics
 - Explicit range backfill endpoint `POST /api/v1/backfill/window` (`from_ts`/`to_ts`)
-- Automatic watchdog scanner `GET /api/v1/backfill/watchdog` + startup loop for latest-90d gap detection/recovery
+- Coverage observability endpoints:
+  - `GET /api/v1/coverage/status`
+  - `GET /api/v1/coverage/metrics`
 - Compose/env contract updates for charting adapter credentials and fallback endpoints
 - LLD + env docs updates
 - Test pack baseline under `tests/dev-0014`
