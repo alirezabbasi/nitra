@@ -149,11 +149,15 @@ COINBASE profile:
 - `BACKFILL_STARTUP_PROCESS_OPEN_GAPS` default `true`
 - `BACKFILL_FETCH_CHUNK_MINUTES` default `1440` (larger default to reduce queue pressure for 90d rebuilds)
 - `BACKFILL_RECOVERY_ENABLED` default `true` (periodically re-enqueue orphaned `queued` jobs into `replay.commands`)
-- `BACKFILL_RECOVERY_INTERVAL_SECS` default `60`
-- `BACKFILL_RECOVERY_BATCH_SIZE` default `500`
-- `BACKFILL_STALE_RUNNING_SECS` default `900` (auto-reset stale `running` jobs back to `queued`)
-- `BACKFILL_QUEUED_STALE_SECS` default `1800` (queued job must be stale before recovery re-enqueue is allowed)
-- `BACKFILL_REENQUEUE_COOLDOWN_SECS` default `120` (minimum interval between re-enqueue attempts for same job)
+- `BACKFILL_RECOVERY_INTERVAL_SECS` default `30`
+- `BACKFILL_RECOVERY_BATCH_SIZE` default `1500`
+- `BACKFILL_STALE_RUNNING_SECS` default `600` (auto-reset stale `running` jobs back to `queued`)
+- `BACKFILL_QUEUED_STALE_SECS` default `900` (queued job must be stale before recovery re-enqueue is allowed)
+- `BACKFILL_REENQUEUE_COOLDOWN_SECS` default `90` (minimum interval between re-enqueue attempts for same job)
+- `BACKFILL_FAILED_RETRY_ENABLED` default `true` (allow controlled retries for `failed_no_source_data` jobs)
+- `BACKFILL_FAILED_RETRY_AFTER_SECS` default `21600` (cooldown before retry-eligible `failed_no_source_data` jobs are re-queued)
+- `BACKFILL_FAILED_RETRY_MAX_ATTEMPTS` default `6` (cap failed-range retry attempts)
+- `BACKFILL_FAILED_RETRY_BATCH_SIZE` default `300` (per-cycle cap for failed-range requeue)
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 ## replay-controller
@@ -161,7 +165,7 @@ COINBASE profile:
 - `KAFKA_BROKERS` default `kafka:9092`
 - `REPLAY_INPUT_TOPIC` default `replay.commands`
 - `REPLAY_GROUP_ID` default `nitra-replay-controller-v1`
-- `REPLAY_WORKER_COUNT` default `4` (parallel Kafka consumers in one process, same consumer-group for safe partition-level scaling)
+- `REPLAY_WORKER_COUNT` default `8` (parallel Kafka consumers in one process, same consumer-group for safe partition-level scaling)
 - `REPLAY_SYMBOL_REGISTRY_PATH` default `/etc/nitra/registry.v1.json`
 - `REPLAY_HISTORY_ENABLED` default `true` (attempt venue-history adapter fetch when raw ticks are insufficient for replay range)
 - `REPLAY_HISTORY_TIMEOUT_SECS` default `8` (HTTP timeout for venue-history requests)

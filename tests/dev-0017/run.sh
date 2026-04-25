@@ -13,6 +13,8 @@ rg -n 'BACKFILL_RECOVERY_ENABLED' services/backfill-worker/src/main.rs >/dev/nul
 rg -n 'reset_stale_running_jobs' services/backfill-worker/src/main.rs >/dev/null
 rg -n 'reenqueue_queued_jobs' services/backfill-worker/src/main.rs >/dev/null
 rg -n 'BACKFILL_QUEUED_STALE_SECS' services/backfill-worker/src/main.rs >/dev/null
+rg -n 'BACKFILL_FAILED_RETRY_AFTER_SECS' services/backfill-worker/src/main.rs >/dev/null
+rg -n 'requeue_stale_failed_no_source_data_jobs' services/backfill-worker/src/main.rs >/dev/null
 rg -n "ra\\.status = 'queued'" services/backfill-worker/src/main.rs >/dev/null
 rg -n "COALESCE\\(bj\\.last_enqueued_at, bj\\.created_at\\) ASC" services/backfill-worker/src/main.rs >/dev/null
 rg -n 'last_enqueued_at' services/backfill-worker/src/main.rs >/dev/null
@@ -31,6 +33,7 @@ rg -n 'ADD COLUMN IF NOT EXISTS last_enqueued_at' infra/timescaledb/init/006_bac
 
 rg -n 'BACKFILL_RECOVERY_ENABLED' docker-compose.yml >/dev/null
 rg -n 'BACKFILL_QUEUED_STALE_SECS' docker-compose.yml >/dev/null
+rg -n 'BACKFILL_FAILED_RETRY_AFTER_SECS' docker-compose.yml >/dev/null
 rg -n 'REPLAY_WORKER_COUNT' docker-compose.yml >/dev/null
 rg -n 'REPLAY_COINBASE_USER_AGENT' docker-compose.yml >/dev/null
 

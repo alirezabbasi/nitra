@@ -478,6 +478,44 @@ async fn reset_stale_running_jobs(
     .await
 }
 
+async fn requeue_stale_failed_no_source_data_jobs(
+    conn: &Client,
+    retry_after_secs: i64,
+    max_attempts: i64,
+    batch_size: i64,
+) -> Result<u64, tokio_postgres::Error> {
+    if retry_after_secs <= 0 || max_attempts <= 0 || batch_size <= 0 {
+        return Ok(0);
+    }
+    let retry_after_i32 = (retry_after_secs.min(i32::MAX as i64)) as i32;
+    let max_attempts_i32 = (max_attempts.min(i32::MAX as i64)) as i32;
+    let batch_size_i64 = batch_size.max(1);
+    let rows = conn
+        .query(
+            "
+            WITH candidates AS (
+              SELECT job_id
+              FROM backfill_jobs
+              WHERE status = 'failed_no_source_data'
+                AND timeframe = '1m'
+                AND updated_at < now() - ($1::int * interval '1 second')
+                AND attempt_count < $2::int
+              ORDER BY updated_at ASC
+              LIMIT $3
+            )
+            UPDATE backfill_jobs bj
+            SET status = 'queued',
+                updated_at = now()
+            FROM candidates c
+            WHERE bj.job_id = c.job_id
+            RETURNING bj.job_id
+            ",
+            &[&retry_after_i32, &max_attempts_i32, &batch_size_i64],
+        )
+        .await?;
+    Ok(rows.len() as u64)
+}
+
 #[derive(Debug)]
 struct QueuedJob {
     job_id: Uuid,
@@ -645,6 +683,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let stale_running_secs = env_i64_or("BACKFILL_STALE_RUNNING_SECS", 900).max(1);
     let queued_stale_secs = env_i64_or("BACKFILL_QUEUED_STALE_SECS", 1800).max(1);
     let reenqueue_cooldown_secs = env_i64_or("BACKFILL_REENQUEUE_COOLDOWN_SECS", 120).max(0);
+    let failed_retry_enabled = env_bool_or("BACKFILL_FAILED_RETRY_ENABLED", true);
+    let failed_retry_after_secs = env_i64_or("BACKFILL_FAILED_RETRY_AFTER_SECS", 21600).max(60);
+    let failed_retry_max_attempts = env_i64_or("BACKFILL_FAILED_RETRY_MAX_ATTEMPTS", 6).max(1);
+    let failed_retry_batch_size =
+        env_usize_or("BACKFILL_FAILED_RETRY_BATCH_SIZE", 250).max(1) as i64;
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
     tokio::spawn(async move {
@@ -681,6 +724,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if recovery_enabled {
         let reset = reset_stale_running_jobs(&conn, stale_running_secs).await?;
+        let failed_requeued = if failed_retry_enabled {
+            requeue_stale_failed_no_source_data_jobs(
+                &conn,
+                failed_retry_after_secs,
+                failed_retry_max_attempts,
+                failed_retry_batch_size,
+            )
+            .await?
+        } else {
+            0
+        };
         let enqueued = reenqueue_queued_jobs(
             &conn,
             &producer,
@@ -691,10 +745,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             reenqueue_cooldown_secs,
         )
         .await?;
-        if reset > 0 || enqueued > 0 {
+        if reset > 0 || failed_requeued > 0 || enqueued > 0 {
             eprintln!(
-                "backfill-worker startup recovery reset_running={} re_enqueued={}",
-                reset, enqueued
+                "backfill-worker startup recovery reset_running={} failed_requeued={} re_enqueued={}",
+                reset, failed_requeued, enqueued
             );
         }
     }
@@ -707,6 +761,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         tokio::select! {
             _ = recovery_ticker.tick(), if recovery_enabled => {
                 let reset = reset_stale_running_jobs(&conn, stale_running_secs).await?;
+                let failed_requeued = if failed_retry_enabled {
+                    requeue_stale_failed_no_source_data_jobs(
+                        &conn,
+                        failed_retry_after_secs,
+                        failed_retry_max_attempts,
+                        failed_retry_batch_size,
+                    )
+                    .await?
+                } else {
+                    0
+                };
                 let enqueued = reenqueue_queued_jobs(
                     &conn,
                     &producer,
@@ -716,10 +781,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     queued_stale_secs,
                     reenqueue_cooldown_secs,
                 ).await?;
-                if reset > 0 || enqueued > 0 {
+                if reset > 0 || failed_requeued > 0 || enqueued > 0 {
                     eprintln!(
-                        "backfill-worker periodic recovery reset_running={} re_enqueued={}",
-                        reset, enqueued
+                        "backfill-worker periodic recovery reset_running={} failed_requeued={} re_enqueued={}",
+                        reset, failed_requeued, enqueued
                     );
                 }
             }

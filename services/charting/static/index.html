@@ -34,19 +34,27 @@
         width: 100%;
         height: 100%;
         display: grid;
-        grid-template-rows: 40px 1fr 40px;
+        grid-template-columns: 56px 284px 1fr;
+        grid-template-rows: 44px 1fr 40px;
+        grid-template-areas:
+          "topbar topbar topbar"
+          "sidebar drawpanel chart"
+          "sidebar bottombar bottombar";
       }
 
       .topbar {
+        grid-area: topbar;
         display: flex;
         align-items: center;
         gap: 6px;
         padding: 0 8px;
         border-bottom: 1px solid var(--line);
         background: var(--panel);
+        min-width: 0;
       }
 
       .bottombar {
+        grid-area: bottombar;
         display: flex;
         align-items: center;
         gap: 6px;
@@ -241,6 +249,157 @@
         max-width: 46vw;
       }
 
+      .chart-wrap {
+        grid-area: chart;
+        min-height: 0;
+        display: block;
+        position: relative;
+      }
+
+      #kline {
+        width: 100%;
+        height: 100%;
+      }
+
+      .draw-sidebar {
+        grid-area: sidebar;
+        border-right: 1px solid var(--line);
+        border-top: 1px solid #1f273a;
+        background: linear-gradient(180deg, #111722 0%, #0f1420 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 6px;
+        min-height: 0;
+        overflow-y: auto;
+      }
+
+      .sidebar-divider {
+        width: 32px;
+        height: 1px;
+        background: #2a3246;
+        margin: 2px 0;
+      }
+
+      .draw-icon-btn {
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 8px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: #b2bdd5;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+      }
+
+      .draw-icon-btn svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .draw-icon-btn:hover {
+        background: #1f293d;
+        color: #e2e8f5;
+        border-color: #33415f;
+      }
+
+      .draw-icon-btn.active {
+        background: #22314f;
+        color: #e8eefc;
+        border-color: #3f5278;
+      }
+
+      .draw-panel {
+        grid-area: drawpanel;
+        border-right: 1px solid var(--line);
+        border-top: 1px solid #1f273a;
+        background: linear-gradient(180deg, #171d2b 0%, #151b29 100%);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .draw-panel-head {
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        border-bottom: 1px solid #2b3348;
+      }
+
+      .draw-panel-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: #d9e2f7;
+        letter-spacing: 0.03em;
+      }
+
+      .draw-panel-body {
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        overflow-y: auto;
+        min-height: 0;
+      }
+
+      .draw-section {
+        border: 1px solid #2d3750;
+        border-radius: 8px;
+        padding: 8px;
+        background: #1a2335;
+      }
+
+      .draw-section h4 {
+        margin: 0 0 8px;
+        font-size: 11px;
+        color: #9ca8c4;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .draw-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .draw-row + .draw-row {
+        margin-top: 8px;
+      }
+
+      .draw-row .tool-btn {
+        flex: 0 0 auto;
+      }
+
+      .draw-row .select {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .draw-range {
+        width: 100%;
+      }
+
+      .draw-color {
+        width: 30px;
+        height: 30px;
+        border: 1px solid #3a4660;
+        border-radius: 6px;
+        background: #27324a;
+        padding: 2px;
+      }
+
       .settings-overlay {
         position: fixed;
         inset: 0;
@@ -323,29 +482,24 @@
         text-align: right;
       }
 
-      .chart-wrap {
-        min-height: 0;
-        display: block;
-        position: relative;
-      }
-
-      #kline {
-        width: 100%;
-        height: 100%;
-      }
-
       @media (max-width: 1200px) {
         .brand,
         #timezone-select,
         .label,
         #left-min-bars,
         #right-min-bars,
-        #jump-index {
+        #jump-index,
+        #draw-panel {
           display: none;
         }
 
         .app {
-          grid-template-rows: 40px 1fr 40px;
+          grid-template-columns: 56px 1fr;
+          grid-template-rows: 44px 1fr 40px;
+          grid-template-areas:
+            "topbar topbar"
+            "sidebar chart"
+            "sidebar bottombar";
         }
 
         .meta {
@@ -392,6 +546,56 @@
         <button class="tool-btn" id="snapshot-btn">Snapshot</button>
         <button class="tool-btn" id="backfill-btn">Backfill</button>
         <button class="tool-btn" id="settings-btn" title="Venue and ingestion settings">⚙ Settings</button>
+        <div class="divider"></div>
+        <div class="draw-controls">
+          <button class="tool-btn active" id="draw-cursor-btn" title="Cursor / navigate mode">Cursor</button>
+          <button class="tool-btn" id="draw-line-btn" title="Line tools">Line</button>
+          <select id="draw-line-select" class="select draw-select" title="Line tool">
+            <option value="horizontalStraightLine">H Line</option>
+            <option value="horizontalRayLine">H Ray</option>
+            <option value="horizontalSegment">H Segment</option>
+            <option value="verticalStraightLine">V Line</option>
+            <option value="verticalRayLine">V Ray</option>
+            <option value="verticalSegment">V Segment</option>
+            <option value="straightLine">Straight</option>
+            <option value="rayLine">Ray Line</option>
+            <option value="ray">Ray</option>
+            <option value="segment">Segment</option>
+            <option value="arrow">Arrow</option>
+            <option value="priceLine">Price Line</option>
+          </select>
+          <button class="tool-btn" id="draw-more-btn" title="Channel and measure tools">More</button>
+          <select id="draw-more-select" class="select draw-select" title="Channel / measure tool">
+            <option value="priceChannelLine">Price Channel</option>
+            <option value="parallelStraightLine">Parallel Line</option>
+            <option value="parallelChannel">Parallel Channel</option>
+            <option value="measure">Measure</option>
+          </select>
+          <button class="tool-btn" id="draw-shape-btn" title="Shape tools">Shape</button>
+          <select id="draw-shape-select" class="select draw-select" title="Shape tool">
+            <option value="rect">Rectangle</option>
+            <option value="circle">Circle</option>
+            <option value="triangle">Triangle</option>
+            <option value="parallelogram">Parallelogram</option>
+          </select>
+          <button class="tool-btn" id="draw-risk-btn" title="Long/short position tools">Risk</button>
+          <select id="draw-risk-select" class="select draw-select" title="Risk tool">
+            <option value="longPosition">Long Position</option>
+            <option value="shortPosition">Short Position</option>
+          </select>
+          <button class="tool-btn" id="draw-brush-btn" title="Brush tool">Brush</button>
+          <input id="draw-brush-color" class="draw-color" type="color" value="#1677ff" title="Brush color" />
+          <input id="draw-brush-size" class="draw-range" type="range" min="1" max="10" step="1" value="2" title="Brush thickness" />
+          <input id="draw-brush-opacity" class="draw-range" type="range" min="10" max="100" step="5" value="100" title="Brush opacity" />
+          <button class="tool-btn" id="draw-mode-btn" title="Magnet mode">Mode: Normal</button>
+          <button class="tool-btn" id="draw-lock-btn" title="Lock drawings">Lock: Off</button>
+          <button class="tool-btn active" id="draw-visible-btn" title="Show/hide drawings">Visible</button>
+          <button class="tool-btn" id="draw-remove-btn" title="Remove all drawings">Remove</button>
+          <button class="tool-btn" id="draw-undo-btn" title="Undo (Ctrl+Z)">Undo</button>
+          <button class="tool-btn" id="draw-redo-btn" title="Redo (Ctrl+Y)">Redo</button>
+          <button class="tool-btn" id="draw-save-btn" title="Save layout">Save</button>
+          <button class="tool-btn" id="draw-load-btn" title="Load layout">Load</button>
+        </div>
         <div id="status" class="meta">Loading...</div>
       </div>
 
@@ -520,6 +724,30 @@
       const jumpIndexEl = document.getElementById("jump-index");
       const jumpIndexBtn = document.getElementById("jump-index-btn");
       const UI_PREFS_KEY = "nitra.chart.ui_prefs.v1";
+      const LAYOUT_STATE_KEY = "nitra.chart.layout_state.v1";
+      const DRAW_GROUP_ID = "nitra_drawing_tools";
+
+      const drawCursorBtn = document.getElementById("draw-cursor-btn");
+      const drawLineBtn = document.getElementById("draw-line-btn");
+      const drawMoreBtn = document.getElementById("draw-more-btn");
+      const drawShapeBtn = document.getElementById("draw-shape-btn");
+      const drawRiskBtn = document.getElementById("draw-risk-btn");
+      const drawBrushBtn = document.getElementById("draw-brush-btn");
+      const drawLineSelectEl = document.getElementById("draw-line-select");
+      const drawMoreSelectEl = document.getElementById("draw-more-select");
+      const drawShapeSelectEl = document.getElementById("draw-shape-select");
+      const drawRiskSelectEl = document.getElementById("draw-risk-select");
+      const drawBrushColorEl = document.getElementById("draw-brush-color");
+      const drawBrushSizeEl = document.getElementById("draw-brush-size");
+      const drawBrushOpacityEl = document.getElementById("draw-brush-opacity");
+      const drawModeBtn = document.getElementById("draw-mode-btn");
+      const drawLockBtn = document.getElementById("draw-lock-btn");
+      const drawVisibleBtn = document.getElementById("draw-visible-btn");
+      const drawRemoveBtn = document.getElementById("draw-remove-btn");
+      const drawUndoBtn = document.getElementById("draw-undo-btn");
+      const drawRedoBtn = document.getElementById("draw-redo-btn");
+      const drawSaveBtn = document.getElementById("draw-save-btn");
+      const drawLoadBtn = document.getElementById("draw-load-btn");
 
       const state = {
         timeframe: "1m",
@@ -555,6 +783,28 @@
         paneIds: [],
         settingsVenues: [],
         settingsMarkets: [],
+        overlays: [],
+        pendingOverlayId: null,
+        activeDrawingTool: null,
+        drawingMode: "normal",
+        drawingLock: false,
+        drawingVisible: true,
+        drawingCursorMode: true,
+        drawingGroupSelection: {
+          line: "horizontalStraightLine",
+          more: "priceChannelLine",
+          shape: "rect",
+          risk: "longPosition",
+        },
+        brush: {
+          color: "#1677ff",
+          size: 2,
+          opacity: 1,
+        },
+        undoStack: [],
+        redoStack: [],
+        layoutRestoreApplied: false,
+        layoutSaveTimer: null,
       };
 
       let chart = null;
@@ -630,6 +880,693 @@
         }
       }
 
+      function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+      }
+
+      function hexToRgba(hex, alpha) {
+        const v = String(hex || "").trim();
+        if (!/^#[0-9a-fA-F]{6}$/.test(v)) {
+          return `rgba(22, 119, 255, ${clamp(alpha, 0, 1)})`;
+        }
+        const r = parseInt(v.slice(1, 3), 16);
+        const g = parseInt(v.slice(3, 5), 16);
+        const b = parseInt(v.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${clamp(alpha, 0, 1)})`;
+      }
+
+      function makeBrushCursor(color, size) {
+        const safeSize = clamp(Number(size) || 2, 1, 24);
+        const radius = safeSize / 2;
+        const padding = 2;
+        const dim = Math.ceil(radius * 2 + padding * 2);
+        const center = dim / 2;
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${dim}" height="${dim}"><circle cx="${center}" cy="${center}" r="${radius}" fill="${color}" fill-opacity="0.24" stroke="white" stroke-width="1"/><circle cx="${center}" cy="${center}" r="${radius}" fill="none" stroke="${color}" stroke-width="1"/></svg>`;
+        return `url("data:image/svg+xml,${encodeURIComponent(svg)}") ${center} ${center}, crosshair`;
+      }
+
+      function setChartCursor(cursor) {
+        let styleTag = document.getElementById("drawing-cursor-override");
+        if (!styleTag) {
+          styleTag = document.createElement("style");
+          styleTag.id = "drawing-cursor-override";
+          document.head.appendChild(styleTag);
+        }
+        styleTag.textContent = cursor ? `#kline, #kline * { cursor: ${cursor} !important; }` : "";
+      }
+
+      function syncUndoRedoButtons() {
+        drawUndoBtn.disabled = state.undoStack.length === 0;
+        drawRedoBtn.disabled = state.redoStack.length === 0;
+      }
+
+      function pushUndoAction(action) {
+        state.undoStack.push(action);
+        state.redoStack = [];
+        syncUndoRedoButtons();
+      }
+
+      function unregisterOverlayRef(overlayId) {
+        state.overlays = state.overlays.filter((o) => o && o.id !== overlayId);
+      }
+
+      function registerOverlayRef(overlayRef) {
+        if (!overlayRef || !overlayRef.id) return;
+        unregisterOverlayRef(overlayRef.id);
+        state.overlays.push(overlayRef);
+      }
+
+      function setCursorMode(enabled) {
+        state.drawingCursorMode = Boolean(enabled);
+        drawCursorBtn.classList.toggle("active", state.drawingCursorMode);
+      }
+
+      function syncDrawingToolSelectionUi() {
+        drawLineSelectEl.value = state.drawingGroupSelection.line;
+        drawMoreSelectEl.value = state.drawingGroupSelection.more;
+        drawShapeSelectEl.value = state.drawingGroupSelection.shape;
+        drawRiskSelectEl.value = state.drawingGroupSelection.risk;
+        drawBrushColorEl.value = state.brush.color;
+        drawBrushSizeEl.value = String(state.brush.size);
+        drawBrushOpacityEl.value = String(Math.round(state.brush.opacity * 100));
+        drawModeBtn.textContent =
+          state.drawingMode === "normal"
+            ? "Mode: Normal"
+            : state.drawingMode === "weak_magnet"
+              ? "Mode: Weak Magnet"
+              : "Mode: Strong Magnet";
+        drawLockBtn.textContent = `Lock: ${state.drawingLock ? "On" : "Off"}`;
+        drawVisibleBtn.classList.toggle("active", state.drawingVisible);
+        drawVisibleBtn.textContent = state.drawingVisible ? "Visible" : "Hidden";
+      }
+
+      function setActiveDrawingButton(tool) {
+        const map = {
+          [state.drawingGroupSelection.line]: drawLineBtn,
+          [state.drawingGroupSelection.more]: drawMoreBtn,
+          [state.drawingGroupSelection.shape]: drawShapeBtn,
+          [state.drawingGroupSelection.risk]: drawRiskBtn,
+          brush: drawBrushBtn,
+          measure: drawMoreBtn,
+          longPosition: drawRiskBtn,
+          shortPosition: drawRiskBtn,
+        };
+        drawLineBtn.classList.remove("active");
+        drawMoreBtn.classList.remove("active");
+        drawShapeBtn.classList.remove("active");
+        drawRiskBtn.classList.remove("active");
+        drawBrushBtn.classList.remove("active");
+        if (tool && map[tool]) {
+          map[tool].classList.add("active");
+        }
+      }
+
+      function getSerializableOverlay(overlay) {
+        if (!overlay || !overlay.name) return null;
+        if (overlay.name === "brush") {
+          const pointCount = Number(overlay.extendData?.points?.length || 0);
+          if (pointCount < 2) return null;
+        }
+        return {
+          id: overlay.id,
+          groupId: overlay.groupId,
+          paneId: overlay.paneId,
+          name: overlay.name,
+          points: overlay.points,
+          styles: overlay.styles,
+          visible: overlay.visible,
+          lock: overlay.lock,
+          mode: overlay.mode,
+          modeSensitivity: overlay.modeSensitivity,
+          zLevel: overlay.zLevel,
+          extendData: overlay.extendData,
+        };
+      }
+
+      function captureCurrentOverlays() {
+        if (!chart) return [];
+        const overlays = [];
+        for (const ref of state.overlays) {
+          if (!ref || !ref.id) continue;
+          const actual = typeof chart.getOverlayById === "function" ? chart.getOverlayById(ref.id) : null;
+          const serialized = getSerializableOverlay(actual);
+          if (serialized) overlays.push(serialized);
+        }
+        return overlays;
+      }
+
+      function scheduleLayoutSave() {
+        if (state.layoutSaveTimer) {
+          clearTimeout(state.layoutSaveTimer);
+        }
+        state.layoutSaveTimer = setTimeout(() => {
+          state.layoutSaveTimer = null;
+          saveLayoutState(false);
+        }, 700);
+      }
+
+      function saveLayoutState(showStatus = true) {
+        if (!chart) return;
+        try {
+          const payload = {
+            market:
+              state.selected && state.selected.venue && state.selected.symbol
+                ? { venue: state.selected.venue, symbol: state.selected.symbol }
+                : null,
+            timeframe: state.timeframe,
+            drawing: {
+              mode: state.drawingMode,
+              lock: state.drawingLock,
+              visible: state.drawingVisible,
+              groupSelection: state.drawingGroupSelection,
+              brush: state.brush,
+            },
+            viewport: {
+              barSpace: state.barSpace,
+              rightOffset: state.rightOffset,
+              leftMinBars: state.leftMinBars,
+              rightMinBars: state.rightMinBars,
+              zoomAnchor: state.zoomAnchor,
+            },
+            overlays: captureCurrentOverlays(),
+            savedAt: Date.now(),
+          };
+          localStorage.setItem(LAYOUT_STATE_KEY, JSON.stringify(payload));
+          if (showStatus) {
+            setStatus(`Layout saved · drawings:${payload.overlays.length}`);
+          }
+        } catch (error) {
+          if (showStatus) setStatus(`Layout save failed: ${error.message}`);
+        }
+      }
+
+      function loadLayoutState() {
+        try {
+          const raw = localStorage.getItem(LAYOUT_STATE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed || typeof parsed !== "object") return null;
+          return parsed;
+        } catch (_error) {
+          return null;
+        }
+      }
+
+      function applyLayoutPreferences(layout, options = { includeMarket: false }) {
+        if (!layout || typeof layout !== "object") return;
+        if (layout.viewport && typeof layout.viewport === "object") {
+          const viewport = layout.viewport;
+          if (Number.isFinite(Number(viewport.barSpace))) state.barSpace = Number(viewport.barSpace);
+          if (Number.isFinite(Number(viewport.rightOffset))) state.rightOffset = Number(viewport.rightOffset);
+          if (Number.isFinite(Number(viewport.leftMinBars))) state.leftMinBars = Math.max(0, Number(viewport.leftMinBars));
+          if (Number.isFinite(Number(viewport.rightMinBars))) state.rightMinBars = Math.max(0, Number(viewport.rightMinBars));
+          if (typeof viewport.zoomAnchor === "string" && hasSelectOption(zoomAnchorSelectEl, viewport.zoomAnchor)) {
+            state.zoomAnchor = viewport.zoomAnchor;
+          }
+        }
+        if (layout.drawing && typeof layout.drawing === "object") {
+          if (typeof layout.drawing.mode === "string") state.drawingMode = layout.drawing.mode;
+          state.drawingLock = Boolean(layout.drawing.lock);
+          state.drawingVisible = layout.drawing.visible !== false;
+          if (layout.drawing.groupSelection && typeof layout.drawing.groupSelection === "object") {
+            state.drawingGroupSelection = {
+              ...state.drawingGroupSelection,
+              ...layout.drawing.groupSelection,
+            };
+          }
+          if (layout.drawing.brush && typeof layout.drawing.brush === "object") {
+            state.brush = {
+              color: String(layout.drawing.brush.color || state.brush.color),
+              size: clamp(Number(layout.drawing.brush.size) || state.brush.size, 1, 10),
+              opacity: clamp(Number(layout.drawing.brush.opacity) || state.brush.opacity, 0.1, 1),
+            };
+          }
+        }
+        if (options.includeMarket && layout.market && layout.market.venue && layout.market.symbol) {
+          state.preferredMarket = { venue: String(layout.market.venue), symbol: String(layout.market.symbol) };
+        }
+        if (options.includeMarket && typeof layout.timeframe === "string" && hasSelectOption(timeframeSelectEl, layout.timeframe)) {
+          state.timeframe = layout.timeframe;
+          timeframeSelectEl.value = layout.timeframe;
+        }
+      }
+
+      function getLayoutOverlaysForCurrentMarket() {
+        const layout = loadLayoutState();
+        if (!layout || !layout.market || !state.selected) return [];
+        if (layout.market.venue !== state.selected.venue || layout.market.symbol !== state.selected.symbol) {
+          return [];
+        }
+        if (layout.timeframe && layout.timeframe !== state.timeframe) {
+          return [];
+        }
+        return Array.isArray(layout.overlays) ? layout.overlays : [];
+      }
+
+      function cancelPendingDrawing() {
+        if (!state.pendingOverlayId || !chart || typeof chart.removeOverlay !== "function") return;
+        chart.removeOverlay({ id: state.pendingOverlayId });
+        unregisterOverlayRef(state.pendingOverlayId);
+        state.pendingOverlayId = null;
+      }
+
+      function applyOverlayGlobals() {
+        if (!chart || typeof chart.overrideOverlay !== "function") return;
+        chart.overrideOverlay({
+          groupId: DRAW_GROUP_ID,
+          mode: state.drawingMode,
+          lock: state.drawingLock,
+          visible: state.drawingVisible,
+        });
+      }
+
+      function restoreOverlayList(overlays) {
+        if (!chart || typeof chart.createOverlay !== "function") return;
+        state.overlays = [];
+        for (const overlay of overlays || []) {
+          const payload = {
+            ...overlay,
+            groupId: DRAW_GROUP_ID,
+            mode: state.drawingMode,
+            lock: state.drawingLock,
+            visible: state.drawingVisible,
+            onRemoved: (params) => {
+              const overlayId = params?.overlay?.id;
+              if (overlayId) unregisterOverlayRef(overlayId);
+              if (overlayId && overlayId === state.pendingOverlayId) state.pendingOverlayId = null;
+              scheduleLayoutSave();
+              return true;
+            },
+          };
+          const id = chart.createOverlay(payload);
+          if (typeof id === "string") {
+            registerOverlayRef({ id, name: overlay.name, groupId: DRAW_GROUP_ID });
+          }
+        }
+        applyOverlayGlobals();
+      }
+
+      function redrawPendingTool() {
+        const tool = state.activeDrawingTool;
+        if (!tool || state.drawingCursorMode) return;
+        queueMicrotask(() => {
+          if (!state.drawingCursorMode && state.activeDrawingTool === tool) {
+            activateDrawingTool(tool, false);
+          }
+        });
+      }
+
+      function activateDrawingTool(toolName, clearRedo = true) {
+        if (!chart || typeof chart.createOverlay !== "function") return;
+        cancelPendingDrawing();
+        state.activeDrawingTool = toolName;
+        setCursorMode(false);
+        setActiveDrawingButton(toolName);
+
+        let styles = undefined;
+        if (toolName === "brush") {
+          styles = {
+            line: {
+              color: hexToRgba(state.brush.color, state.brush.opacity),
+              size: state.brush.size,
+            },
+          };
+          setChartCursor(makeBrushCursor(state.brush.color, state.brush.size));
+        } else {
+          setChartCursor("");
+        }
+
+        let createdId = null;
+        try {
+          createdId = chart.createOverlay({
+            groupId: DRAW_GROUP_ID,
+            name: toolName,
+            mode: state.drawingMode,
+            lock: state.drawingLock,
+            visible: state.drawingVisible,
+            styles,
+            onRemoved: (params) => {
+              const overlayId = params?.overlay?.id;
+              if (overlayId) unregisterOverlayRef(overlayId);
+              if (overlayId && overlayId === state.pendingOverlayId) state.pendingOverlayId = null;
+              scheduleLayoutSave();
+              return true;
+            },
+            onDrawEnd: () => {
+              const finishedId = createdId;
+              const overlay = typeof chart.getOverlayById === "function" ? chart.getOverlayById(finishedId) : null;
+              const serialized = getSerializableOverlay(overlay);
+              if (serialized) {
+                pushUndoAction({ type: "overlay_added", overlay: serialized });
+                registerOverlayRef({ id: serialized.id, name: serialized.name, groupId: serialized.groupId || DRAW_GROUP_ID });
+              }
+              state.pendingOverlayId = null;
+              scheduleLayoutSave();
+              redrawPendingTool();
+            },
+          });
+        } catch (error) {
+          setStatus(`Draw tool unavailable: ${toolName}`);
+          setDrawingCursorMode();
+          return;
+        }
+
+        if (typeof createdId === "string") {
+          state.pendingOverlayId = createdId;
+          registerOverlayRef({ id: createdId, name: toolName, groupId: DRAW_GROUP_ID });
+          if (clearRedo) {
+            state.redoStack = [];
+            syncUndoRedoButtons();
+          }
+        }
+      }
+
+      function setDrawingCursorMode() {
+        cancelPendingDrawing();
+        state.activeDrawingTool = null;
+        setCursorMode(true);
+        setActiveDrawingButton(null);
+        setChartCursor("");
+      }
+
+      function removeAllDrawingsWithUndo() {
+        if (!chart || typeof chart.removeOverlay !== "function") return;
+        cancelPendingDrawing();
+        const saved = captureCurrentOverlays();
+        if (saved.length) {
+          pushUndoAction({ type: "overlays_removed", overlays: saved });
+        }
+        chart.removeOverlay({ groupId: DRAW_GROUP_ID });
+        state.overlays = [];
+        setDrawingCursorMode();
+        scheduleLayoutSave();
+      }
+
+      function applyHistoryAction(action, direction) {
+        if (!chart) return;
+        if (action.type === "overlay_added") {
+          if (direction === "undo") {
+            chart.removeOverlay({ id: action.overlay.id });
+            unregisterOverlayRef(action.overlay.id);
+          } else {
+            const restored = { ...action.overlay };
+            delete restored.id;
+            const id = chart.createOverlay({
+              ...restored,
+              groupId: DRAW_GROUP_ID,
+              mode: state.drawingMode,
+              lock: state.drawingLock,
+              visible: state.drawingVisible,
+              onRemoved: (params) => {
+                const overlayId = params?.overlay?.id;
+                if (overlayId) unregisterOverlayRef(overlayId);
+                scheduleLayoutSave();
+                return true;
+              },
+            });
+            if (typeof id === "string") {
+              action.overlay.id = id;
+              registerOverlayRef({ id, name: action.overlay.name, groupId: DRAW_GROUP_ID });
+            }
+          }
+        } else if (action.type === "overlays_removed") {
+          if (direction === "undo") {
+            restoreOverlayList(action.overlays);
+          } else {
+            chart.removeOverlay({ groupId: DRAW_GROUP_ID });
+            state.overlays = [];
+          }
+        }
+        scheduleLayoutSave();
+      }
+
+      function handleUndo() {
+        cancelPendingDrawing();
+        const action = state.undoStack.pop();
+        if (!action) return;
+        state.redoStack.push(action);
+        applyHistoryAction(action, "undo");
+        syncUndoRedoButtons();
+      }
+
+      function handleRedo() {
+        cancelPendingDrawing();
+        const action = state.redoStack.pop();
+        if (!action) return;
+        state.undoStack.push(action);
+        applyHistoryAction(action, "redo");
+        syncUndoRedoButtons();
+      }
+
+      function cycleDrawingMode() {
+        const order = ["normal", "weak_magnet", "strong_magnet"];
+        const idx = order.indexOf(state.drawingMode);
+        state.drawingMode = order[(idx + 1) % order.length];
+        syncDrawingToolSelectionUi();
+        applyOverlayGlobals();
+        scheduleLayoutSave();
+      }
+
+      function registerCustomDrawingExtensions() {
+        if (!window.klinecharts || window.klinecharts.__nitraDrawingRegistered) return;
+
+        window.klinecharts.__nitraDrawingRegistered = true;
+
+        const getSqSegDist = (p, p1, p2) => {
+          let x = p1.x;
+          let y = p1.y;
+          let dx = p2.x - x;
+          let dy = p2.y - y;
+          if (dx !== 0 || dy !== 0) {
+            const t = ((p.x - x) * dx + (p.y - y) * dy) / (dx * dx + dy * dy);
+            if (t > 1) {
+              x = p2.x;
+              y = p2.y;
+            } else if (t > 0) {
+              x += dx * t;
+              y += dy * t;
+            }
+          }
+          dx = p.x - x;
+          dy = p.y - y;
+          return dx * dx + dy * dy;
+        };
+
+        const rdpMask = (points, epsilon) => {
+          const len = points.length;
+          const markers = new Uint8Array(len);
+          if (len <= 2) {
+            markers.fill(1);
+            return markers;
+          }
+          const sqEpsilon = epsilon * epsilon;
+          markers[0] = 1;
+          markers[len - 1] = 1;
+          const stack = [[0, len - 1]];
+          while (stack.length > 0) {
+            const [first, last] = stack.pop();
+            let maxSqDist = 0;
+            let index = 0;
+            for (let i = first + 1; i < last; i += 1) {
+              const sqDist = getSqSegDist(points[i], points[first], points[last]);
+              if (sqDist > maxSqDist) {
+                maxSqDist = sqDist;
+                index = i;
+              }
+            }
+            if (maxSqDist > sqEpsilon) {
+              markers[index] = 1;
+              stack.push([first, index], [index, last]);
+            }
+          }
+          return markers;
+        };
+
+        window.klinecharts.registerFigure({
+          name: "nitra_brush_path",
+          draw: (ctx, attrs, styles) => {
+            const coordinates = attrs?.coordinates || [];
+            if (coordinates.length < 2) return;
+            ctx.save();
+            ctx.strokeStyle = styles?.color || "#1677ff";
+            ctx.lineWidth = styles?.size || 2;
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.beginPath();
+            ctx.moveTo(coordinates[0].x, coordinates[0].y);
+            if (coordinates.length === 2) {
+              ctx.lineTo(coordinates[1].x, coordinates[1].y);
+            } else {
+              for (let i = 1; i < coordinates.length - 2; i += 1) {
+                const xc = (coordinates[i].x + coordinates[i + 1].x) / 2;
+                const yc = (coordinates[i].y + coordinates[i + 1].y) / 2;
+                ctx.quadraticCurveTo(coordinates[i].x, coordinates[i].y, xc, yc);
+              }
+              const last = coordinates.length - 2;
+              ctx.quadraticCurveTo(coordinates[last].x, coordinates[last].y, coordinates[last + 1].x, coordinates[last + 1].y);
+            }
+            ctx.stroke();
+            ctx.restore();
+          },
+        });
+
+        window.klinecharts.registerOverlay({
+          name: "brush",
+          totalStep: 3,
+          needDefaultPointFigure: false,
+          needDefaultXAxisFigure: false,
+          needDefaultYAxisFigure: false,
+          onDrawing: (params) => {
+            const overlay = params.overlay;
+            if (params.x === undefined || params.y === undefined || overlay.currentStep !== 2) return true;
+            if (!overlay.extendData) overlay.extendData = { points: [], isDirty: false };
+            const chartRef = chart;
+            if (!chartRef) return true;
+            const point = chartRef.convertFromPixel({ x: params.x, y: params.y }, { paneId: overlay.paneId });
+            if (point && point.timestamp !== undefined) {
+              const points = overlay.extendData.points;
+              const last = points[points.length - 1];
+              if (!last || Math.abs(last.timestamp - point.timestamp) > 250 || Math.abs(last.value - point.value) > 1e-9) {
+                points.push({ timestamp: point.timestamp, value: point.value });
+                overlay.extendData.isDirty = true;
+              }
+            }
+            return true;
+          },
+          onDrawEnd: (params) => {
+            if (params?.overlay?.extendData) params.overlay.extendData.isDirty = true;
+            return true;
+          },
+          createPointFigures: ({ overlay, defaultStyles }) => {
+            const data = overlay.extendData;
+            if (!data || !Array.isArray(data.points) || data.points.length < 2 || !chart) return [];
+            if (data.isDirty) {
+              const pixels = data.points.map((p) => chart.convertToPixel({ timestamp: p.timestamp, value: p.value }, { paneId: overlay.paneId }));
+              const markers = rdpMask(pixels, 1.0);
+              data.points = data.points.filter((_p, idx) => markers[idx]);
+              data.isDirty = false;
+            }
+            const coordinates = [];
+            for (const p of data.points) {
+              const px = chart.convertToPixel({ timestamp: p.timestamp, value: p.value }, { paneId: overlay.paneId });
+              if (px && px.x !== undefined && px.y !== undefined) {
+                coordinates.push({ x: Math.round(px.x), y: Math.round(px.y) });
+              }
+            }
+            if (coordinates.length < 2) return [];
+            return [
+              {
+                type: "nitra_brush_path",
+                attrs: { coordinates },
+                styles: {
+                  color: overlay.styles?.line?.color || defaultStyles?.line?.color || "#1677ff",
+                  size: overlay.styles?.line?.size || defaultStyles?.line?.size || 2,
+                },
+              },
+            ];
+          },
+        });
+
+        const formatDuration = (ms) => {
+          const seconds = Math.floor(ms / 1000);
+          const minutes = Math.floor(seconds / 60);
+          const hours = Math.floor(minutes / 60);
+          const days = Math.floor(hours / 24);
+          if (days > 0) return `${days}d ${hours % 24}h`;
+          if (hours > 0) return `${hours}h ${minutes % 60}m`;
+          return `${minutes}m`;
+        };
+
+        window.klinecharts.registerOverlay({
+          name: "measure",
+          totalStep: 3,
+          needDefaultPointFigure: true,
+          needDefaultXAxisFigure: true,
+          needDefaultYAxisFigure: true,
+          createPointFigures: ({ overlay, coordinates }) => {
+            if (!coordinates || coordinates.length < 2) return [];
+            const startPoint = overlay.points[0];
+            const endPoint = overlay.points[1];
+            const startCoord = coordinates[0];
+            const endCoord = coordinates[1];
+            const diff = endPoint.value - startPoint.value;
+            const percent = ((diff / startPoint.value) * 100).toFixed(2);
+            const bars = Math.abs((endPoint.dataIndex || 0) - (startPoint.dataIndex || 0));
+            const time = formatDuration(Math.abs((endPoint.timestamp || 0) - (startPoint.timestamp || 0)));
+            const isUp = diff >= 0;
+            const bg = isUp ? "rgba(38,166,154,0.2)" : "rgba(239,83,80,0.2)";
+            const line = isUp ? "#26a69a" : "#ef5350";
+            const rectX = Math.min(startCoord.x, endCoord.x);
+            const rectY = Math.min(startCoord.y, endCoord.y);
+            return [
+              { type: "rect", attrs: { x: rectX, y: rectY, width: Math.abs(startCoord.x - endCoord.x), height: Math.abs(startCoord.y - endCoord.y) }, styles: { style: "fill", color: bg } },
+              { type: "line", attrs: { coordinates: [startCoord, endCoord] }, styles: { style: "dash", color: line } },
+              {
+                type: "text",
+                attrs: { x: endCoord.x, y: endCoord.y + (isUp ? -30 : 14), text: `${isUp ? "▲" : "▼"} ${diff.toFixed(2)} (${percent}%) · ${bars} bars · ${time}`, align: "center", baseline: "middle" },
+                styles: { color: "#fff", backgroundColor: line, paddingLeft: 4, paddingRight: 4, paddingTop: 2, paddingBottom: 2 },
+              },
+            ];
+          },
+        });
+
+        window.klinecharts.registerOverlay({
+          name: "parallelChannel",
+          totalStep: 4,
+          needDefaultPointFigure: true,
+          needDefaultXAxisFigure: true,
+          needDefaultYAxisFigure: true,
+          createPointFigures: ({ coordinates }) => {
+            if (!coordinates || coordinates.length < 2) return [];
+            const p1 = coordinates[0];
+            const p2 = coordinates[1];
+            const p3 = coordinates[2] || p2;
+            const dx = p1.x - p2.x;
+            const dy = p1.y - p2.y;
+            const p4 = { x: p3.x + dx, y: p3.y + dy };
+            return [
+              { type: "line", attrs: [{ coordinates: [p1, p2] }, { coordinates: [p3, p4] }, { coordinates: [p1, p4] }, { coordinates: [p2, p3] }] },
+              { type: "polygon", attrs: { coordinates: [p1, p2, p3, p4] }, styles: { style: "fill" } },
+            ];
+          },
+        });
+
+        const createRiskOverlay = (name, isLong) => ({
+          name,
+          totalStep: 3,
+          needDefaultPointFigure: true,
+          needDefaultXAxisFigure: true,
+          needDefaultYAxisFigure: true,
+          createPointFigures: ({ coordinates, overlay, yAxis }) => {
+            if (!coordinates || coordinates.length < 2 || !yAxis) return [];
+            const startX = coordinates[0].x;
+            const endX = coordinates[1].x;
+            const entryY = coordinates[0].y;
+            const targetY = coordinates[1].y;
+            const stopY = coordinates[2]?.y ?? (isLong ? entryY + 40 : entryY - 40);
+            const entryPrice = overlay.points[0].value;
+            const targetPrice = overlay.points[1].value;
+            const stopPrice = overlay.points[2]?.value ?? yAxis.convertFromPixel(stopY);
+            const reward = isLong ? targetPrice - entryPrice : entryPrice - targetPrice;
+            const risk = isLong ? entryPrice - stopPrice : stopPrice - entryPrice;
+            const rr = risk > 0 ? (reward / risk).toFixed(2) : "0.00";
+            const profitPercent = ((reward / entryPrice) * 100).toFixed(2);
+            const lossPercent = ((risk / entryPrice) * 100).toFixed(2);
+            return [
+              { type: "rect", attrs: { x: Math.min(startX, endX), y: Math.min(entryY, targetY), width: Math.abs(startX - endX), height: Math.abs(entryY - targetY) }, styles: { color: "rgba(38,166,154,0.2)", style: "fill" } },
+              { type: "rect", attrs: { x: Math.min(startX, endX), y: Math.min(entryY, stopY), width: Math.abs(startX - endX), height: Math.abs(entryY - stopY) }, styles: { color: "rgba(239,83,80,0.2)", style: "fill" } },
+              { type: "line", attrs: { coordinates: [{ x: startX, y: entryY }, { x: endX, y: entryY }] }, styles: { color: "#888", size: 2 } },
+              { type: "text", attrs: { x: endX, y: targetY, text: `Target: ${Number(targetPrice).toFixed(2)} (${profitPercent}%)`, align: "left", baseline: isLong ? "bottom" : "top" }, styles: { color: "#26a69a", backgroundColor: "rgba(0,0,0,0.6)", paddingLeft: 4, paddingRight: 4 } },
+              { type: "text", attrs: { x: endX, y: stopY, text: `Stop: ${Number(stopPrice).toFixed(2)} (${lossPercent}%)`, align: "left", baseline: isLong ? "top" : "bottom" }, styles: { color: "#ef5350", backgroundColor: "rgba(0,0,0,0.6)", paddingLeft: 4, paddingRight: 4 } },
+              { type: "text", attrs: { x: Math.min(startX, endX) + Math.abs(startX - endX) / 2, y: entryY, text: `R/R: ${rr}`, align: "center", baseline: "middle" }, styles: { color: "#fff", backgroundColor: "rgba(0,0,0,0.8)", paddingLeft: 6, paddingRight: 6 } },
+            ];
+          },
+        });
+
+        window.klinecharts.registerOverlay(createRiskOverlay("longPosition", true));
+        window.klinecharts.registerOverlay(createRiskOverlay("shortPosition", false));
+      }
+
       function syncRealtimeButtonState() {
         if (state.autoFollowRealtime) {
           realtimeBtn.classList.add("active");
@@ -691,6 +1628,8 @@
           setStatus("Chart library failed to load");
           return false;
         }
+
+        registerCustomDrawingExtensions();
 
         chart = window.klinecharts.init("kline", {
           locale: state.locale,
@@ -834,6 +1773,11 @@
         if (typeof chart.setTimezone === "function") {
           chart.setTimezone(state.timezone);
         }
+        zoomAnchorSelectEl.value = state.zoomAnchor;
+        barSpaceRangeEl.value = String(state.barSpace);
+        rightOffsetRangeEl.value = String(state.rightOffset);
+        leftMinBarsEl.value = String(state.leftMinBars);
+        rightMinBarsEl.value = String(state.rightMinBars);
         lockScrollBtn.textContent = `Scroll: ${state.scrollEnabled ? "On" : "Off"}`;
         lockZoomBtn.textContent = `Zoom: ${state.zoomEnabled ? "On" : "Off"}`;
       }
@@ -1305,6 +2249,7 @@
         state.timeframe = tf;
         timeframeSelectEl.value = tf;
         persistUiPrefs();
+        scheduleLayoutSave();
       }
 
       function getSelectedMarket(venue, symbol) {
@@ -1342,6 +2287,7 @@
         state.selected = market;
         marketSearchEl.value = formatMarket(market);
         persistUiPrefs();
+        scheduleLayoutSave();
       }
 
       function renderMarketDropdown(queryText = "") {
@@ -1538,6 +2484,12 @@
           return;
         }
 
+        cancelPendingDrawing();
+        if (chart && typeof chart.removeOverlay === "function") {
+          chart.removeOverlay({ groupId: DRAW_GROUP_ID });
+          state.overlays = [];
+        }
+
         state.autoFollowRealtime = true;
         syncRealtimeButtonState();
         state.hasMoreHistory = true;
@@ -1579,6 +2531,11 @@
           chart.scrollToRealTime(120);
         }
         syncMeta();
+        state.undoStack = [];
+        state.redoStack = [];
+        syncUndoRedoButtons();
+        restoreOverlayList(getLayoutOverlaysForCurrentMarket());
+        scheduleLayoutSave();
 
         if (derivedFromOneMinute) {
           setStatus(`${state.liveBars.length} candles · derived from 1m`);
@@ -1779,6 +2736,7 @@
         state.zoomAnchor = zoomAnchorSelectEl.value;
         applyChartPreferences();
         persistUiPrefs();
+        scheduleLayoutSave();
       });
 
       formatSelectEl.addEventListener("change", () => {
@@ -1800,21 +2758,25 @@
       barSpaceRangeEl.addEventListener("input", () => {
         state.barSpace = Number(barSpaceRangeEl.value);
         applyChartPreferences();
+        scheduleLayoutSave();
       });
 
       rightOffsetRangeEl.addEventListener("input", () => {
         state.rightOffset = Number(rightOffsetRangeEl.value);
         applyChartPreferences();
+        scheduleLayoutSave();
       });
 
       leftMinBarsEl.addEventListener("change", () => {
         state.leftMinBars = Math.max(0, Number(leftMinBarsEl.value || 0));
         applyChartPreferences();
+        scheduleLayoutSave();
       });
 
       rightMinBarsEl.addEventListener("change", () => {
         state.rightMinBars = Math.max(0, Number(rightMinBarsEl.value || 0));
         applyChartPreferences();
+        scheduleLayoutSave();
       });
 
       reloadBtn.addEventListener("click", async () => {
@@ -1945,10 +2907,128 @@
         }
       });
 
+      drawCursorBtn.addEventListener("click", () => {
+        setDrawingCursorMode();
+      });
+
+      drawLineSelectEl.addEventListener("change", () => {
+        state.drawingGroupSelection.line = drawLineSelectEl.value;
+        scheduleLayoutSave();
+      });
+      drawMoreSelectEl.addEventListener("change", () => {
+        state.drawingGroupSelection.more = drawMoreSelectEl.value;
+        scheduleLayoutSave();
+      });
+      drawShapeSelectEl.addEventListener("change", () => {
+        state.drawingGroupSelection.shape = drawShapeSelectEl.value;
+        scheduleLayoutSave();
+      });
+      drawRiskSelectEl.addEventListener("change", () => {
+        state.drawingGroupSelection.risk = drawRiskSelectEl.value;
+        scheduleLayoutSave();
+      });
+
+      drawLineBtn.addEventListener("click", () => {
+        activateDrawingTool(state.drawingGroupSelection.line);
+      });
+      drawMoreBtn.addEventListener("click", () => {
+        activateDrawingTool(state.drawingGroupSelection.more);
+      });
+      drawShapeBtn.addEventListener("click", () => {
+        activateDrawingTool(state.drawingGroupSelection.shape);
+      });
+      drawRiskBtn.addEventListener("click", () => {
+        activateDrawingTool(state.drawingGroupSelection.risk);
+      });
+      drawBrushBtn.addEventListener("click", () => {
+        activateDrawingTool("brush");
+      });
+
+      drawBrushColorEl.addEventListener("input", () => {
+        state.brush.color = drawBrushColorEl.value;
+        if (!state.drawingCursorMode && state.activeDrawingTool === "brush") {
+          activateDrawingTool("brush", false);
+        }
+        scheduleLayoutSave();
+      });
+      drawBrushSizeEl.addEventListener("input", () => {
+        state.brush.size = clamp(Number(drawBrushSizeEl.value) || 2, 1, 10);
+        if (!state.drawingCursorMode && state.activeDrawingTool === "brush") {
+          activateDrawingTool("brush", false);
+        }
+        scheduleLayoutSave();
+      });
+      drawBrushOpacityEl.addEventListener("input", () => {
+        state.brush.opacity = clamp((Number(drawBrushOpacityEl.value) || 100) / 100, 0.1, 1);
+        if (!state.drawingCursorMode && state.activeDrawingTool === "brush") {
+          activateDrawingTool("brush", false);
+        }
+        scheduleLayoutSave();
+      });
+
+      drawModeBtn.addEventListener("click", () => {
+        cycleDrawingMode();
+      });
+      drawLockBtn.addEventListener("click", () => {
+        state.drawingLock = !state.drawingLock;
+        syncDrawingToolSelectionUi();
+        applyOverlayGlobals();
+        scheduleLayoutSave();
+      });
+      drawVisibleBtn.addEventListener("click", () => {
+        state.drawingVisible = !state.drawingVisible;
+        syncDrawingToolSelectionUi();
+        applyOverlayGlobals();
+        scheduleLayoutSave();
+      });
+      drawRemoveBtn.addEventListener("click", () => {
+        removeAllDrawingsWithUndo();
+      });
+      drawUndoBtn.addEventListener("click", () => {
+        handleUndo();
+      });
+      drawRedoBtn.addEventListener("click", () => {
+        handleRedo();
+      });
+      drawSaveBtn.addEventListener("click", () => {
+        saveLayoutState(true);
+      });
+      drawLoadBtn.addEventListener("click", async () => {
+        const layout = loadLayoutState();
+        if (!layout) {
+          setStatus("No saved layout");
+          return;
+        }
+        applyLayoutPreferences(layout, { includeMarket: true });
+        syncDrawingToolSelectionUi();
+        applyChartPreferences();
+        await reloadAll();
+        startLivePolling();
+        setStatus("Layout loaded");
+      });
+
+      document.addEventListener("keydown", (event) => {
+        const ctrl = event.ctrlKey || event.metaKey;
+        if (!ctrl) return;
+        if (event.key.toLowerCase() === "z" && !event.shiftKey) {
+          event.preventDefault();
+          handleUndo();
+          return;
+        }
+        if (event.key.toLowerCase() === "y" || (event.key.toLowerCase() === "z" && event.shiftKey)) {
+          event.preventDefault();
+          handleRedo();
+        }
+      });
+
       window.addEventListener("resize", () => fitChart());
 
       applyUiPrefs();
+      applyLayoutPreferences(loadLayoutState(), { includeMarket: true });
       setActiveTimeframe(state.timeframe);
+      syncDrawingToolSelectionUi();
+      setCursorMode(true);
+      syncUndoRedoButtons();
       syncRealtimeButtonState();
       if (initChart()) {
         bindPointerInspector();
