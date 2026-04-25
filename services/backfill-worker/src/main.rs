@@ -8,6 +8,7 @@ use rdkafka::Message;
 use serde_json::{json, Value};
 use std::env;
 use std::time::Duration;
+use tokio::time::{interval, MissedTickBehavior};
 use tokio_postgres::{Client, NoTls};
 use uuid::Uuid;
 
@@ -39,6 +40,20 @@ fn env_i64_or(name: &str, default: i64) -> i64 {
     env::var(name)
         .ok()
         .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(default)
+}
+
+fn env_u64_or(name: &str, default: u64) -> u64 {
+    env::var(name)
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(default)
+}
+
+fn env_usize_or(name: &str, default: usize) -> usize {
+    env::var(name)
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
         .unwrap_or(default)
 }
 
@@ -189,6 +204,8 @@ async fn ensure_gap_backfill_tables(conn: &Client) -> Result<(), tokio_postgres:
           range_end TIMESTAMPTZ NOT NULL,
           status TEXT NOT NULL DEFAULT 'queued',
           attempt_count INT NOT NULL DEFAULT 0,
+          enqueue_count INT NOT NULL DEFAULT 0,
+          last_enqueued_at TIMESTAMPTZ,
           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         );
@@ -213,6 +230,12 @@ async fn ensure_gap_backfill_tables(conn: &Client) -> Result<(), tokio_postgres:
         );
 
         CREATE INDEX IF NOT EXISTS idx_replay_audit_status ON replay_audit (status, started_at DESC);
+
+        ALTER TABLE backfill_jobs
+          ADD COLUMN IF NOT EXISTS enqueue_count INT NOT NULL DEFAULT 0;
+
+        ALTER TABLE backfill_jobs
+          ADD COLUMN IF NOT EXISTS last_enqueued_at TIMESTAMPTZ;
         ",
     )
     .await
@@ -303,16 +326,16 @@ async fn process_gap_locked(
 
     for (range_start, range_end) in chunks {
         let job_id = Uuid::new_v4();
-        let replay_id = Uuid::new_v4();
+        let replay_id = job_id;
 
         let inserted = conn
             .execute(
                 "
                 INSERT INTO backfill_jobs (
                   job_id, gap_id, venue, canonical_symbol, timeframe,
-                  range_start, range_end, status, attempt_count
+                  range_start, range_end, status, attempt_count, enqueue_count, last_enqueued_at
                 )
-                VALUES ($1,$2,$3,$4,$5,$6,$7,'queued',0)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,'queued',0,1,now())
                 ON CONFLICT (venue, canonical_symbol, timeframe, range_start, range_end)
                 DO NOTHING
                 ",
@@ -434,6 +457,173 @@ async fn process_open_gaps(
     Ok(())
 }
 
+async fn reset_stale_running_jobs(
+    conn: &Client,
+    stale_running_secs: i64,
+) -> Result<u64, tokio_postgres::Error> {
+    if stale_running_secs <= 0 {
+        return Ok(0);
+    }
+    let stale_secs_i32 = (stale_running_secs.min(i32::MAX as i64)) as i32;
+    conn.execute(
+        "
+        UPDATE backfill_jobs
+        SET status = 'queued',
+            updated_at = now()
+        WHERE status = 'running'
+          AND updated_at < now() - ($1::int * interval '1 second')
+        ",
+        &[&stale_secs_i32],
+    )
+    .await
+}
+
+#[derive(Debug)]
+struct QueuedJob {
+    job_id: Uuid,
+    venue: String,
+    canonical_symbol: String,
+    timeframe: String,
+    range_start: DateTime<Utc>,
+    range_end: DateTime<Utc>,
+}
+
+async fn reenqueue_queued_jobs(
+    conn: &Client,
+    producer: &FutureProducer,
+    replay_topic: &str,
+    replay_target_group: &str,
+    batch_size: i64,
+    queued_stale_secs: i64,
+    cooldown_secs: i64,
+) -> Result<u64, Box<dyn std::error::Error>> {
+    if batch_size <= 0 {
+        return Ok(0);
+    }
+    let queued_stale_secs_i32 = (queued_stale_secs.max(1).min(i32::MAX as i64)) as i32;
+    let cooldown_secs_i32 = (cooldown_secs.max(0).min(i32::MAX as i64)) as i32;
+    let batch_size_i64 = batch_size.max(1);
+    let rows = conn
+        .query(
+            "
+            SELECT
+              bj.job_id, bj.venue, bj.canonical_symbol, bj.timeframe, bj.range_start, bj.range_end
+            FROM backfill_jobs bj
+            LEFT JOIN replay_audit ra ON ra.replay_id = bj.job_id
+            WHERE bj.status = 'queued'
+              AND bj.timeframe = '1m'
+              AND (
+                (
+                  bj.enqueue_count = 0
+                  AND bj.created_at < now() - ($1::int * interval '1 second')
+                )
+                OR (
+                  bj.enqueue_count > 0
+                  AND bj.last_enqueued_at IS NOT NULL
+                  AND bj.last_enqueued_at < now() - ($2::int * interval '1 second')
+                  AND (
+                    ra.replay_id IS NULL
+                    OR (
+                      ra.status = 'queued'
+                      AND ra.started_at < now() - ($1::int * interval '1 second')
+                    )
+                    OR (
+                      ra.status = 'running'
+                      AND ra.started_at < now() - ($1::int * interval '1 second')
+                    )
+                  )
+                )
+              )
+            ORDER BY COALESCE(bj.last_enqueued_at, bj.created_at) ASC, bj.created_at ASC
+            LIMIT $3
+            ",
+            &[&queued_stale_secs_i32, &cooldown_secs_i32, &batch_size_i64],
+        )
+        .await?;
+
+    let mut queued_jobs = Vec::with_capacity(rows.len());
+    for row in rows {
+        queued_jobs.push(QueuedJob {
+            job_id: row.get(0),
+            venue: row.get::<usize, String>(1),
+            canonical_symbol: row.get::<usize, String>(2),
+            timeframe: row.get::<usize, String>(3),
+            range_start: row.get(4),
+            range_end: row.get(5),
+        });
+    }
+
+    let mut enqueued = 0_u64;
+    for job in queued_jobs {
+        let source_topic = format!("raw.market.{}", job.venue);
+        let replay_payload = json!({
+            "replay_id": job.job_id.to_string(),
+            "source_topic": source_topic,
+            "start_ts": job.range_start.to_rfc3339(),
+            "end_ts": job.range_end.to_rfc3339(),
+            "target_consumer_group": replay_target_group,
+            "requested_by": "nitra-backfill-worker-recovery",
+            "requested_at": Utc::now().to_rfc3339(),
+            "dry_run": false,
+            "fetch_mode": "broker_history",
+            "venue": job.venue,
+            "canonical_symbol": job.canonical_symbol,
+            "timeframe": job.timeframe,
+            "trigger": "queued_recovery",
+            "job_id": job.job_id.to_string(),
+        });
+        let wrapped = build_envelope(replay_payload).to_string();
+        let key = format!("recover:{}", job.job_id);
+        producer
+            .send(
+                FutureRecord::to(replay_topic).key(&key).payload(&wrapped),
+                Duration::from_secs(5),
+            )
+            .await
+            .map_err(|(e, _)| e)?;
+
+        conn.execute(
+            "
+            INSERT INTO replay_audit (
+              replay_id, source_topic, target_consumer_group, range_start, range_end,
+              status, moved_messages, started_at, completed_at, error
+            )
+            VALUES ($1,$2,$3,$4,$5,'queued',0,now(),NULL,NULL)
+            ON CONFLICT (replay_id)
+            DO UPDATE SET
+              status = 'queued',
+              started_at = now(),
+              completed_at = NULL,
+              error = NULL,
+              moved_messages = 0
+            ",
+            &[
+                &job.job_id,
+                &source_topic,
+                &replay_target_group,
+                &job.range_start,
+                &job.range_end,
+            ],
+        )
+        .await?;
+
+        conn.execute(
+            "
+            UPDATE backfill_jobs
+            SET enqueue_count = enqueue_count + 1,
+                last_enqueued_at = now(),
+                updated_at = now()
+            WHERE job_id = $1
+            ",
+            &[&job.job_id],
+        )
+        .await?;
+        enqueued += 1;
+    }
+
+    Ok(enqueued)
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service_name = "backfill_worker";
@@ -449,6 +639,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let startup_process_open_gaps = env_bool_or("BACKFILL_STARTUP_PROCESS_OPEN_GAPS", true);
     let chunk_minutes = env_i64_or("BACKFILL_FETCH_CHUNK_MINUTES", 1440).max(1);
+    let recovery_enabled = env_bool_or("BACKFILL_RECOVERY_ENABLED", true);
+    let recovery_interval_secs = env_u64_or("BACKFILL_RECOVERY_INTERVAL_SECS", 60).max(10);
+    let recovery_batch_size = env_usize_or("BACKFILL_RECOVERY_BATCH_SIZE", 500).max(1) as i64;
+    let stale_running_secs = env_i64_or("BACKFILL_STALE_RUNNING_SECS", 900).max(1);
+    let queued_stale_secs = env_i64_or("BACKFILL_QUEUED_STALE_SECS", 1800).max(1);
+    let reenqueue_cooldown_secs = env_i64_or("BACKFILL_REENQUEUE_COOLDOWN_SECS", 120).max(0);
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
     tokio::spawn(async move {
@@ -483,9 +679,54 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     }
 
-    let mut stream = consumer.stream();
+    if recovery_enabled {
+        let reset = reset_stale_running_jobs(&conn, stale_running_secs).await?;
+        let enqueued = reenqueue_queued_jobs(
+            &conn,
+            &producer,
+            &output_topic,
+            &target_group,
+            recovery_batch_size,
+            queued_stale_secs,
+            reenqueue_cooldown_secs,
+        )
+        .await?;
+        if reset > 0 || enqueued > 0 {
+            eprintln!(
+                "backfill-worker startup recovery reset_running={} re_enqueued={}",
+                reset, enqueued
+            );
+        }
+    }
 
-    while let Some(item) = stream.next().await {
+    let mut stream = consumer.stream();
+    let mut recovery_ticker = interval(Duration::from_secs(recovery_interval_secs));
+    recovery_ticker.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+    loop {
+        tokio::select! {
+            _ = recovery_ticker.tick(), if recovery_enabled => {
+                let reset = reset_stale_running_jobs(&conn, stale_running_secs).await?;
+                let enqueued = reenqueue_queued_jobs(
+                    &conn,
+                    &producer,
+                    &output_topic,
+                    &target_group,
+                    recovery_batch_size,
+                    queued_stale_secs,
+                    reenqueue_cooldown_secs,
+                ).await?;
+                if reset > 0 || enqueued > 0 {
+                    eprintln!(
+                        "backfill-worker periodic recovery reset_running={} re_enqueued={}",
+                        reset, enqueued
+                    );
+                }
+            }
+            item = stream.next() => {
+                let Some(item) = item else {
+                    break;
+                };
         let msg = match item {
             Ok(m) => m,
             Err(_) => continue,
@@ -534,6 +775,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .await?;
         consumer.commit_message(&msg, CommitMode::Sync)?;
+            }
+        }
     }
 
     Ok(())

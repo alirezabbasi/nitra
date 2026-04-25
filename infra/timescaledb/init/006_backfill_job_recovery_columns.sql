@@ -1,0 +1,5 @@
+ALTER TABLE backfill_jobs
+  ADD COLUMN IF NOT EXISTS enqueue_count INT NOT NULL DEFAULT 0;
+
+ALTER TABLE backfill_jobs
+  ADD COLUMN IF NOT EXISTS last_enqueued_at TIMESTAMPTZ;

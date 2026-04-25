@@ -148,6 +148,12 @@ COINBASE profile:
 - `BACKFILL_TARGET_GROUP` default `nitra-market-normalization-v1`
 - `BACKFILL_STARTUP_PROCESS_OPEN_GAPS` default `true`
 - `BACKFILL_FETCH_CHUNK_MINUTES` default `1440` (larger default to reduce queue pressure for 90d rebuilds)
+- `BACKFILL_RECOVERY_ENABLED` default `true` (periodically re-enqueue orphaned `queued` jobs into `replay.commands`)
+- `BACKFILL_RECOVERY_INTERVAL_SECS` default `60`
+- `BACKFILL_RECOVERY_BATCH_SIZE` default `500`
+- `BACKFILL_STALE_RUNNING_SECS` default `900` (auto-reset stale `running` jobs back to `queued`)
+- `BACKFILL_QUEUED_STALE_SECS` default `1800` (queued job must be stale before recovery re-enqueue is allowed)
+- `BACKFILL_REENQUEUE_COOLDOWN_SECS` default `120` (minimum interval between re-enqueue attempts for same job)
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 ## replay-controller
@@ -155,13 +161,16 @@ COINBASE profile:
 - `KAFKA_BROKERS` default `kafka:9092`
 - `REPLAY_INPUT_TOPIC` default `replay.commands`
 - `REPLAY_GROUP_ID` default `nitra-replay-controller-v1`
+- `REPLAY_WORKER_COUNT` default `4` (parallel Kafka consumers in one process, same consumer-group for safe partition-level scaling)
 - `REPLAY_SYMBOL_REGISTRY_PATH` default `/etc/nitra/registry.v1.json`
 - `REPLAY_HISTORY_ENABLED` default `true` (attempt venue-history adapter fetch when raw ticks are insufficient for replay range)
 - `REPLAY_HISTORY_TIMEOUT_SECS` default `8` (HTTP timeout for venue-history requests)
 - `REPLAY_OANDA_REST_URL` default `${OANDA_REST_URL}`
 - `REPLAY_OANDA_API_TOKEN` default `${OANDA_API_TOKEN}` (required for OANDA history adapter)
+- `REPLAY_OANDA_INSTRUMENT_MAP` default `${REPLAY_OANDA_INSTRUMENT_MAP}` (optional canonical symbol -> OANDA instrument override map)
 - `REPLAY_COINBASE_REST_URL` default `${COINBASE_REST_URL}`
 - `REPLAY_COINBASE_PUBLIC_REST_URL` default `${COINBASE_PUBLIC_REST_URL}` (fallback candles route when Exchange endpoint is blocked)
+- `REPLAY_COINBASE_USER_AGENT` default `nitra-replay-controller/1.0` (required by some Coinbase Exchange runtimes)
 - `REPLAY_CAPITAL_API_URL` default `${CAPITAL_API_URL}`
 - `REPLAY_CAPITAL_API_KEY` default `${CAPITAL_API_KEY}`
 - `REPLAY_CAPITAL_IDENTIFIER` default `${CAPITAL_IDENTIFIER}`
@@ -172,3 +181,5 @@ COINBASE profile:
 Notes:
 - Replay executor first rebuilds `1m` bars from `raw_tick`; if the range remains incomplete, it attempts venue-history adapters (`oanda`/`coinbase`/`capital`) before finalizing status.
 - Venue-history fetch in replay is window-paginated for long ranges (backend-only 90d recovery without chart trigger dependency).
+- Backfill recovery loop is persistent: stale `running` rows auto-reset, and `queued` jobs are periodically re-enqueued for replay execution so recovery can continue after consumer interruptions.
+- Recovery re-enqueue is stale-only: jobs are replayed only when queue/audit timestamps indicate they are stuck, and selection order is oldest pending enqueue first.

@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS backfill_jobs (
   range_end TIMESTAMPTZ NOT NULL,
   status TEXT NOT NULL DEFAULT 'queued',
   attempt_count INT NOT NULL DEFAULT 0,
+  enqueue_count INT NOT NULL DEFAULT 0,
+  last_enqueued_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

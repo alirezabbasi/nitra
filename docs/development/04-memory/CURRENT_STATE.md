@@ -1,6 +1,6 @@
 # Current State Snapshot
 
-Last updated: 2026-04-24
+Last updated: 2026-04-26
 
 ## Where Are We Snapshot
 
@@ -36,10 +36,13 @@ Last updated: 2026-04-24
 - Added gap-detection periodic coverage scanner to continuously detect latest-90d `1m` gaps and emit deterministic backfill requests.
 - Added charting explicit-range backfill endpoint (`/api/v1/backfill/window`) plus read-only coverage observability endpoints (`/api/v1/coverage/status`, `/api/v1/coverage/metrics`).
 - Updated charting timeframe APIs so non-`1m` candles are derived from `1m` coverage, enabling full-history timeframe availability after `1m` backfill completion.
+- Backfill queue-drain hardening implemented:
+  - stale-only queued recovery gating (`BACKFILL_QUEUED_STALE_SECS`) with deterministic oldest-first re-enqueue order.
+  - replay-controller scaled with safe multi-worker consumer mode (`REPLAY_WORKER_COUNT`) for partition-level parallel drain.
 
 ### Current
 
-- `DEV-00013` implementation now includes replay venue-history fallback; runtime evidence collection is in progress.
+- `DEV-00013` implementation now includes replay venue-history fallback and deterministic queue-drain safeguards; runtime evidence collection is in progress.
 - `DEV-00014` implementation now includes adapter hardening + live probe endpoint; runtime evidence collection is in progress.
 - `DEV-00014` now also includes recent-first backfill priority and coverage observability APIs; live runtime validation is still required.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.

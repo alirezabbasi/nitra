@@ -55,6 +55,13 @@ Architectural ownership note:
   - chunks missing ranges (`BACKFILL_FETCH_CHUNK_MINUTES`).
   - persists `backfill_jobs` + `replay_audit`.
   - emits replay commands with broker-history fetch metadata.
+  - includes persistent recovery loop for queue durability:
+    - re-enqueues stale/orphaned `queued` jobs back to `replay.commands`,
+    - auto-resets stale `running` jobs back to `queued`,
+    - tracks `enqueue_count` / `last_enqueued_at` metadata in `backfill_jobs`.
+  - deterministic drain tuning:
+    - queued recovery now applies stale-only gating (`BACKFILL_QUEUED_STALE_SECS`) and oldest-first scheduling,
+    - avoids broad queue churn by requiring stale replay-audit evidence before re-enqueue.
 - Added runtime schema support for coverage/gap/backfill/replay tables:
   - `infra/timescaledb/init/004_gap_backfill_runtime.sql`.
   - runtime `CREATE TABLE IF NOT EXISTS` safety in gap/backfill services.
@@ -65,6 +72,7 @@ Architectural ownership note:
   - consumes `replay.commands`.
   - rebuilds `1m` bars from replay ranges using available `raw_tick` source data.
   - updates `backfill_jobs`, `replay_audit`, and resolves covered gaps in `gap_log`.
+  - supports safe in-process parallelism via `REPLAY_WORKER_COUNT` (multiple Kafka consumers under same group, partition-level scaling).
 - Implemented replay-controller venue-history fallback adapters:
   - when replay range remains incomplete after `raw_tick` rebuild, fetches venue candles from `oanda`, `coinbase` (with public fallback), or `capital`.
   - upserts fetched bars into `ohlcv_bar` and re-evaluates range completeness before assigning final replay/backfill status.

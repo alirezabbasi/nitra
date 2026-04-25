@@ -385,3 +385,25 @@ Append one entry at the end of each substantial session.
   - `tests/dev-0014/run.sh` passes.
 - Next recommended action:
   - run live runtime validation for periodic-scan-triggered recovery and verify 5m/15m/1h chart depth after `Backfill 90d`.
+
+---
+
+## 2026-04-26 — Session Entry 018
+
+- Objective:
+  - implement deterministic queue-drain fixes so backfill recovery re-enqueues only truly stale jobs and replay execution scales safely.
+- Work completed:
+  - updated `services/backfill-worker/src/main.rs` recovery selection:
+    - stale-only queued gating with `BACKFILL_QUEUED_STALE_SECS`,
+    - replay-audit-aware re-enqueue conditions (stale `queued`/`running` replay states or missing audit),
+    - deterministic oldest-first ordering using `COALESCE(last_enqueued_at, created_at)`.
+  - updated `services/replay-controller/src/main.rs` to support `REPLAY_WORKER_COUNT` parallel consumers in the same group for partition-safe throughput scaling.
+  - updated compose/env/docs contracts for new knobs (`BACKFILL_QUEUED_STALE_SECS`, `REPLAY_WORKER_COUNT`).
+  - extended `tests/dev-0017/run.sh` to assert stale-only recovery and replay worker wiring.
+  - synchronized bug/ticket and memory docs (`BUG-00006`, `DEV-00013`, `CURRENT_STATE`).
+- Verification:
+  - `cargo test --manifest-path services/backfill-worker/Cargo.toml` passes.
+  - `cargo test --manifest-path services/replay-controller/Cargo.toml` passes.
+  - `bash tests/dev-0017/run.sh` passes.
+- Next recommended action:
+  - run live compose smoke validation to measure queue-drain trend after rollout (`queued` slope, replay throughput, stale re-enqueue counts).

@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
 use std::time::Duration;
+use tokio::task::JoinSet;
 use tokio_postgres::{Client, NoTls};
 use uuid::Uuid;
 
@@ -41,8 +42,10 @@ struct HistoryFetchConfig {
     timeout_secs: u64,
     oanda_rest_url: String,
     oanda_token: String,
+    oanda_instrument_map: HashMap<String, String>,
     coinbase_rest_url: String,
     coinbase_public_rest_url: String,
+    coinbase_user_agent: String,
     capital_api_url: String,
     capital_api_key: String,
     capital_identifier: String,
@@ -116,7 +119,32 @@ fn parse_capital_epic_map(raw: &str) -> HashMap<String, String> {
     out
 }
 
+fn parse_symbol_map(raw: &str) -> HashMap<String, String> {
+    let mut out = HashMap::new();
+    let Ok(value) = serde_json::from_str::<Value>(raw) else {
+        return out;
+    };
+    let Some(map) = value.as_object() else {
+        return out;
+    };
+    for (k, v) in map {
+        if let Some(symbol) = v.as_str() {
+            let key = k.trim().to_ascii_uppercase();
+            let val = symbol.trim().to_ascii_uppercase();
+            if !key.is_empty() && !val.is_empty() {
+                out.insert(key, val);
+            }
+        }
+    }
+    out
+}
+
 fn history_fetch_config() -> HistoryFetchConfig {
+    let oanda_map_raw = env::var("REPLAY_OANDA_INSTRUMENT_MAP")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .or_else(|| env::var("OANDA_INSTRUMENT_MAP").ok())
+        .unwrap_or_default();
     let epic_map_raw = env::var("REPLAY_CAPITAL_EPIC_MAP")
         .ok()
         .filter(|v| !v.trim().is_empty())
@@ -131,6 +159,7 @@ fn history_fetch_config() -> HistoryFetchConfig {
             &env_or("OANDA_REST_URL", "https://api-fxpractice.oanda.com"),
         ),
         oanda_token: env_or("REPLAY_OANDA_API_TOKEN", &env_or("OANDA_API_TOKEN", "")),
+        oanda_instrument_map: parse_symbol_map(&oanda_map_raw),
         coinbase_rest_url: env_or(
             "REPLAY_COINBASE_REST_URL",
             &env_or("COINBASE_REST_URL", "https://api.exchange.coinbase.com"),
@@ -139,6 +168,7 @@ fn history_fetch_config() -> HistoryFetchConfig {
             "REPLAY_COINBASE_PUBLIC_REST_URL",
             &env_or("COINBASE_PUBLIC_REST_URL", "https://api.coinbase.com"),
         ),
+        coinbase_user_agent: env_or("REPLAY_COINBASE_USER_AGENT", "nitra-replay-controller/1.0"),
         capital_api_url: env_or(
             "REPLAY_CAPITAL_API_URL",
             &env_or("CAPITAL_API_URL", "https://api-capital.backend-capital.com"),
@@ -156,14 +186,31 @@ fn history_fetch_config() -> HistoryFetchConfig {
     }
 }
 
-fn symbol_for_oanda(canonical: &str, broker_symbols: &[String]) -> String {
+fn symbol_for_oanda(
+    cfg: &HistoryFetchConfig,
+    canonical: &str,
+    broker_symbols: &[String],
+) -> String {
+    let canonical_upper = canonical.to_ascii_uppercase();
+    if let Some(mapped) = cfg.oanda_instrument_map.get(&canonical_upper) {
+        return mapped.clone();
+    }
+
     if let Some(sym) = broker_symbols.iter().find(|s| s.contains('_')) {
         return sym.clone();
     }
-    if canonical.len() == 6 && canonical.chars().all(|ch| ch.is_ascii_alphabetic()) {
-        return format!("{}_{}", &canonical[0..3], &canonical[3..6]);
+    if canonical_upper.len() == 6 && canonical_upper.chars().all(|ch| ch.is_ascii_alphabetic()) {
+        return format!("{}_{}", &canonical_upper[0..3], &canonical_upper[3..6]);
     }
-    canonical.to_string()
+    if canonical_upper.ends_with("USD") && canonical_upper.len() > 3 {
+        return format!("{}_USD", &canonical_upper[..canonical_upper.len() - 3]);
+    }
+    if canonical_upper.chars().all(|ch| ch.is_ascii_alphanumeric())
+        && canonical_upper.chars().any(|ch| ch.is_ascii_digit())
+    {
+        return format!("{}_USD", canonical_upper);
+    }
+    canonical_upper
 }
 
 fn symbol_for_coinbase(canonical: &str) -> String {
@@ -206,7 +253,7 @@ async fn fetch_oanda_history_bars(
         return Err("missing OANDA API token".to_string());
     }
 
-    let instrument = symbol_for_oanda(&command.canonical_symbol, broker_symbols);
+    let instrument = symbol_for_oanda(cfg, &command.canonical_symbol, broker_symbols);
     let start = command.start_ts.to_rfc3339();
     let end = (command.end_ts + ChronoDuration::minutes(1)).to_rfc3339();
     let url = format!(
@@ -317,6 +364,8 @@ async fn fetch_coinbase_history_bars(
             ("start", start.as_str()),
             ("end", end.as_str()),
         ])
+        .header("User-Agent", cfg.coinbase_user_agent.clone())
+        .header("Accept", "application/json")
         .send()
         .await
         .map_err(|e| format!("coinbase exchange request error: {e}"))?;
@@ -390,6 +439,8 @@ async fn fetch_coinbase_history_bars(
             ("end", fallback_end.as_str()),
             ("limit", "350"),
         ])
+        .header("User-Agent", cfg.coinbase_user_agent.clone())
+        .header("Accept", "application/json")
         .send()
         .await
         .map_err(|e| format!("coinbase public fallback request error: {e}"))?;
@@ -840,6 +891,8 @@ async fn ensure_tables(conn: &Client) -> Result<(), tokio_postgres::Error> {
           range_end TIMESTAMPTZ NOT NULL,
           status TEXT NOT NULL DEFAULT 'queued',
           attempt_count INT NOT NULL DEFAULT 0,
+          enqueue_count INT NOT NULL DEFAULT 0,
+          last_enqueued_at TIMESTAMPTZ,
           created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         );
@@ -878,6 +931,12 @@ async fn ensure_tables(conn: &Client) -> Result<(), tokio_postgres::Error> {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           UNIQUE (venue, canonical_symbol, timeframe, gap_start, gap_end)
         );
+
+        ALTER TABLE backfill_jobs
+          ADD COLUMN IF NOT EXISTS enqueue_count INT NOT NULL DEFAULT 0;
+
+        ALTER TABLE backfill_jobs
+          ADD COLUMN IF NOT EXISTS last_enqueued_at TIMESTAMPTZ;
         ",
     )
     .await
@@ -1321,37 +1380,31 @@ async fn process_replay_command(
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let service_name = "replay_controller";
-    let brokers = env_or("KAFKA_BROKERS", "kafka:9092");
-    let input_topic = env_or("REPLAY_INPUT_TOPIC", "replay.commands");
-    let group_id = env_or("REPLAY_GROUP_ID", "nitra-replay-controller-v1");
-    let db_dsn = env_or(
-        "DATABASE_URL",
-        "postgresql://trading:trading@timescaledb:5432/trading",
-    );
-    let registry_path = env_or("REPLAY_SYMBOL_REGISTRY_PATH", "/etc/nitra/registry.v1.json");
-    let history_cfg = history_fetch_config();
-
-    let registry = load_symbol_registry(&registry_path);
-
-    let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
+async fn run_worker(
+    worker_id: usize,
+    service_name: &'static str,
+    brokers: &str,
+    input_topic: &str,
+    group_id: &str,
+    db_dsn: &str,
+    registry: &HashMap<(String, String), Vec<String>>,
+    history_cfg: &HistoryFetchConfig,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let (conn, connection) = tokio_postgres::connect(db_dsn, NoTls).await?;
     tokio::spawn(async move {
         if let Err(e) = connection.await {
-            eprintln!("postgres connection error: {e}");
+            eprintln!("postgres connection error (worker={}): {e}", worker_id);
         }
     });
 
-    ensure_tables(&conn).await?;
-
     let consumer: StreamConsumer = ClientConfig::new()
-        .set("bootstrap.servers", &brokers)
-        .set("group.id", &group_id)
+        .set("bootstrap.servers", brokers)
+        .set("group.id", group_id)
+        .set("client.id", &format!("nitra-replay-controller-worker-{}", worker_id))
         .set("enable.auto.commit", "false")
         .set("auto.offset.reset", "earliest")
         .create()?;
-    consumer.subscribe(&[&input_topic])?;
+    consumer.subscribe(&[input_topic])?;
 
     let mut stream = consumer.stream();
 
@@ -1383,12 +1436,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let payload = outer.get("payload").cloned().unwrap_or(Value::Null);
         if let Some(command) = parse_replay_command(&payload) {
-            if let Err(err) = process_replay_command(&conn, &command, &registry, &history_cfg).await
-            {
-                let msg = err.to_string();
-                let _ =
-                    update_replay_audit(&conn, command.replay_id, "failed", 0, Some(&msg)).await;
-                eprintln!("replay-controller command failed: {}", msg);
+            let command_err = process_replay_command(&conn, &command, registry, history_cfg)
+                .await
+                .err()
+                .map(|e| e.to_string());
+            if let Some(msg) = command_err {
+                let _ = update_replay_audit(&conn, command.replay_id, "failed", 0, Some(&msg)).await;
+                eprintln!(
+                    "replay-controller worker={} command failed replay_id={} error={}",
+                    worker_id, command.replay_id, msg
+                );
             }
         }
 
@@ -1402,6 +1459,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .await?;
         consumer.commit_message(&msg, CommitMode::Sync)?;
+    }
+
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let service_name = "replay_controller";
+    let brokers = env_or("KAFKA_BROKERS", "kafka:9092");
+    let input_topic = env_or("REPLAY_INPUT_TOPIC", "replay.commands");
+    let group_id = env_or("REPLAY_GROUP_ID", "nitra-replay-controller-v1");
+    let db_dsn = env_or(
+        "DATABASE_URL",
+        "postgresql://trading:trading@timescaledb:5432/trading",
+    );
+    let registry_path = env_or("REPLAY_SYMBOL_REGISTRY_PATH", "/etc/nitra/registry.v1.json");
+    let worker_count = env_u64_or("REPLAY_WORKER_COUNT", 4).clamp(1, 16) as usize;
+    let history_cfg = history_fetch_config();
+
+    let registry = load_symbol_registry(&registry_path);
+
+    let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("postgres connection error: {e}");
+        }
+    });
+
+    ensure_tables(&conn).await?;
+
+    let mut workers = JoinSet::new();
+    for worker_id in 0..worker_count {
+        let brokers = brokers.clone();
+        let input_topic = input_topic.clone();
+        let group_id = group_id.clone();
+        let db_dsn = db_dsn.clone();
+        let registry = registry.clone();
+        let history_cfg = history_cfg.clone();
+        workers.spawn(async move {
+            run_worker(
+                worker_id,
+                service_name,
+                &brokers,
+                &input_topic,
+                &group_id,
+                &db_dsn,
+                &registry,
+                &history_cfg,
+            )
+            .await
+        });
+    }
+
+    while let Some(next) = workers.join_next().await {
+        match next {
+            Ok(Ok(())) => {}
+            Ok(Err(err)) => return Err(err),
+            Err(err) => return Err(Box::new(err)),
+        }
     }
 
     Ok(())
@@ -1443,5 +1559,48 @@ mod tests {
     fn coinbase_symbol_formatting() {
         assert_eq!(symbol_for_coinbase("BTCUSD"), "BTC-USD");
         assert_eq!(symbol_for_coinbase("BTC-USD"), "BTC-USD");
+    }
+
+    #[test]
+    fn oanda_symbol_falls_back_to_usd_suffix_variant() {
+        let cfg = HistoryFetchConfig {
+            enabled: true,
+            timeout_secs: 8,
+            oanda_rest_url: String::new(),
+            oanda_token: String::new(),
+            oanda_instrument_map: HashMap::new(),
+            coinbase_rest_url: String::new(),
+            coinbase_public_rest_url: String::new(),
+            coinbase_user_agent: String::new(),
+            capital_api_url: String::new(),
+            capital_api_key: String::new(),
+            capital_identifier: String::new(),
+            capital_password: String::new(),
+            capital_epic_map: HashMap::new(),
+        };
+        assert_eq!(symbol_for_oanda(&cfg, "US30", &[]), "US30_USD");
+        assert_eq!(symbol_for_oanda(&cfg, "NAS100", &[]), "NAS100_USD");
+    }
+
+    #[test]
+    fn oanda_symbol_prefers_explicit_map() {
+        let mut map = HashMap::new();
+        map.insert("US30".to_string(), "US30_CFD".to_string());
+        let cfg = HistoryFetchConfig {
+            enabled: true,
+            timeout_secs: 8,
+            oanda_rest_url: String::new(),
+            oanda_token: String::new(),
+            oanda_instrument_map: map,
+            coinbase_rest_url: String::new(),
+            coinbase_public_rest_url: String::new(),
+            coinbase_user_agent: String::new(),
+            capital_api_url: String::new(),
+            capital_api_key: String::new(),
+            capital_identifier: String::new(),
+            capital_password: String::new(),
+            capital_epic_map: HashMap::new(),
+        };
+        assert_eq!(symbol_for_oanda(&cfg, "US30", &[]), "US30_CFD");
     }
 }
