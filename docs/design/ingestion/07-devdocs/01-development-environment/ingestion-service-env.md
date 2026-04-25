@@ -53,6 +53,13 @@ Shared:
 
 - `KAFKA_BROKERS` default `kafka:9092`
 - `INGESTION_HEALTH_TOPIC` default `connector.health`
+- `DATABASE_URL` required for DB-backed venue/market config reads
+- `INGESTION_SYMBOL_SOURCE` default `database` (`database` = load active symbols from `venue_market`; `env` = use `*_ENABLED_INSTRUMENTS`)
+- `INGESTION_DB_REFRESH_SECS` default `30` (reload cadence for active market config)
+- `FX_WEEKEND_START_ISO_DOW` default `6` (Saturday)
+- `FX_WEEKEND_START_HOUR_UTC` default `0`
+- `FX_WEEKEND_END_ISO_DOW` default `1` (Monday)
+- `FX_WEEKEND_END_HOUR_UTC` default `6`
 
 OANDA profile:
 
@@ -85,6 +92,8 @@ Note:
 - Pair symbols are emitted in compact alphanumeric format only (for example `EURUSD`, `GBPUSD`, `BTCUSD`) with no `_`, `-`, or dot separators.
 - Synthetic/mock quote generation is prohibited in runtime ingestion services.
 - `CONNECTOR_MODE=mock` is explicitly rejected by `market-ingestion` (fail-closed startup behavior).
+- FX venues (`oanda`, `capital`) pause symbol fetches during configured weekend close window; Coinbase remains active (`24/7`).
+- Active market list source of truth for ingestion runtime control is DB table `venue_market`.
 
 COINBASE profile:
 

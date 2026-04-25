@@ -18,6 +18,10 @@ Instrument selection is populated dynamically from database-backed market discov
 1. Browser opens `/` and loads the charting web app.
 2. Web app calls `/api/v1/markets/available`.
 3. User selects an instrument from the header combobox (searchable + clickable dropdown list).
+4. User can open the header `Settings` (gear) modal to:
+   - add/select venue definitions from DB,
+   - add markets (`venue + symbol + asset_class`),
+   - start ingestion for a selected market (`ingest_enabled=true`).
 4. User selects timeframe from header dropdown (`1m`, `5m`, `15m`, `30m`, `1h`, `4h`, `1d`).
 5. Web app calls `/api/v1/bars/hot?venue=...&symbol=...&timeframe=...&limit=...`.
 6. Service queries TimescaleDB table `ohlcv_bar` and returns chart-ready candles.
@@ -42,7 +46,23 @@ Instrument selection is populated dynamically from database-backed market discov
   - returns defaults from env (`timeframe`, `limit`, refresh interval)
 
 - `GET /api/v1/markets/available?timeframe=1m`
-  - returns list of available `venue` and `canonical_symbol` pairs from `ohlcv_bar` for selectable instruments
+  - returns DB-configured and data-backed markets for selectable instruments
+  - includes `ingest_enabled` + `asset_class`
+
+- `GET /api/v1/venues`
+  - returns DB-configured venue list
+
+- `GET /api/v1/venues/{venue}/markets`
+  - returns DB-configured market list for one venue with latest bar metadata
+
+- `POST /api/v1/venues`
+  - create/activate a venue entry (currently supports `oanda`, `capital`, `coinbase`)
+
+- `POST /api/v1/venues/{venue}/markets`
+  - upsert market configuration (`symbol`, `asset_class`, `enabled`, `ingest_enabled`)
+
+- `POST /api/v1/ingestion/start`
+  - marks selected `venue + symbol` as enabled for ingestion in DB config
 
 - `GET /api/v1/bars/hot?venue=<venue>&symbol=<symbol>&timeframe=1m&limit=300`
   - returns ordered OHLCV candlestick payload for UI rendering

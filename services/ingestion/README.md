@@ -16,5 +16,6 @@ This folder is a shared Python module used by multiple ingestion runtime service
 
 ## Notes
 
-- Symbol registry source of truth is `infra/symbols/registry.v1.json`.
+- Normalization symbol mapping source of truth is `infra/symbols/registry.v1.json`.
+- Runtime venue/market activation source of truth is DB table `venue_market`.
 - Runtime-generated nested `services/*/ingestion/` folders are not project source and are ignored.
