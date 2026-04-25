@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{Datelike, Timelike, Utc};
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::ClientConfig;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, CONTENT_TYPE};
@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
+use tokio_postgres::NoTls;
 use uuid::Uuid;
 
 #[derive(Clone, Debug)]
@@ -72,6 +73,92 @@ fn parse_f64(value: Option<&Value>) -> Option<f64> {
         return Some(v);
     }
     value.as_str()?.parse::<f64>().ok()
+}
+
+fn int_env(name: &str, default: i32) -> i32 {
+    env::var(name)
+        .ok()
+        .and_then(|raw| raw.parse::<i32>().ok())
+        .unwrap_or(default)
+}
+
+fn is_crypto_symbol(symbol: &str) -> bool {
+    let upper = compact_symbol(symbol);
+    let crypto_bases = [
+        "BTC", "ETH", "SOL", "ADA", "XRP", "LTC", "DOGE", "BNB", "AVAX", "DOT", "LINK",
+    ];
+    if upper.len() >= 6 && upper.ends_with("USD") {
+        let base = &upper[..upper.len() - 3];
+        return crypto_bases.contains(&base);
+    }
+    if upper.len() >= 7 && upper.ends_with("USDT") {
+        let base = &upper[..upper.len() - 4];
+        return crypto_bases.contains(&base);
+    }
+    if upper.len() >= 7 && upper.ends_with("USDC") {
+        let base = &upper[..upper.len() - 4];
+        return crypto_bases.contains(&base);
+    }
+    false
+}
+
+fn minute_of_week(now: &chrono::DateTime<Utc>) -> i32 {
+    (now.weekday().number_from_monday() as i32 - 1) * 24 * 60
+        + (now.hour() as i32 * 60)
+        + now.minute() as i32
+}
+
+fn fx_market_weekend_closed(now: &chrono::DateTime<Utc>) -> bool {
+    let start_dow = int_env("FX_WEEKEND_START_ISO_DOW", 6).clamp(1, 7);
+    let start_hour = int_env("FX_WEEKEND_START_HOUR_UTC", 0).clamp(0, 23);
+    let end_dow = int_env("FX_WEEKEND_END_ISO_DOW", 1).clamp(1, 7);
+    let end_hour = int_env("FX_WEEKEND_END_HOUR_UTC", 6).clamp(0, 23);
+
+    let start_minute = ((start_dow - 1) * 24 + start_hour) * 60;
+    let end_minute = ((end_dow - 1) * 24 + end_hour) * 60;
+    let now_minute = minute_of_week(now);
+
+    if start_minute < end_minute {
+        now_minute >= start_minute && now_minute < end_minute
+    } else {
+        now_minute >= start_minute || now_minute < end_minute
+    }
+}
+
+fn is_fx_venue(venue: &str) -> bool {
+    matches!(venue, "oanda" | "capital")
+}
+
+async fn load_symbols_from_db(
+    database_url: &str,
+    venue: &str,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let (client, connection) = tokio_postgres::connect(database_url, NoTls).await?;
+    tokio::spawn(async move {
+        if let Err(err) = connection.await {
+            eprintln!("market-ingestion postgres connection error: {}", err);
+        }
+    });
+
+    let rows = client
+        .query(
+            "SELECT symbol FROM venue_market WHERE venue = $1 AND enabled = TRUE AND ingest_enabled = TRUE ORDER BY symbol",
+            &[&venue],
+        )
+        .await?;
+
+    let mut symbols = Vec::new();
+    for row in rows {
+        let raw_symbol: String = row.get(0);
+        let normalized = compact_symbol_for_venue(venue, &raw_symbol);
+        if normalized.is_empty() {
+            continue;
+        }
+        if !symbols.contains(&normalized) {
+            symbols.push(normalized);
+        }
+    }
+    Ok(symbols)
 }
 
 fn oanda_instrument_map() -> HashMap<String, String> {
@@ -662,14 +749,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if source_symbols.is_empty() {
         source_symbols.push(default_symbol.clone());
     }
-    let output_symbols: Vec<String> = source_symbols
+    let env_symbols: Vec<String> = source_symbols
         .iter()
         .map(|symbol| compact_symbol_for_venue(&venue, symbol))
         .collect();
+    let mut configured_symbols = env_symbols.clone();
     let interval_secs = env_or("INGESTION_INTERVAL_SECS", "1.0")
         .parse::<f64>()
         .unwrap_or(1.0)
         .max(0.1);
+    let database_url = env_or("DATABASE_URL", "");
+    let symbol_source = env_or("INGESTION_SYMBOL_SOURCE", "database").to_ascii_lowercase();
+    let db_refresh_secs = env_or("INGESTION_DB_REFRESH_SECS", "30")
+        .parse::<u64>()
+        .unwrap_or(30)
+        .max(5);
+    let mut last_db_refresh = std::time::Instant::now() - Duration::from_secs(db_refresh_secs);
 
     let connector_mode = env_or("CONNECTOR_MODE", &venue).to_ascii_lowercase();
     if connector_mode == "mock" {
@@ -691,10 +786,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut capital_headers: Option<HeaderMap> = None;
 
     loop {
+        if symbol_source != "env"
+            && !database_url.trim().is_empty()
+            && last_db_refresh.elapsed() >= Duration::from_secs(db_refresh_secs)
+        {
+            match load_symbols_from_db(&database_url, &venue).await {
+                Ok(db_symbols) if !db_symbols.is_empty() => {
+                    configured_symbols = db_symbols;
+                }
+                Ok(_) => {
+                    configured_symbols = env_symbols.clone();
+                }
+                Err(err) => {
+                    eprintln!(
+                        "market-ingestion failed to refresh symbols from DB (venue={}): {}",
+                        venue, err
+                    );
+                    configured_symbols = env_symbols.clone();
+                }
+            }
+            last_db_refresh = std::time::Instant::now();
+        }
+
+        let now = Utc::now();
+        let fx_closed = is_fx_venue(&venue) && fx_market_weekend_closed(&now);
+        let active_symbols: Vec<String> = configured_symbols
+            .iter()
+            .filter(|symbol| !fx_closed || is_crypto_symbol(symbol))
+            .cloned()
+            .collect();
+        let output_symbols: Vec<String> = active_symbols
+            .iter()
+            .map(|symbol| compact_symbol_for_venue(&venue, symbol))
+            .collect();
+
+        if active_symbols.is_empty() {
+            let pause_reason = if fx_closed {
+                "FX weekend market is closed (Saturday 00:00 UTC to Monday 06:00 UTC by default)"
+            } else {
+                "no enabled symbols configured"
+            };
+            emit_health(
+                &producer,
+                &health_topic,
+                &venue,
+                &configured_symbols,
+                "paused",
+                &connector_mode,
+                0,
+                Some(pause_reason),
+            )
+            .await?;
+            sleep(Duration::from_secs_f64(interval_secs)).await;
+            continue;
+        }
+
         let fetch_result = match venue.as_str() {
-            "coinbase" => fetch_coinbase_quotes(&client, &source_symbols).await,
-            "oanda" => fetch_oanda_quotes(&client, &source_symbols).await,
-            "capital" => fetch_capital_quotes(&client, &source_symbols, &mut capital_headers).await,
+            "coinbase" => fetch_coinbase_quotes(&client, &active_symbols).await,
+            "oanda" => fetch_oanda_quotes(&client, &active_symbols).await,
+            "capital" => fetch_capital_quotes(&client, &active_symbols, &mut capital_headers).await,
             _ => {
                 return Err(std::io::Error::other(format!(
                     "unsupported INGESTION_VENUE '{}' (expected oanda/capital/coinbase)",

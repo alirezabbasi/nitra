@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 
 import psycopg
 import uvicorn
-from fastapi import Body, FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Path as ApiPath, Query
 from fastapi.responses import PlainTextResponse
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -69,6 +69,8 @@ CRYPTO_BASES = {
     "DOT",
     "LINK",
 }
+VALID_ASSET_CLASSES = {"fx", "crypto", "other"}
+VALID_VENUES = {"oanda", "capital", "coinbase"}
 
 _CAPITAL_SESSION_LOCK = threading.Lock()
 _CAPITAL_SESSION_HEADERS: dict[str, str] = {}
@@ -207,6 +209,53 @@ def is_crypto_symbol(symbol: str) -> bool:
     if len(upper) >= 7 and upper.endswith("USDC"):
         return upper[:-4] in CRYPTO_BASES
     return False
+
+
+def normalize_venue(venue: str) -> str:
+    norm = venue.strip().lower()
+    if not norm:
+        raise HTTPException(status_code=400, detail="venue is required")
+    return norm
+
+
+def normalize_symbol(symbol: str) -> str:
+    norm = "".join(ch for ch in symbol.strip().upper() if ch.isalnum())
+    if not norm:
+        raise HTTPException(status_code=400, detail="symbol is required")
+    return norm
+
+
+def infer_asset_class(symbol: str, fallback: str | None = None) -> str:
+    normalized_fallback = (fallback or "").strip().lower()
+    if normalized_fallback in VALID_ASSET_CLASSES:
+        return normalized_fallback
+    return "crypto" if is_crypto_symbol(symbol) else "fx"
+
+
+def ensure_venue_market_schema(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS venue_market (
+              venue TEXT NOT NULL,
+              symbol TEXT NOT NULL,
+              asset_class TEXT NOT NULL DEFAULT 'fx',
+              enabled BOOLEAN NOT NULL DEFAULT TRUE,
+              ingest_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+              metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              PRIMARY KEY (venue, symbol),
+              CHECK (asset_class IN ('fx', 'crypto', 'other'))
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_venue_market_enabled
+              ON venue_market (enabled, ingest_enabled, venue, symbol)
+            """
+        )
 
 
 def fx_weekday_only_policy(venue: str, symbol: str) -> bool:
@@ -1140,33 +1189,205 @@ def coverage_metrics(
     return PlainTextResponse("\n".join(lines) + "\n")
 
 
+@app.get("/api/v1/venues")
+def venues() -> dict:
+    query = """
+    SELECT DISTINCT venue
+    FROM venue_market
+    WHERE enabled = TRUE
+    ORDER BY venue
+    """
+    with psycopg.connect(db_url()) as conn:
+        ensure_venue_market_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(query)
+            rows = cur.fetchall()
+    values = {str(row[0]).lower() for row in rows}
+    values.update(VALID_VENUES)
+    return {"venues": sorted(values)}
+
+
+@app.post("/api/v1/venues")
+def create_venue(
+    venue: str = Body(min_length=2, max_length=64),
+) -> dict:
+    venue_norm = normalize_venue(venue)
+    if venue_norm not in VALID_VENUES:
+        raise HTTPException(status_code=400, detail=f"unsupported venue '{venue_norm}'")
+    return {"status": "ok", "venue": venue_norm}
+
+
+@app.get("/api/v1/venues/{venue}/markets")
+def venue_markets(
+    venue: str = ApiPath(min_length=1, max_length=64),
+) -> dict:
+    venue_norm = normalize_venue(venue)
+    query = """
+    WITH bars AS (
+      SELECT
+        venue,
+        canonical_symbol AS symbol,
+        MAX(bucket_start) AS last_bar_ts,
+        COUNT(*)::bigint AS bar_count
+      FROM ohlcv_bar
+      WHERE timeframe = '1m'
+      GROUP BY venue, canonical_symbol
+    )
+    SELECT
+      vm.venue,
+      vm.symbol,
+      vm.asset_class,
+      vm.enabled,
+      vm.ingest_enabled,
+      COALESCE(b.last_bar_ts, NULL) AS last_bar_ts,
+      COALESCE(b.bar_count, 0)::bigint AS bar_count
+    FROM venue_market vm
+    LEFT JOIN bars b
+      ON b.venue = vm.venue AND b.symbol = vm.symbol
+    WHERE vm.venue = %s
+    ORDER BY vm.symbol
+    """
+    with psycopg.connect(db_url()) as conn:
+        ensure_venue_market_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(query, (venue_norm,))
+            rows = cur.fetchall()
+    markets = []
+    for row in rows:
+        markets.append(
+            {
+                "venue": str(row[0]).lower(),
+                "symbol": str(row[1]).upper(),
+                "asset_class": str(row[2]).lower(),
+                "enabled": bool(row[3]),
+                "ingest_enabled": bool(row[4]),
+                "last_bar_ts": row[5].isoformat() if row[5] else None,
+                "bar_count": int(row[6] or 0),
+            }
+        )
+    return {"venue": venue_norm, "markets": markets}
+
+
+@app.post("/api/v1/venues/{venue}/markets")
+def create_venue_market(
+    venue: str = ApiPath(min_length=1, max_length=64),
+    symbol: str = Body(min_length=1, max_length=64),
+    asset_class: str | None = Body(default=None),
+    enabled: bool = Body(default=True),
+    ingest_enabled: bool = Body(default=True),
+) -> dict:
+    venue_norm = normalize_venue(venue)
+    if venue_norm not in VALID_VENUES:
+        raise HTTPException(status_code=400, detail=f"unsupported venue '{venue_norm}'")
+    symbol_norm = normalize_symbol(symbol)
+    asset_class_norm = infer_asset_class(symbol_norm, asset_class)
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_venue_market_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO venue_market (venue, symbol, asset_class, enabled, ingest_enabled)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (venue, symbol)
+                DO UPDATE SET
+                  asset_class = EXCLUDED.asset_class,
+                  enabled = EXCLUDED.enabled,
+                  ingest_enabled = EXCLUDED.ingest_enabled,
+                  updated_at = now()
+                """,
+                (venue_norm, symbol_norm, asset_class_norm, enabled, ingest_enabled),
+            )
+        conn.commit()
+    return {
+        "status": "ok",
+        "market": {
+            "venue": venue_norm,
+            "symbol": symbol_norm,
+            "asset_class": asset_class_norm,
+            "enabled": enabled,
+            "ingest_enabled": ingest_enabled,
+        },
+    }
+
+
+@app.post("/api/v1/ingestion/start")
+def start_ingestion(
+    venue: str = Body(min_length=1, max_length=64),
+    symbol: str = Body(min_length=1, max_length=64),
+) -> dict:
+    venue_norm = normalize_venue(venue)
+    symbol_norm = normalize_symbol(symbol)
+    with psycopg.connect(db_url()) as conn:
+        ensure_venue_market_schema(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO venue_market (venue, symbol, asset_class, enabled, ingest_enabled)
+                VALUES (%s, %s, %s, TRUE, TRUE)
+                ON CONFLICT (venue, symbol)
+                DO UPDATE SET
+                  enabled = TRUE,
+                  ingest_enabled = TRUE,
+                  updated_at = now()
+                """,
+                (venue_norm, symbol_norm, infer_asset_class(symbol_norm, None)),
+            )
+        conn.commit()
+    return {"status": "ok", "venue": venue_norm, "symbol": symbol_norm, "ingest_enabled": True}
+
+
 @app.get("/api/v1/markets/available")
 def markets_available(timeframe: str = Query(default=DEFAULT_TIMEFRAME, min_length=1, max_length=16)) -> dict:
     tf = timeframe.strip().lower()
     tf_minutes = timeframe_minutes(tf)
     query = """
+    WITH bars AS (
+      SELECT
+        venue,
+        canonical_symbol AS symbol,
+        MAX(bucket_start) AS last_bar_ts,
+        COUNT(*)::bigint AS bar_count
+      FROM ohlcv_bar
+      WHERE timeframe = '1m'
+      GROUP BY venue, canonical_symbol
+    ),
+    cfg AS (
+      SELECT
+        venue,
+        symbol,
+        asset_class,
+        ingest_enabled
+      FROM venue_market
+      WHERE enabled = TRUE
+    )
     SELECT
-      venue,
-      canonical_symbol,
-      MAX(bucket_start) AS last_bar_ts,
-      COUNT(*) AS bar_count
-    FROM ohlcv_bar
-    WHERE timeframe = '1m'
-    GROUP BY venue, canonical_symbol
-    ORDER BY venue, canonical_symbol
+      COALESCE(cfg.venue, bars.venue) AS venue,
+      COALESCE(cfg.symbol, bars.symbol) AS symbol,
+      bars.last_bar_ts,
+      COALESCE(bars.bar_count, 0)::bigint AS bar_count,
+      COALESCE(cfg.ingest_enabled, FALSE) AS ingest_enabled,
+      COALESCE(cfg.asset_class, 'other') AS asset_class
+    FROM cfg
+    FULL OUTER JOIN bars
+      ON bars.venue = cfg.venue
+     AND bars.symbol = cfg.symbol
+    ORDER BY venue, symbol
     """
     with psycopg.connect(db_url()) as conn:
+        ensure_venue_market_schema(conn)
         with conn.cursor() as cur:
             cur.execute(query)
             rows = cur.fetchall()
 
     markets = []
-    for venue, symbol, last_bar_ts, bar_count in rows:
+    for venue, symbol, last_bar_ts, bar_count, ingest_enabled, asset_class in rows:
         if tf_minutes <= 1:
             derived_count = int(bar_count)
             derived_ts = last_bar_ts
         else:
-            derived_count = max(1, (int(bar_count) + tf_minutes - 1) // tf_minutes)
+            raw_count = int(bar_count)
+            derived_count = 0 if raw_count <= 0 else max(1, (raw_count + tf_minutes - 1) // tf_minutes)
             derived_ts = timeframe_bucket_start(last_bar_ts, tf_minutes) if last_bar_ts else None
         markets.append(
             {
@@ -1175,6 +1396,8 @@ def markets_available(timeframe: str = Query(default=DEFAULT_TIMEFRAME, min_leng
                 "timeframe": tf,
                 "last_bar_ts": derived_ts.isoformat() if derived_ts else None,
                 "bar_count": derived_count,
+                "ingest_enabled": bool(ingest_enabled),
+                "asset_class": str(asset_class),
             }
         )
 
