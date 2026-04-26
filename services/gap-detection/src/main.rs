@@ -486,6 +486,7 @@ async fn run_coverage_scan(
     registry_path: &str,
     coverage_days: i64,
     db_lookback_hours: i64,
+    include_db_discovered_markets: bool,
     max_markets: Option<usize>,
     source: &str,
     reason: &str,
@@ -514,7 +515,9 @@ async fn run_coverage_scan(
     }
 
     let mut markets = load_markets_from_registry(registry_path);
-    markets.extend(load_markets_from_db(conn, db_lookback_hours).await?);
+    if include_db_discovered_markets {
+        markets.extend(load_markets_from_db(conn, db_lookback_hours).await?);
+    }
     let mut markets = dedupe_markets(markets);
     if let Some(max) = max_markets {
         if markets.len() > max {
@@ -607,7 +610,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let registry_path = env_or("GAP_SYMBOL_REGISTRY_PATH", "/etc/nitra/registry.v1.json");
     let periodic_scan_enabled = env_bool_or("GAP_PERIODIC_SCAN_ENABLED", true);
     let periodic_scan_interval_secs = env_i64_or("GAP_PERIODIC_SCAN_INTERVAL_SECS", 300).max(30);
-    let periodic_scan_markets_per_cycle = env_i64_or("GAP_PERIODIC_SCAN_MARKETS_PER_CYCLE", 64).max(1) as usize;
+    let periodic_scan_markets_per_cycle =
+        env_i64_or("GAP_PERIODIC_SCAN_MARKETS_PER_CYCLE", 64).max(1) as usize;
+    let include_db_discovered_markets = env_bool_or("GAP_INCLUDE_DB_DISCOVERED_MARKETS", false);
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
     tokio::spawn(async move {
@@ -617,6 +622,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     ensure_gap_backfill_tables(&conn).await?;
+    let registry_market_set: HashSet<MarketKey> = load_markets_from_registry(&registry_path)
+        .into_iter()
+        .collect();
 
     let consumer: StreamConsumer = ClientConfig::new()
         .set("bootstrap.servers", &brokers)
@@ -639,6 +647,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &registry_path,
             startup_coverage_days,
             startup_db_lookback_hours,
+            include_db_discovered_markets,
             None,
             "startup_coverage_scan",
             "startup_90d_missing",
@@ -668,6 +677,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &registry_path,
                     startup_coverage_days,
                     startup_db_lookback_hours,
+                    include_db_discovered_markets,
                     Some(periodic_scan_markets_per_cycle),
                     "periodic_coverage_scan",
                     "periodic_90d_missing",
@@ -738,6 +748,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 let bucket = minute_bucket(parse_ts(bucket_raw));
                 let key = (venue.to_ascii_lowercase(), symbol.to_ascii_uppercase());
+                if !registry_market_set.is_empty() {
+                    let market = MarketKey {
+                        venue: key.0.clone(),
+                        symbol: key.1.clone(),
+                    };
+                    if !registry_market_set.contains(&market) {
+                        record_message_processed(
+                            &conn,
+                            service_name,
+                            message_id,
+                            &source_topic,
+                            source_partition,
+                            source_offset,
+                        )
+                        .await?;
+                        consumer.commit_message(&msg, CommitMode::Sync)?;
+                        continue;
+                    }
+                }
                 let mut gap_source = "stream";
                 let mut gap_reason = "missing_minute_bars";
                 if !last_bucket.contains_key(&key) {

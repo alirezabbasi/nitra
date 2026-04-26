@@ -6,7 +6,9 @@ use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::ClientConfig;
 use rdkafka::Message;
 use serde_json::{json, Value};
+use std::collections::HashSet;
 use std::env;
+use std::fs;
 use std::time::Duration;
 use tokio::time::{interval, MissedTickBehavior};
 use tokio_postgres::{Client, NoTls};
@@ -20,6 +22,12 @@ struct GapEvent {
     timeframe: String,
     gap_start: DateTime<Utc>,
     gap_end: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+struct MarketKey {
+    venue: String,
+    symbol: String,
 }
 
 fn env_or(name: &str, default: &str) -> String {
@@ -78,6 +86,41 @@ fn build_envelope(payload: Value) -> Value {
         "payload": payload,
         "retry": Value::Null,
     })
+}
+
+fn load_markets_from_registry(path: &str) -> HashSet<MarketKey> {
+    let Ok(raw) = fs::read_to_string(path) else {
+        return HashSet::new();
+    };
+
+    let Ok(value) = serde_json::from_str::<Value>(&raw) else {
+        return HashSet::new();
+    };
+
+    let Some(rows) = value.get("mappings").and_then(|v| v.as_array()) else {
+        return HashSet::new();
+    };
+
+    let mut out = HashSet::new();
+    for row in rows {
+        let venue = row
+            .get("venue")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_lowercase();
+        let symbol = row
+            .get("canonical_symbol")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default()
+            .trim()
+            .to_ascii_uppercase();
+        if !venue.is_empty() && !symbol.is_empty() {
+            out.insert(MarketKey { venue, symbol });
+        }
+    }
+
+    out
 }
 
 fn message_payload_json(msg: &BorrowedMessage<'_>) -> Option<Value> {
@@ -284,8 +327,34 @@ async fn process_gap(
     replay_topic: &str,
     replay_target_group: &str,
     chunk_minutes: i64,
+    allowed_markets: &HashSet<MarketKey>,
     gap: &GapEvent,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    if !allowed_markets.is_empty() {
+        let market = MarketKey {
+            venue: gap.venue.to_ascii_lowercase(),
+            symbol: gap.canonical_symbol.to_ascii_uppercase(),
+        };
+        if !allowed_markets.contains(&market) {
+            conn.execute(
+                "
+                UPDATE gap_log
+                SET status = 'ignored_unknown_market',
+                    updated_at = now()
+                WHERE gap_id = $1
+                  AND status IN ('open', 'backfill_queued')
+                ",
+                &[&gap.gap_id],
+            )
+            .await?;
+            eprintln!(
+                "backfill-worker ignored unknown registry market venue={} symbol={} gap_id={}",
+                gap.venue, gap.canonical_symbol, gap.gap_id
+            );
+            return Ok(());
+        }
+    }
+
     let lock_key = format!("{}:{}:{}", gap.venue, gap.canonical_symbol, gap.timeframe);
     if !try_symbol_lock(conn, &lock_key).await? {
         eprintln!("backfill-worker symbol lock busy; skipping: {lock_key}");
@@ -420,6 +489,7 @@ async fn process_open_gaps(
     replay_topic: &str,
     replay_target_group: &str,
     chunk_minutes: i64,
+    allowed_markets: &HashSet<MarketKey>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let rows = conn
         .query(
@@ -449,6 +519,7 @@ async fn process_open_gaps(
             replay_topic,
             replay_target_group,
             chunk_minutes,
+            allowed_markets,
             &gap,
         )
         .await?;
@@ -713,6 +784,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output_topic = env_or("BACKFILL_REPLAY_TOPIC", "replay.commands");
     let group_id = env_or("BACKFILL_GROUP_ID", "nitra-backfill-worker-v1");
     let target_group = env_or("BACKFILL_TARGET_GROUP", "nitra-market-normalization-v1");
+    let registry_path = env_or(
+        "BACKFILL_SYMBOL_REGISTRY_PATH",
+        "/etc/nitra/registry.v1.json",
+    );
     let db_dsn = env_or(
         "DATABASE_URL",
         "postgresql://trading:trading@timescaledb:5432/trading",
@@ -731,12 +806,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let failed_retry_max_attempts = env_i64_or("BACKFILL_FAILED_RETRY_MAX_ATTEMPTS", 6).max(1);
     let failed_retry_batch_size =
         env_usize_or("BACKFILL_FAILED_RETRY_BATCH_SIZE", 250).max(1) as i64;
-    let queue_backpressure_enabled = env_bool_or("BACKFILL_REPLAY_QUEUE_BACKPRESSURE_ENABLED", true);
-    let queue_backpressure_high =
-        env_i64_or("BACKFILL_REPLAY_QUEUE_HIGH_WATERMARK", 120000).max(1);
+    let queue_backpressure_enabled =
+        env_bool_or("BACKFILL_REPLAY_QUEUE_BACKPRESSURE_ENABLED", true);
+    let queue_backpressure_high = env_i64_or("BACKFILL_REPLAY_QUEUE_HIGH_WATERMARK", 120000).max(1);
     let queue_backpressure_low = env_i64_or("BACKFILL_REPLAY_QUEUE_LOW_WATERMARK", 90000).max(0);
-    let queue_backpressure_min_batch =
-        env_i64_or("BACKFILL_REPLAY_QUEUE_MIN_BATCH", 100).max(0);
+    let queue_backpressure_min_batch = env_i64_or("BACKFILL_REPLAY_QUEUE_MIN_BATCH", 100).max(0);
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
     tokio::spawn(async move {
@@ -746,6 +820,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     ensure_gap_backfill_tables(&conn).await?;
+    let allowed_markets = load_markets_from_registry(&registry_path);
 
     let consumer: StreamConsumer = ClientConfig::new()
         .set("bootstrap.servers", &brokers)
@@ -767,6 +842,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &output_topic,
             &target_group,
             chunk_minutes,
+            &allowed_markets,
         )
         .await?;
     }
@@ -906,6 +982,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &output_topic,
                 &target_group,
                 chunk_minutes,
+                &allowed_markets,
                 &gap,
             )
             .await?;
@@ -969,7 +1046,10 @@ mod tests {
 
     #[test]
     fn dynamic_batch_full_below_low_watermark() {
-        assert_eq!(dynamic_reenqueue_batch(1000, 50000, 90000, 120000, 100), 1000);
+        assert_eq!(
+            dynamic_reenqueue_batch(1000, 50000, 90000, 120000, 100),
+            1000
+        );
     }
 
     #[test]

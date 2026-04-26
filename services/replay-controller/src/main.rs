@@ -753,7 +753,9 @@ async fn fetch_venue_history_bars(
         let window_rows = match command.venue.as_str() {
             "oanda" => fetch_oanda_history_bars(&client, cfg, &sub_command, broker_symbols).await?,
             "coinbase" => fetch_coinbase_history_bars(&client, cfg, &sub_command).await?,
-            "capital" => fetch_capital_history_bars(&client, cfg, &sub_command, broker_symbols).await?,
+            "capital" => {
+                fetch_capital_history_bars(&client, cfg, &sub_command, broker_symbols).await?
+            }
             _ => {
                 return Err(format!(
                     "venue history adapter not implemented for {}",
@@ -1313,6 +1315,23 @@ async fn process_replay_command(
         return Ok(());
     }
 
+    let registry_key = (
+        command.venue.to_ascii_lowercase(),
+        command.canonical_symbol.to_ascii_uppercase(),
+    );
+    if !registry.contains_key(&registry_key) {
+        update_backfill_job_status(conn, command, "failed_unknown_market").await?;
+        update_replay_audit(
+            conn,
+            command.replay_id,
+            "failed",
+            0,
+            Some("market is not mapped in symbol registry"),
+        )
+        .await?;
+        return Ok(());
+    }
+
     mark_backfill_jobs_running(conn, command).await?;
 
     if command.dry_run {
@@ -1400,7 +1419,10 @@ async fn run_worker(
     let consumer: StreamConsumer = ClientConfig::new()
         .set("bootstrap.servers", brokers)
         .set("group.id", group_id)
-        .set("client.id", &format!("nitra-replay-controller-worker-{}", worker_id))
+        .set(
+            "client.id",
+            &format!("nitra-replay-controller-worker-{}", worker_id),
+        )
         .set("enable.auto.commit", "false")
         .set("auto.offset.reset", "earliest")
         .create()?;
@@ -1441,7 +1463,8 @@ async fn run_worker(
                 .err()
                 .map(|e| e.to_string());
             if let Some(msg) = command_err {
-                let _ = update_replay_audit(&conn, command.replay_id, "failed", 0, Some(&msg)).await;
+                let _ =
+                    update_replay_audit(&conn, command.replay_id, "failed", 0, Some(&msg)).await;
                 eprintln!(
                     "replay-controller worker={} command failed replay_id={} error={}",
                     worker_id, command.replay_id, msg

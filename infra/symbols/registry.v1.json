@@ -27,6 +27,36 @@
       "canonical_symbol": "GBPUSD"
     },
     {
+      "venue": "oanda",
+      "broker_symbol": "NAS100_USD",
+      "canonical_symbol": "NAS100"
+    },
+    {
+      "venue": "oanda",
+      "broker_symbol": "US30_USD",
+      "canonical_symbol": "US30"
+    },
+    {
+      "venue": "oanda",
+      "broker_symbol": "XAU_USD",
+      "canonical_symbol": "XAUUSD"
+    },
+    {
+      "venue": "capital",
+      "broker_symbol": "US100",
+      "canonical_symbol": "NAS100"
+    },
+    {
+      "venue": "capital",
+      "broker_symbol": "US30",
+      "canonical_symbol": "US30"
+    },
+    {
+      "venue": "capital",
+      "broker_symbol": "GOLD",
+      "canonical_symbol": "XAUUSD"
+    },
+    {
       "venue": "coinbase",
       "broker_symbol": "BTCUSD",
       "canonical_symbol": "BTCUSD"
@@ -50,11 +80,6 @@
       "venue": "coinbase",
       "broker_symbol": "XRPUSD",
       "canonical_symbol": "XRPUSD"
-    },
-    {
-      "venue": "coinbase",
-      "broker_symbol": "EURUSD",
-      "canonical_symbol": "EURUSD"
     }
   ]
 }
