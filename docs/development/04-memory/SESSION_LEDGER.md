@@ -407,3 +407,28 @@ Append one entry at the end of each substantial session.
   - `bash tests/dev-0017/run.sh` passes.
 - Next recommended action:
   - run live compose smoke validation to measure queue-drain trend after rollout (`queued` slope, replay throughput, stale re-enqueue counts).
+
+---
+
+## 2026-04-26 — Session Entry 019
+
+- Objective:
+  - capture live compose/runtime evidence for `DEV-00013`/`DEV-00014` and close both tickets.
+- Work completed:
+  - validated live compose service state after Docker daemon recovery.
+  - captured live SQL evidence from `timescaledb` for:
+    - `backfill_jobs` status distribution,
+    - `replay_audit` status distribution,
+    - `gap_log` status distribution.
+  - captured live charting observability evidence:
+    - `GET /api/v1/coverage/metrics`,
+    - `GET /api/v1/coverage/status?window_hours=2160&limit=5`,
+    - `POST /api/v1/backfill/adapter-check` for `coinbase/BTCUSD`, `oanda/EURUSD`, `capital/EURUSD`.
+  - published evidence artifact:
+    - `docs/development/debugging/reports/live-runtime-evidence-dev-00013-00014-2026-04-26.md`.
+  - promoted `DEV-00013` and `DEV-00014` to done across tickets, kanban, and memory snapshots.
+- Verification:
+  - live SQL/HTTP evidence captured successfully from running stack.
+  - adapter-check diagnostics surfaced explicit external-network failures (reachable observability path).
+- Next recommended action:
+  - start deterministic `structure-engine` baseline ticket and open focused adapter-network resilience follow-up for runtime environments with unstable outbound connectivity.

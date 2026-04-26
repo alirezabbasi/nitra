@@ -11,8 +11,7 @@ Last updated: 2026-04-26
 
 ## In Progress
 
-- [ ] `DEV-00013` enforce startup 90-day `1m` coverage and missing-only backfill for all active instruments.
-- [ ] `DEV-00014` implement venue-history adapters and session-aware continuity policy for 90-day backfill.
+- [ ] (No in-progress items)
 
 ## Done
 
@@ -32,6 +31,8 @@ Last updated: 2026-04-26
 - [x] `DEV-00010` Rust migration for market ingestion connectors.
 - [x] `DEV-00011` Rust migration for market normalization/replay.
 - [x] `DEV-00012` Rust migration for bar/gap/backfill controller.
+- [x] `DEV-00013` enforce startup 90-day `1m` coverage and missing-only backfill for all active instruments (closed with live runtime evidence on 2026-04-26).
+- [x] `DEV-00014` implement venue-history adapters and session-aware continuity policy for 90-day backfill (closed with live runtime evidence on 2026-04-26).
 - [x] Implement replay controller to consume `replay.commands`.
 - [x] `DEV-00015` chart interaction UX parity upgrade (15 interaction features).
 

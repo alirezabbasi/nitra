@@ -45,27 +45,29 @@ Last updated: 2026-04-26
   - live slope check now shows replay queued backlog declining under backpressure-enabled settings.
 - Charting drawing workflow upgraded with TradingView-style annotation features: grouped drawing tool memory, cursor/navigate draw-exit mode, auto-retrigger drawing lifecycle, brush styling controls, custom measure/long/short overlays, undo/redo history, and local layout/drawing persistence.
 - Charting UI redesigned from crowded top-row controls to a TradingView-style left icon sidebar plus grouped drawing control panel for faster annotation workflows and cleaner primary header.
+- Live runtime evidence capture completed on 2026-04-26 for `DEV-00013`/`DEV-00014`:
+  - SQL status snapshots captured for `backfill_jobs`, `replay_audit`, `gap_log`.
+  - coverage metrics/status endpoints captured from charting.
+  - adapter-check probes captured explicit external-network error diagnostics (`Network is unreachable`, `timed out`, `Temporary failure in name resolution`).
 
 ### Current
 
-- `DEV-00013` implementation now includes replay venue-history fallback and deterministic queue-drain safeguards; runtime evidence collection is in progress.
-- `DEV-00014` implementation now includes adapter hardening + live probe endpoint; runtime evidence collection is in progress.
-- `DEV-00014` now also includes recent-first backfill priority and coverage observability APIs; live runtime validation is still required.
+- `DEV-00013` closed with live runtime evidence and explicit surfaced error-state diagnostics.
+- `DEV-00014` closed with live adapter-check and coverage evidence.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Run live compose validation and capture post-fix `backfill_jobs` / `replay_audit` status distribution evidence.
-2. Promote `DEV-00013` and `DEV-00014` from in-progress to done after runtime evidence is captured.
-3. Implement deterministic structure-engine runtime baseline.
-4. Implement deterministic risk-engine and execution-gateway runtime baselines.
+1. Implement deterministic structure-engine runtime baseline.
+2. Implement deterministic risk-engine and execution-gateway runtime baselines.
+3. Open a focused adapter-network resilience ticket to reduce external DNS/connectivity failure impact.
 
 ### Risks/Blocks
 
 - Risk of architecture drift toward ingestion-only progress.
 - Risk of context drift if memory files are not updated at session close.
 - Open decision: priority ordering between replay controller and structure-engine first slice.
-- Open dependency: broker-history adapter correctness still needs live credentials/network validation in target runtime.
+- Open dependency: adapter correctness is implemented and observable, but success rate depends on stable outbound network/DNS in runtime.
 - External risk: Coinbase Exchange candles endpoint may return 403 in some runtimes; fallback route health must be monitored.
 - Runtime restart needed to clear historical mock-origin rows from operational validation windows.
 

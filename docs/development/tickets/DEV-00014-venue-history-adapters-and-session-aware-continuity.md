@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented (adapter hardening + recent-first fetch priority + coverage observability added)
+Done (live runtime evidence captured on 2026-04-26)
 
 ## Summary
 
@@ -57,3 +57,9 @@ Complete the missing runtime pieces for manual/automatic 90-day backfill:
 - Compose/env contract updates for charting adapter credentials and fallback endpoints
 - LLD + env docs updates
 - Test pack baseline under `tests/dev-0014`
+
+## Runtime Evidence
+
+- Evidence report: `docs/development/debugging/reports/live-runtime-evidence-dev-00013-00014-2026-04-26.md`
+- Live adapter-check probes executed for `coinbase/BTCUSD`, `oanda/EURUSD`, and `capital/EURUSD`.
+- Endpoint diagnostics returned explicit operational errors under current network constraints (`Network is unreachable`, `timed out`, `Temporary failure in name resolution`), confirming adapter observability and surfaced error behavior.

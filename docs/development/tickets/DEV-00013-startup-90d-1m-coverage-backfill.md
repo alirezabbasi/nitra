@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented in code (runtime validation evidence collection in progress)
+Done (live runtime evidence captured on 2026-04-26)
 
 ## Summary
 
@@ -99,3 +99,10 @@ Architectural ownership note:
 - Test pack for `DEV-00013` under `tests/`.
 - Runbook update for startup historical coverage verification.
 - Memory and execution board updates upon completion.
+
+## Runtime Evidence
+
+- Evidence report: `docs/development/debugging/reports/live-runtime-evidence-dev-00013-00014-2026-04-26.md`
+- Captured live SQL distributions for `backfill_jobs`, `replay_audit`, `gap_log`.
+- Captured live charting coverage metrics/status and adapter-check diagnostics.
+- Acceptance path satisfied via explicit surfaced error states where external network/source access prevented successful adapter fetch.

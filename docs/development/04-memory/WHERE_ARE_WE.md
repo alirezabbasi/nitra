@@ -26,25 +26,25 @@ Last updated: 2026-04-26
 - Backfill execution priority updated to recent-first (`newest -> oldest`) for missing ranges.
 - Added gap-detection periodic coverage scanner plus explicit charting window endpoint (`/api/v1/backfill/window`) for automatic and operator-driven gap recovery.
 - Charting non-`1m` timeframes now derive from `1m` backfilled history, improving full-range availability after 90d coverage rebuild.
+- Captured live runtime evidence for `DEV-00013`/`DEV-00014` on 2026-04-26 (`backfill_jobs`, `replay_audit`, `gap_log`, coverage metrics, adapter-check diagnostics) and closed both tickets.
 
 ## Current
 
 - Section 5.1 hard-gate enforcement active with deterministic-core migration batch completed.
-- `DEV-00013` implementation is complete in code; runtime evidence capture is in progress.
-- `DEV-00014` implementation is complete in code; runtime evidence capture is in progress.
+- `DEV-00013` is closed with live runtime evidence and explicit surfaced external-network adapter error diagnostics.
+- `DEV-00014` is closed with live runtime adapter-check and coverage evidence.
 
 ## Next
 
-1. Run live compose validation and collect post-fix `backfill_jobs` / `replay_audit` evidence.
-2. Promote `DEV-00013` and `DEV-00014` from in-progress to done after evidence capture.
-3. Implement deterministic structure-engine runtime baseline.
-4. Implement deterministic risk/execution runtime baselines.
+1. Implement deterministic structure-engine runtime baseline.
+2. Implement deterministic risk/execution runtime baselines.
+3. Add follow-up operability ticket for adapter-network resilience (timeouts/name-resolution handling and retry/backoff tuning).
 
 ## Risks/Blocks
 
 - Context drift if session close memory updates are skipped.
 - Delivery risk shifted to deterministic engine implementation depth (structure/risk/execution).
-- Open dependency: live runtime credentials/network still required to validate all venue adapters end-to-end.
+- Open dependency: stable outbound network path is still required for end-to-end adapter success despite explicit error surfacing.
 - Runtime dependency: Coinbase venue history can be blocked on Exchange endpoint; fallback endpoint behavior must be monitored.
 
 ## Section 5.1 Compliance Snapshot
