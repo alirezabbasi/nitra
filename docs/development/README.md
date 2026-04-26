@@ -15,9 +15,14 @@ This layout prevents context loss and keeps execution aligned with business goal
 - `02-execution/`: active kanban and immediate execution focus.
 - `03-delivery/`: delivered scope, module-by-module records, and implementation evidence.
 - `04-memory/`: persistent project memory system (state snapshots, decisions, risks, handoff ledger).
+- `debugging/`: canonical bug registry and debugging command log.
 - `tickets/`: project ticket files retained for continuity and migration tracking.
 
 ## Mandatory read order at each resume
+
+Run this command first at every session start:
+
+- `make session-bootstrap`
 
 1. `docs/README.md`
 2. `docs/ruleset.md`

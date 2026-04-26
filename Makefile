@@ -1,5 +1,8 @@
 SHELL := /bin/bash
 
+session-bootstrap:
+	scripts/session/session-bootstrap.sh
+
 up:
 	docker compose up -d --build
 
