@@ -12,6 +12,6 @@ Transition from ingestion-only completion into full-platform, HLD-aligned increm
 
 ## Immediate next slices
 
-1. Implement deterministic `risk-engine` runtime baseline.
-2. Implement deterministic `execution-gateway` runtime baseline.
-3. Add audit/journal event persistence contract for decision/risk/execution traceability.
+1. Implement deterministic `execution-gateway` runtime baseline.
+2. Add audit/journal event persistence contract for decision/risk/execution traceability.
+3. Align risk->execution handoff contracts for order-state machine gating.

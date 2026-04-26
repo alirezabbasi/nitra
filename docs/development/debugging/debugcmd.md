@@ -706,3 +706,19 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-26 15:59:02 +0330 | `apply_patch`/`cat >>` on roadmap/kanban/memory/LLD/devdocs/session ledger | Synchronize delivery state and architecture/memory docs after implementation. | Success |
 | 2026-04-26 15:59:02 +0330 | `make test-dev-0018` + `make session-bootstrap` | Run final ticket verification and memory drift/freshness bootstrap checks. | Success |
 | 2026-04-26 15:59:02 +0330 | `rm -f services/structure-engine/Cargo.lock` | Remove auto-generated per-service lockfile to match existing repo Rust-service conventions. | Success |
+| 2026-04-26 16:06:58 +0330 | `sed -n '1,220p' docs/ruleset.md` + `sed -n '1,220p' docs/design/ingestion/ruleset.md` | Reload project/domain rules before implementing risk-engine baseline. | Success |
+| 2026-04-26 16:06:58 +0330 | `ls -la services/risk-engine` + `rg -n ... risk ...` on LLD/HLD/compose/topics | Inspect scaffold status and target contracts for risk baseline implementation. | Success |
+| 2026-04-26 16:06:58 +0330 | `apply_patch` on `services/risk-engine/Dockerfile` | Convert risk-engine from sleep scaffold to compiled Rust runtime image. | Success |
+| 2026-04-26 16:06:58 +0330 | `cat > services/risk-engine/Cargo.toml` and `cat > services/risk-engine/src/main.rs` | Add deterministic Rust risk-engine baseline with policy evaluator, idempotency, and unit tests. | Success |
+| 2026-04-26 16:06:58 +0330 | `apply_patch` on `docker-compose.yml` + `infra/kafka/topics.csv` | Wire runtime env contracts and add risk decision/violation topics. | Success |
+| 2026-04-26 16:06:58 +0330 | `cat > infra/timescaledb/init/008_risk_state.sql` | Add risk state/audit persistence schema migration. | Success |
+| 2026-04-26 16:06:58 +0330 | `cat > tests/dev-0019/run.sh` + `apply_patch` on `Makefile` | Add risk-engine verification pack and make target. | Success |
+| 2026-04-26 16:06:58 +0330 | `CARGO_TARGET_DIR=/tmp/nitra-risk-engine-target cargo check --offline --manifest-path services/risk-engine/Cargo.toml` | Validate risk-engine compile in offline mode with writable target dir. | Success |
+| 2026-04-26 16:06:58 +0330 | `CARGO_TARGET_DIR=/tmp/nitra-risk-engine-target cargo test --offline --manifest-path services/risk-engine/Cargo.toml` | Validate deterministic risk policy unit tests. | Success |
+| 2026-04-26 16:06:58 +0330 | `tests/dev-0019/run.sh` + `make test-dev-0019` | Run ticket-level verification checks for runtime/topic/schema contract presence. | Success |
+| 2026-04-26 16:06:58 +0330 | `make enforce-section-5-1` | Confirm technology + contract policy hard gates still pass after risk baseline. | Success |
+| 2026-04-26 16:06:58 +0330 | `apply_patch`/`cat >>` on roadmap/kanban/memory/LLD/devdocs/session ledger | Synchronize docs and execution memory state to close DEV-0019. | Success |
+| 2026-04-26 16:06:58 +0330 | `make session-bootstrap` | Re-validate memory freshness/drift and mandatory session context consistency. | Success |
+| 2026-04-26 16:06:58 +0330 | `rm -f services/risk-engine/Cargo.lock` | Remove auto-generated per-service lockfile to match existing repository convention. | Success |
+| 2026-04-26 16:07:30 +0330 | `cargo fmt --manifest-path services/risk-engine/Cargo.toml` | Format risk-engine source after implementation edits. | Success |
+| 2026-04-26 16:07:30 +0330 | `tests/dev-0019/run.sh` | Re-run risk baseline verification after formatting. | Success |

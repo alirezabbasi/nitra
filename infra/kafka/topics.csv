@@ -10,4 +10,7 @@ structure.snapshot.v1,6,1,delete,-1,nitra-feature-service-v1
 structure.pullback.v1,6,1,delete,-1,nitra-feature-service-v1
 structure.minor_confirmed.v1,6,1,delete,-1,nitra-feature-service-v1
 structure.major_confirmed.v1,6,1,delete,-1,nitra-feature-service-v1
+decision.signal_scored.v1,6,1,delete,-1,nitra-risk-engine-v1
+decision.risk_checked.v1,6,1,delete,-1,nitra-execution-gateway-v1
+ops.policy_violation.v1,3,1,delete,604800000,nitra-ops-monitor-v1
 connector.health,3,1,delete,604800000,nitra-ops-monitor-v1

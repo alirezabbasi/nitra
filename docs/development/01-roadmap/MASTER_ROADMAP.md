@@ -26,7 +26,7 @@ Last updated: 2026-04-26
 | 7 | Feature Platform (Feast) | `not_started` | `blocked` |
 | 8 | Research/Backtesting/Dataset Builder + MLflow integration | `partial` | `compliant` |
 | 9 | Online Inference Layer (Ray Serve) | `not_started` | `compliant` |
-| 10 | Risk Engine | `scaffold` | `compliant` |
+| 10 | Risk Engine | `partial` | `compliant` |
 | 11 | Portfolio Engine | `not_started` | `blocked` |
 | 12 | RAG + LLM Analyst Layer | `scaffold` | `compliant` |
 | 13 | Execution Gateway | `scaffold` | `compliant` |
@@ -35,12 +35,11 @@ Last updated: 2026-04-26
 
 ## Recommended next implementation sequence
 
-1. Risk engine deterministic checks baseline
-2. Execution gateway order-state machine baseline
-3. Audit/journal events for deterministic decision path
-4. Feature platform bootstrap (contract-first)
-5. Inference gateway service logic with schema validation
-6. RAG/LLM advisory path with strict boundaries
+1. Execution gateway order-state machine baseline
+2. Audit/journal events for deterministic decision path
+3. Feature platform bootstrap (contract-first)
+4. Inference gateway service logic with schema validation
+5. RAG/LLM advisory path with strict boundaries
 
 ## Gate policy between modules
 

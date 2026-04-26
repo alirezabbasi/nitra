@@ -329,6 +329,7 @@ Enforcement command:
 - signal events
 - portfolio state
 - account and venue status
+- baseline bootstrap input may use `structure.snapshot.v1` until `decision.signal_scored.v1` is fully online
 
 **Produces**
 - `decision.risk_checked.v1`
@@ -339,6 +340,11 @@ Enforcement command:
 
 **Hard rule**
 - if unavailable, trading fails closed
+
+**Baseline status (2026-04-26)**
+- deterministic Rust runtime baseline implemented
+- idempotent decision processing via `processed_message_ledger`
+- persisted state/log tables: `risk_state`, `risk_decision_log`
 
 ---
 

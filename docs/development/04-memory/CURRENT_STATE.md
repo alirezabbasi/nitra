@@ -54,17 +54,23 @@ Last updated: 2026-04-26
   - consumes `bar.1m`, emits `structure.snapshot.v1`/`structure.pullback.v1`/`structure.minor_confirmed.v1`/`structure.major_confirmed.v1`,
   - persists single-source-of-truth state in `structure_state`,
   - added compose/topic/schema contracts plus `tests/dev-0018`.
+- Completed `DEV-0019` deterministic risk-engine baseline:
+  - replaced `risk-engine` scaffold with runnable Rust runtime,
+  - consumes configurable input stream (baseline `structure.snapshot.v1`) and enforces deterministic policy checks,
+  - emits `decision.risk_checked.v1` and `ops.policy_violation.v1`,
+  - persists `risk_state` and `risk_decision_log` with idempotent processing semantics.
 
 ### Current
 
 - `DEV-00013` closed with live runtime evidence and explicit surfaced error-state diagnostics.
 - `DEV-00014` closed with live adapter-check and coverage evidence.
 - `DEV-0018` closed with deterministic structure runtime baseline in production compose path.
+- `DEV-0019` closed with deterministic risk runtime baseline in production compose path.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Implement deterministic risk-engine and execution-gateway runtime baselines.
+1. Implement deterministic execution-gateway runtime baseline.
 2. Add project-wide audit/journal event persistence contract.
 3. Open a focused adapter-network resilience ticket to reduce external DNS/connectivity failure impact.
 
@@ -85,8 +91,8 @@ Last updated: 2026-04-26
 ## Architecture coverage (HLD Section 5)
 
 - Implemented: ingestion connectors, Kafka backbone, Timescale baseline schema.
-- Partial: normalization/replay path, structure-engine baseline, raw data lake archival, MLflow/research infra, observability basics.
-- Scaffold only: risk engine, execution gateway, llm-analyst.
+- Partial: normalization/replay path, structure-engine baseline, risk-engine baseline, raw data lake archival, MLflow/research infra, observability basics.
+- Scaffold only: execution gateway, llm-analyst.
 - Not started: feature platform (Feast), portfolio engine, full online inference layer (Ray Serve).
 
 ## Section 5.1 Compliance Snapshot

@@ -193,16 +193,20 @@ services:
       RUST_LOG: info
       DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
       KAFKA_BROKERS: kafka:9092
+      RISK_INPUT_TOPIC: ${RISK_INPUT_TOPIC:-structure.snapshot.v1}
+      RISK_CHECKED_TOPIC: ${RISK_CHECKED_TOPIC:-decision.risk_checked.v1}
+      RISK_VIOLATION_TOPIC: ${RISK_VIOLATION_TOPIC:-ops.policy_violation.v1}
+      RISK_GROUP_ID: ${RISK_GROUP_ID:-nitra-risk-engine-v1}
+      RISK_MIN_CONFIDENCE: ${RISK_MIN_CONFIDENCE:-0.55}
+      RISK_MAX_NOTIONAL: ${RISK_MAX_NOTIONAL:-100000}
+      RISK_MAX_DRAWDOWN_PCT: ${RISK_MAX_DRAWDOWN_PCT:-5}
+      RISK_DEFAULT_NOTIONAL: ${RISK_DEFAULT_NOTIONAL:-1000}
     depends_on:
       timescaledb:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    volumes:
-      - ./services/risk-engine:/app
-      - cargo_cache:/usr/local/cargo/registry
-      - target_risk:/app/target
-    command: ["sleep", "infinity"]
+    restart: unless-stopped
 
   execution-gateway:
     build:
@@ -488,6 +492,4 @@ services:
 
 volumes:
   cargo_cache:
-  target_structure:
-  target_risk:
   target_exec:

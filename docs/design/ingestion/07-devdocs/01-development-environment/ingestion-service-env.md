@@ -211,3 +211,21 @@ Notes:
 - The baseline runtime is deterministic and replay-safe (`processed_message_ledger` idempotency).
 - Structure state is persisted in `structure_state` (single source of truth per `venue + symbol + timeframe`).
 - Baseline transitions emit snapshots on every bar and emit pullback/minor/major confirmations from deterministic state transitions.
+
+## risk-engine
+
+- `KAFKA_BROKERS` default `kafka:9092`
+- `RISK_INPUT_TOPIC` default `structure.snapshot.v1` (bootstrap baseline input; can be switched to `decision.signal_scored.v1`)
+- `RISK_CHECKED_TOPIC` default `decision.risk_checked.v1`
+- `RISK_VIOLATION_TOPIC` default `ops.policy_violation.v1`
+- `RISK_GROUP_ID` default `nitra-risk-engine-v1`
+- `RISK_MIN_CONFIDENCE` default `0.55`
+- `RISK_MAX_NOTIONAL` default `100000`
+- `RISK_MAX_DRAWDOWN_PCT` default `5`
+- `RISK_DEFAULT_NOTIONAL` default `1000`
+- `DATABASE_URL` required (compose sets from `POSTGRES_*`)
+
+Notes:
+- The baseline risk service is deterministic and fail-closed for kill-switch/drawdown/notional/confidence violations.
+- Risk state and audit history are persisted in `risk_state` and `risk_decision_log`.
+- `processed_message_ledger` idempotency is enforced to keep replay-safe decision behavior.

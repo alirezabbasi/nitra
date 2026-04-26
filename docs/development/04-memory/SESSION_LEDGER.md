@@ -465,3 +465,35 @@ Append one entry at the end of each substantial session.
   - `make enforce-section-5-1` passes.
 - Next recommended action:
   - implement deterministic `risk-engine` baseline, then `execution-gateway` baseline, followed by project-wide audit/journal contract persistence.
+
+---
+
+## 2026-04-26 — Session Entry 021
+
+- Objective:
+  - implement deterministic `risk-engine` runtime baseline and remove scaffold-only status.
+- Work completed:
+  - replaced `services/risk-engine` scaffold with runnable Rust service (`Cargo.toml`, `src/main.rs`).
+  - implemented deterministic policy evaluation baseline:
+    - confidence threshold,
+    - max notional cap,
+    - max drawdown gate,
+    - kill-switch fail-closed rejection.
+  - added baseline input compatibility:
+    - signal-style payloads,
+    - structure-snapshot bootstrap payloads (for pre-inference runtime continuity).
+  - emits `decision.risk_checked.v1` and `ops.policy_violation.v1` with explicit reasons/violations.
+  - added replay-safe idempotency using `processed_message_ledger`.
+  - added Timescale schema migration `008_risk_state.sql` (`risk_state`, `risk_decision_log`) plus runtime `CREATE TABLE IF NOT EXISTS` safety.
+  - updated compose/runtime contracts (`RISK_*` envs), Kafka topic bootstrap list, LLD/devdocs, and execution/memory roadmap artifacts.
+  - added ticket and test pack:
+    - `docs/development/tickets/DEV-0019-risk-engine-baseline.md`
+    - `tests/dev-0019/run.sh`
+    - `make test-dev-0019`.
+- Verification:
+  - `CARGO_TARGET_DIR=/tmp/nitra-risk-engine-target cargo check --offline --manifest-path services/risk-engine/Cargo.toml` passes.
+  - `CARGO_TARGET_DIR=/tmp/nitra-risk-engine-target cargo test --offline --manifest-path services/risk-engine/Cargo.toml` passes.
+  - `tests/dev-0019/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+- Next recommended action:
+  - implement deterministic `execution-gateway` baseline and wire risk-approved decision handoff contracts.

@@ -78,5 +78,8 @@ test-dev-0017:
 test-dev-0018:
 	tests/dev-0018/run.sh
 
+test-dev-0019:
+	tests/dev-0019/run.sh
+
 db:
 	docker compose exec timescaledb psql -U $$POSTGRES_USER -d $$POSTGRES_DB
