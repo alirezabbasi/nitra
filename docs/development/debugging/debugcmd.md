@@ -661,3 +661,18 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-26 13:33:45 +0330 | `date '+%Y-%m-%d %H:%M:%S %z'` | Capture timestamp for commit-phase command logging. | Success |
 | 2026-04-26 13:33:45 +0330 | `git add docs/ruleset.md docs/development/debugging/debugcmd.md` | Stage only the requested rule update and corresponding command log entries. | Success |
 | 2026-04-26 13:33:45 +0330 | `git commit -m "docs: require end-of-task commit per session"` | Commit ruleset update with clear task-scoped message. | Success |
+| 2026-04-26 13:37:49 +0330 | `sed -n '1,220p' docs/ruleset.md` | Reload global ruleset before splitting and committing remaining workspace changes. | Success |
+| 2026-04-26 13:37:49 +0330 | `git status --short` | Inspect pending dirty worktree scope prior to commit grouping. | Success |
+| 2026-04-26 13:37:49 +0330 | `git diff --stat` | Quantify changed files and estimate logical commit groups. | Success |
+| 2026-04-26 13:37:49 +0330 | `git diff --name-status` | Classify modified/deleted/added files for grouping. | Success |
+| 2026-04-26 13:37:49 +0330 | `git diff -- ...` on session/docs/runtime files | Review detailed diffs to avoid mixing unrelated scopes. | Success |
+| 2026-04-26 13:37:49 +0330 | `cargo test` (`services/gap-detection`) | Re-verify runtime behavior before runtime commit. | Success |
+| 2026-04-26 13:37:49 +0330 | `cargo test` (`services/backfill-worker`) | Re-verify runtime behavior before runtime commit. | Success |
+| 2026-04-26 13:37:49 +0330 | `cargo test` (`services/replay-controller`) | Re-verify runtime behavior before runtime commit. | Success |
+| 2026-04-26 13:37:49 +0330 | `git add Makefile scripts/session/session-bootstrap.sh docs/development/README.md && git commit -m "chore(session): add bootstrap command and startup checks"` | Create scoped session-bootstrap commit. | Success |
+| 2026-04-26 13:37:49 +0330 | `git add infra/symbols/registry.v1.json services/gap-detection/src/main.rs services/backfill-worker/src/main.rs services/replay-controller/src/main.rs && git commit -m "feat(ingestion): enforce registry-scoped gap/backfill/replay"` | Create scoped runtime/config guardrail commit. | Success |
+| 2026-04-26 13:37:49 +0330 | `git add docs/design/ingestion/... docs/development/debugging/sql/... docs/development/debugging/reports/... && git commit -m "docs(ingestion): add guardrail rollout and backlog cleanup artifacts"` | Commit design/devdocs/sql/report artifacts. | Success |
+| 2026-04-26 13:37:49 +0330 | `git add docs/design/ingestion/ruleset.md ... docs/development/debugging/BUG-*.md ... && git commit -m "docs(debugging): migrate ingestion bug registry to development/debugging"` | Commit bug registry migration and reference updates. | Success |
+| 2026-04-26 13:37:49 +0330 | `git add docs/development/02-execution/KANBAN.md docs/development/04-memory/WHERE_ARE_WE.md && git commit -m "docs(memory): synchronize last-updated dates for bootstrap"` | Commit memory date synchronization for bootstrap consistency. | Success |
+| 2026-04-26 13:37:49 +0330 | `date '+%Y-%m-%d %H:%M:%S %z'` | Capture timestamp for command-log append + final log commit. | Success |
+| 2026-04-26 13:37:49 +0330 | `cat >> docs/development/debugging/debugcmd.md <<'EOF' ...` | Append this session command log entries per Rule 15. | Success |
