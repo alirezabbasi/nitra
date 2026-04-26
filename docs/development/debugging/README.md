@@ -1,6 +1,6 @@
-# Bug Registry
+# Debugging Registry
 
-This directory is the canonical bug registry for NITRA ingestion.
+This directory is the canonical debugging registry for NITRA.
 
 - Every discovered bug must be documented here with a unique code.
 - Naming convention: `BUG-00001.md`, `BUG-00002.md`, ...
@@ -10,6 +10,7 @@ This directory is the canonical bug registry for NITRA ingestion.
   - root cause analysis,
   - resolution details,
   - verification evidence and status.
+- Every debugging/development command must be logged in `debugcmd.md` with timestamp, command, and purpose.
 
 Current entries:
 - `BUG-00001`: TimescaleDB bootstrap halts before creating `raw_tick` and related tables.

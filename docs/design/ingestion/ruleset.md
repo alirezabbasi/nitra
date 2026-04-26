@@ -7,7 +7,7 @@ All contributors and AI agents working on ingestion scope must read and follow t
 
 - The documentation root for this domain is `docs/design/ingestion/`.
 - Every meaningful ingestion change must include documentation updates in the same change set when applicable.
-- Documents must be placed under the correct subject folder (`01-architecture`, `02-data-platform`, `03-reliability-risk-ops`, `06-devops`, `07-devdocs`, `bugs`, etc.).
+- Documents must be placed under the correct subject folder (`01-architecture`, `02-data-platform`, `03-reliability-risk-ops`, `06-devops`, `07-devdocs`, etc.).
 
 ## Rule 2: Docker-First Runtime Is Mandatory
 
@@ -99,7 +99,7 @@ All contributors and AI agents working on ingestion scope must read and follow t
 
 ## Rule 16: Mandatory Bug Registry and Resolution Notes
 
-- Every ingestion bug must be recorded under `docs/design/ingestion/bugs/` with unique code (for example `BUG-00001`).
+- Every ingestion bug must be recorded under `docs/development/debugging/` with unique code (for example `BUG-00001`).
 - Records must include description/impact, reproduction steps, root cause, fix details, verification evidence, and status.
 - Bug documentation should be updated in the same change set as the fix whenever feasible.
 

@@ -56,4 +56,4 @@ ORDER BY venue;
 - During runtime incidents, always inspect both streams:
   - `normalized.quote.fx` (input health)
   - `bar.1m` + `ohlcv_bar` (aggregation/flush health)
-- Linked bug record: `docs/design/ingestion/bugs/BUG-00008.md`.
+- Linked bug record: `docs/development/debugging/BUG-00008.md`.
