@@ -1,0 +1,663 @@
+# Debug Command Log
+
+This file records development/debugging commands with timestamp, command text, purpose, and result.
+Timezone used in this log: `+0330` (Asia/Tehran).
+
+## Log Entries
+
+| Timestamp | Command | Purpose | Result |
+| --- | --- | --- | --- |
+| 2026-04-26 09:05:55 +0330 | `rg --files -g 'ruleset.md' -g 'docs/ruleset.md'` | Locate active ruleset files before making changes. | Success |
+| 2026-04-26 09:05:55 +0330 | `cat docs/ruleset.md` | Load global ruleset and apply repo policy. | Success |
+| 2026-04-26 09:05:55 +0330 | `find docs -type d \( -iname '*bug*' -o -iname '*debug*' \) | sort` | Discover existing bug/debug directories to migrate. | Success |
+| 2026-04-26 09:05:55 +0330 | `find docs -type f \( -iname '*bug*' -o -iname '*debug*' \) | sort` | Discover existing bug/debug files to migrate. | Success |
+| 2026-04-26 09:05:55 +0330 | `rg -n "docs/design/ingestion/bugs|/bugs/|BUG-000" docs` | Identify references that require path updates. | Success |
+| 2026-04-26 09:05:55 +0330 | `rg -n "debug|debugging|debugcmd" docs/ruleset.md docs/design/ingestion/ruleset.md docs/development/README.md` | Check for existing debug instruction coverage. | No matches (exit 1) |
+| 2026-04-26 09:05:55 +0330 | `mkdir -p docs/development/debugging && mv docs/design/ingestion/bugs/*.md docs/development/debugging/ && rmdir docs/design/ingestion/bugs` | Move all bug docs into the new canonical debugging folder. | Success |
+| 2026-04-26 09:05:55 +0330 | `rg -n "docs/design/ingestion/bugs|docs/bugs/|docs/bugs\`|docs/bugs"` | Search for old bug path references after move. | Failed (shell quote error: `unmatched \"`) |
+| 2026-04-26 09:05:55 +0330 | `rg -n 'docs/design/ingestion/bugs'` | Retry old-path reference scan with corrected quoting. | Success |
+| 2026-04-26 09:05:55 +0330 | `rg -n 'docs/bugs' docs` | Find references to legacy global bug path. | Success |
+| 2026-04-26 09:05:55 +0330 | `sed -n '1,220p' docs/ruleset.md` | Review ruleset section before applying policy update. | Success |
+| 2026-04-26 09:05:55 +0330 | `sed -n '1,240p' docs/design/ingestion/ruleset.md` | Review ingestion ruleset section before path changes. | Success |
+| 2026-04-26 09:05:55 +0330 | `sed -n '1,220p' docs/development/debugging/README.md` | Review moved bug registry readme before rewrite. | Success |
+| 2026-04-26 09:05:55 +0330 | `sed -n '1,180p' docs/knowledgebase/ingestion/KB-00002-stale-exchange-timestamp-ohlcv-gap.md` | Verify and update linked bug record path. | Success |
+| 2026-04-26 09:06:57 +0330 | `date '+%Y-%m-%d %H:%M:%S %z'` | Capture current local timestamp for log continuity. | Success |
+| 2026-04-26 09:06:57 +0330 | `apply_patch` on `docs/ruleset.md` | Update global bug-registry path and add debug command logging rule. | Success |
+| 2026-04-26 09:06:57 +0330 | `apply_patch` on `docs/design/ingestion/ruleset.md` | Update ingestion bug-registry path and remove old subject-folder reference. | Success |
+| 2026-04-26 09:06:57 +0330 | `apply_patch` on `docs/development/README.md` | Add new `debugging/` folder to development folder map. | Success |
+| 2026-04-26 09:06:57 +0330 | `apply_patch` on `docs/knowledgebase/ingestion/KB-00002-stale-exchange-timestamp-ohlcv-gap.md` | Replace linked bug file path to new debugging registry location. | Success |
+| 2026-04-26 09:06:57 +0330 | `apply_patch` on `docs/development/debugging/README.md` | Rewrite as debugging registry and add `debugcmd.md` requirement. | Success |
+| 2026-04-26 09:06:57 +0330 | `cat > docs/development/debugging/debugcmd.md <<'EOF' ...` | Create canonical debug command log file with timestamped entries. | Success |
+| 2026-04-26 09:06:57 +0330 | `rg -n 'docs/design/ingestion/bugs|docs/bugs' docs` | Final check for stale references to deprecated bug locations. | Success (matches only inside command log) |
+| 2026-04-26 09:06:57 +0330 | `ls -1 docs/development/debugging` | Validate migrated files and new log file exist in target folder. | Success |
+| 2026-04-26 09:06:57 +0330 | `git status --short` | Verify final working tree changes for user review/commit. | Success |
+| 2026-04-26 09:09:39 +0330 | `date '+%Y-%m-%d %H:%M:%S %z'` | Capture timestamp before updating Rule 15 wording. | Success |
+| 2026-04-26 09:09:39 +0330 | `rg -n "Rule 15|Debug Command Logging" docs/ruleset.md` | Locate Rule 15 section for precise edit. | Success |
+| 2026-04-26 09:09:39 +0330 | `apply_patch` on `docs/ruleset.md` | Add explicit statement that main debugging documents folder is `docs/development/debugging`. | Success |
+| 2026-04-26 09:13:24 +0330 | `docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT venue, canonical_symbol, COUNT(*) AS cnt FROM ohlcv_bar GROUP BY venue, canonical_symbol ORDER BY cnt DESC;"` | Run requested OHLCV coverage query using prior command pattern. | Failed (`postgres` service not running) |
+| 2026-04-26 09:13:24 +0330 | `docker compose ps` | Check active service names and health after query failure. | Success |
+| 2026-04-26 09:13:24 +0330 | `docker compose exec -T timescaledb psql -U trading -d trading -c "SELECT venue, canonical_symbol, COUNT(*) AS cnt FROM ohlcv_bar GROUP BY venue, canonical_symbol ORDER BY cnt DESC;"` | Re-run requested OHLCV coverage query on active DB service. | Success |
+| 2026-04-26 09:13:24 +0330 | `\d symbol_registry` | Probe expected symbol registry table for full-universe comparison. | Failed (relation not found) |
+| 2026-04-26 09:13:24 +0330 | `SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND (table_name ILIKE '%symbol%' OR table_name ILIKE '%instrument%' OR table_name ILIKE '%registry%' OR table_name ILIKE '%coverage%' OR table_name ILIKE '%gap%' OR table_name ILIKE '%backfill%') ORDER BY table_name;` | Discover available runtime coverage/gap/backfill tables. | Success |
+| 2026-04-26 09:13:24 +0330 | `\d coverage_state` | Inspect coverage-state schema to support missing-data analysis. | Success |
+| 2026-04-26 09:13:24 +0330 | `WITH counts AS (...) SELECT ... pct_of_venue_max ... FROM ohlcv_bar ...` | Quantify per-symbol OHLCV shortfall by venue. | Success |
+| 2026-04-26 09:13:24 +0330 | `SELECT venue, symbol, ... FROM gap_log WHERE resolved_at IS NULL ...` | Check unresolved gaps by symbol. | Failed (`symbol` column does not exist) |
+| 2026-04-26 09:13:24 +0330 | `SELECT status, COUNT(*) AS jobs FROM backfill_jobs GROUP BY status ORDER BY status;` | Check whether backlog persists in backfill pipeline. | Success |
+| 2026-04-26 09:13:24 +0330 | `\d gap_log` | Inspect gap_log schema and correct unresolved-gap query columns. | Success |
+| 2026-04-26 09:13:24 +0330 | `SELECT venue, canonical_symbol, timeframe, COUNT(*) AS open_gaps ... FROM gap_log WHERE status='open' ...` | Confirm whether symbols still have open gap records. | Success (0 open gaps) |
+| 2026-04-26 09:13:24 +0330 | `\d backfill_jobs` | Inspect backfill job schema for status drilldown fields. | Success |
+| 2026-04-26 09:13:24 +0330 | `SELECT venue, canonical_symbol, timeframe, status, COUNT(*) AS jobs ... FROM backfill_jobs ...` | Identify stalled/queued backfill ranges per symbol. | Success |
+| 2026-04-26 09:13:24 +0330 | `\d replay_audit` | Inspect replay audit schema for backlog-pressure verification. | Success |
+| 2026-04-26 09:13:24 +0330 | `SELECT status, COUNT(*) AS rows, MIN(started_at), MAX(started_at), SUM(moved_messages) FROM replay_audit GROUP BY status ORDER BY status;` | Quantify replay backlog and failure pressure impacting backfill convergence. | Success |
+| 2026-04-26 09:20:23 +0330 | `cat docs/ruleset.md` | Reload global ruleset before redesign/planning and edits. | Success |
+| 2026-04-26 09:20:23 +0330 | `cat docs/design/ingestion/ruleset.md` | Reload ingestion domain ruleset before redesign/planning and edits. | Success |
+| 2026-04-26 09:20:23 +0330 | `rg --files services | rg 'gap-detection|backfill-worker|replay-controller'` | Enumerate core recovery services for redesign scope. | Success |
+| 2026-04-26 09:20:23 +0330 | `sed -n '...' services/gap-detection/src/main.rs` | Review full gap detection flow and startup/periodic coverage scan logic. | Success |
+| 2026-04-26 09:20:23 +0330 | `sed -n '...' services/backfill-worker/src/main.rs` | Review gap chunking, enqueue, stale recovery, and requeue behavior. | Success |
+| 2026-04-26 09:20:23 +0330 | `sed -n '...' services/replay-controller/src/main.rs` | Review replay execution, history fallback, and job status transitions. | Success |
+| 2026-04-26 09:20:23 +0330 | `cat infra/symbols/registry.v1.json` | Validate registry mappings against active venue symbol universe. | Success |
+| 2026-04-26 09:20:23 +0330 | `apply_patch` on `infra/symbols/registry.v1.json` | Remove invalid `coinbase/EURUSD` mapping and add missing OANDA/CAPITAL index/metals mappings. | Success |
+| 2026-04-26 09:20:23 +0330 | `apply_patch` on `services/gap-detection/src/main.rs` | Add registry-scoped scan mode and drop unknown stream markets from gap planning. | Success |
+| 2026-04-26 09:20:23 +0330 | `apply_patch` on `services/backfill-worker/src/main.rs` | Enforce registry guardrail before creating/re-enqueuing replay workload. | Success |
+| 2026-04-26 09:20:23 +0330 | `apply_patch` on `services/replay-controller/src/main.rs` | Fail unknown markets fast with terminal status (`failed_unknown_market`). | Success |
+| 2026-04-26 09:20:23 +0330 | `apply_patch` on `docs/design/ingestion/07-devdocs/01-development-environment/ingestion-service-env.md` | Document new guardrail env vars and runtime behavior. | Success |
+| 2026-04-26 09:20:23 +0330 | `cat > .../simplified-gap-backfill-redesign.md <<'EOF'` | Add simplified practical redesign and rollout steps document. | Success |
+| 2026-04-26 09:20:23 +0330 | `cargo test` (`services/gap-detection`) | Validate redesigned gap detection changes and unit tests. | Success |
+| 2026-04-26 09:20:23 +0330 | `cargo test` (`services/backfill-worker`) | Validate registry guardrails and recovery logic tests. | Success |
+| 2026-04-26 09:20:23 +0330 | `cargo test` (`services/replay-controller`) | Validate unknown-market terminal handling and existing replay tests. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo fmt` (`services/gap-detection`) | Format modified gap detection source after redesign changes. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo fmt` (`services/backfill-worker`) | Format modified backfill worker source after redesign changes. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo fmt` (`services/replay-controller`) | Format modified replay controller source after redesign changes. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo test` (`services/gap-detection`) | Re-verify tests after formatting. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo test` (`services/backfill-worker`) | Re-verify tests after formatting. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo test` (`services/replay-controller`) | Re-verify tests after formatting. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT ... unknown backfill_jobs not in registry ...` | Capture before snapshot of legacy unknown-market backlog rows. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT ... 90d coverage debt by registry market ...` | Capture before coverage-debt baseline. | Failed (SQL alias `window` syntax conflict) |
+| 2026-04-26 09:34:15 +0330 | `SELECT ... 90d coverage debt by registry market ...` (corrected) | Re-run before coverage-debt baseline with corrected SQL. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT table_name,status,COUNT(*) FROM backfill_jobs/replay_audit ...` | Capture before backlog status distribution. | Success |
+| 2026-04-26 09:34:15 +0330 | `mkdir -p docs/development/debugging/sql docs/development/debugging/reports` | Create folders for one-time SQL cleanup and report artifacts. | Success |
+| 2026-04-26 09:34:15 +0330 | `cat > docs/development/debugging/sql/2026-04-26-one-time-cleanup-legacy-unknown-market-backfill.sql <<'EOF' ...` | Author safe one-time status-only cleanup SQL script for unknown markets. | Success |
+| 2026-04-26 09:34:15 +0330 | `docker compose exec -T timescaledb psql ... -f /workspace/...sql` | Execute cleanup script from file path in container. | Failed (path not mounted in container) |
+| 2026-04-26 09:34:15 +0330 | `cat ...sql | docker compose exec -T timescaledb psql ...` | Execute one-time cleanup SQL by piping script to psql. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT ... unknown backfill_jobs not in registry ...` | Capture after snapshot of unknown-market backlog rows. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT table_name,status,COUNT(*) FROM backfill_jobs/replay_audit ...` | Capture after backlog status distribution. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT ... 90d coverage debt by registry market ...` | Capture after coverage-debt snapshot. | Success |
+| 2026-04-26 09:34:15 +0330 | `cat > docs/design/ingestion/03-reliability-risk-ops/backfill-backlog-cleanup-and-drain-policy.md <<'EOF' ...` | Add formal cleanup/drain policy for backlog normalization. | Success |
+| 2026-04-26 09:34:15 +0330 | `cat > docs/development/debugging/reports/coverage-debt-before-after-2026-04-26.md <<'EOF' ...` | Publish before/after cleanup + coverage-debt report with deltas. | Success |
+
+## Maintenance Rule
+
+For every future development/debugging session, append new entries to this file at execution time.
+| 2026-04-26 12:52:22 +0330 | `rg --files` | Inventory repository files before auditing session-resume mechanisms. | Success |
+| 2026-04-26 12:52:22 +0330 | `rg -n "bootstrap|resume|CURRENT_STATE|SESSION_LEDGER|KANBAN|where are we|ensure_readiness|ruleset|Rule 11|reload" docs scripts Makefile AGENTS.md` | Locate all documented/implemented resume and memory workflow references. | Failed (exit 2: some search roots missing) |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,220p' docs/development/README.md` | Verify mandatory resume read order and governance guidance. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,220p' docs/development/04-memory/MEMORY_OPERATING_SYSTEM.md` | Validate session protocol and memory operating model requirements. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,220p' docs/development/00-governance/SDLC_OPERATING_MODEL.md` | Validate SDLC-level enforcement expectations for session start/end behavior. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,260p' Makefile` | Check whether resume/memory workflow is enforced via runnable targets. | Success |
+| 2026-04-26 12:52:22 +0330 | `rg -n "CURRENT_STATE|SESSION_LEDGER|WHERE_ARE_WE|KANBAN|ruleset|session start|resume|mandatory read order|where-are-we|enforce" scripts tests .github .git/hooks` | Inspect executable automation and hooks for resume compliance checks. | Failed (exit 2: missing `.github`/hooks paths) |
+| 2026-04-26 12:52:22 +0330 | `find scripts -maxdepth 3 -type f | sort` | Enumerate available automation scripts related to enforcement. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,260p' docs/development/04-memory/CURRENT_STATE.md` | Check memory freshness and in-progress objective continuity. | Success |
+| 2026-04-26 12:52:22 +0330 | `tail -n 220 docs/development/04-memory/SESSION_LEDGER.md` | Inspect latest session entries for ongoing handoff continuity. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,260p' docs/development/02-execution/KANBAN.md` | Verify execution board freshness versus memory artifacts. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,240p' docs/development/04-memory/WHERE_ARE_WE.md` | Verify quick-status source freshness and consistency with CURRENT_STATE. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,220p' docs/README.md` | Confirm top-level documentation entrypoint still points to resume sources. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,240p' AGENTS.md` | Validate repository-level instructions presence for resume bootstrap. | Failed (`AGENTS.md` not found at repository root) |
+| 2026-04-26 12:53:02 +0330 | `ls -la scripts/evaluation` | Check for dedicated session-readiness/bootstrap automation path referenced in prior workflows. | Failed (`scripts/evaluation` missing) |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/ruleset.md` | Reload global ruleset before implementing session bootstrap enforcement. | Success |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/design/ingestion/ruleset.md` | Reload ingestion domain ruleset before implementing enforcement changes. | Success |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/development/04-memory/README.md` | Reload memory discipline docs to align bootstrap checks with required artifacts. | Success |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/development/04-memory/MEMORY_OPERATING_SYSTEM.md` | Reload memory operating protocol and "Where are we?" source expectations. | Success |
+| 2026-04-26 13:02:51 +0330 | `ls -la scripts && find scripts -maxdepth 2 -type f | sort` | Inspect script layout before adding session bootstrap automation. | Success |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/development/04-memory/SESSION_LEDGER.md` | Verify session ledger heading format for bootstrap parsing. | Success |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/development/02-execution/ACTIVE_FOCUS.md` | Verify active-focus file path for bootstrap required-context list. | Success |
+| 2026-04-26 13:02:51 +0330 | `apply_patch` on `scripts/session/session-bootstrap.sh` | Add strict session-start bootstrap validation script with freshness/drift checks. | Success |
+| 2026-04-26 13:02:51 +0330 | `apply_patch` on `Makefile` | Add single-command target `session-bootstrap` for session-start enforcement. | Success |
+| 2026-04-26 13:02:51 +0330 | `chmod +x scripts/session/session-bootstrap.sh && make session-bootstrap` | Mark bootstrap script executable and validate fail-fast behavior. | Failed (`CURRENT_STATE` and `WHERE_ARE_WE` date drift detected) |
+| 2026-04-26 13:02:51 +0330 | `apply_patch` on `docs/ruleset.md` | Fix Rule 11 typo in global ruleset path reference. | Success |
+| 2026-04-26 13:02:51 +0330 | `apply_patch` on `docs/development/README.md` | Document `make session-bootstrap` as the mandatory session-start command. | Success |
+| 2026-04-26 13:03:17 +0330 | `make session-bootstrap` | Re-run bootstrap command after wiring/docs changes to verify fail-fast behavior remains active. | Failed (`CURRENT_STATE` and `WHERE_ARE_WE` date drift detected) |
+| 2026-04-26 13:03:17 +0330 | `git status --short` | Confirm modified files and ensure session-bootstrap changes are present in working tree. | Success |
+| 2026-04-26 13:03:33 +0330 | `nl -ba Makefile | sed -n '1,40p'` | Capture line references for new `session-bootstrap` target. | Success |
+| 2026-04-26 13:03:33 +0330 | `nl -ba scripts/session/session-bootstrap.sh | sed -n '1,260p'` | Capture line references for bootstrap checks and fail-fast logic. | Success |
+| 2026-04-26 13:03:33 +0330 | `nl -ba docs/development/README.md | sed -n '1,80p'` | Capture line references for startup command documentation. | Success |
+| 2026-04-26 13:03:33 +0330 | `nl -ba docs/ruleset.md | sed -n '80,110p'` | Verify corrected Rule 11 path reference. | Success |
+| 2026-04-26 13:07:43 +0330 | docs/ruleset.md
+docs/design/ingestion/ruleset.md | Locate applicable ruleset files before running requested bootstrap command. | Success |
+| 2026-04-26 13:07:43 +0330 | scripts/session/session-bootstrap.sh
+[session-bootstrap] validating required context files...
+[session-bootstrap] AGENTS.md not present at repository root (allowed by ruleset when absent).
+[session-bootstrap] validating required status structure...
+[session-bootstrap] validating memory freshness and drift...
+[session-bootstrap] context check passed.
+[session-bootstrap] Last updated date: 2026-04-26 (staleness: 0 days)
+[session-bootstrap] Read order:
+1. docs/README.md
+2. docs/ruleset.md
+3. docs/design/nitra_system_hld.md
+4. docs/design/AI-enabled_trading_decision_platform.md
+5. docs/design/nitra_system_lld/00_README.md
+6. docs/design/ingestion/ruleset.md
+7. docs/development/04-memory/WHERE_ARE_WE.md
+8. docs/development/04-memory/CURRENT_STATE.md
+9. docs/development/04-memory/SESSION_LEDGER.md
+10. docs/development/02-execution/KANBAN.md
+11. docs/development/02-execution/ACTIVE_FOCUS.md
+SESSION_BOOTSTRAP_OK | Run requested session bootstrap validation. | Failed ( vs  date drift) |
+| 2026-04-26 13:07:43 +0330 | #!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT_DIR"
+
+MAX_STALENESS_DAYS="${SESSION_MAX_STALENESS_DAYS:-7}"
+
+fail() {
+  printf 'SESSION_BOOTSTRAP_FAIL: %s\n' "$1" >&2
+  exit 1
+}
+
+check_file() {
+  local path="$1"
+  [[ -f "$path" ]] || fail "required file missing: $path"
+}
+
+check_dir() {
+  local path="$1"
+  [[ -d "$path" ]] || fail "required directory missing: $path"
+}
+
+extract_last_updated() {
+  local path="$1"
+  local value
+  value="$(grep -E '^Last updated:' "$path" | head -n1 | sed -E 's/^Last updated:[[:space:]]*//')"
+  [[ -n "$value" ]] || fail "missing 'Last updated:' header in $path"
+  printf '%s\n' "$value"
+}
+
+extract_latest_ledger_date() {
+  local path="$1"
+  local value
+  value="$(grep -E '^## [0-9]{4}-[0-9]{2}-[0-9]{2} — Session Entry [0-9]+' "$path" | tail -n1 | sed -E 's/^## ([0-9]{4}-[0-9]{2}-[0-9]{2}).*$/\1/')"
+  [[ -n "$value" ]] || fail "cannot find a session entry heading in $path"
+  printf '%s\n' "$value"
+}
+
+days_since() {
+  local iso_date="$1"
+  local now_epoch date_epoch
+  now_epoch="$(date +%s)"
+  date_epoch="$(date -d "$iso_date" +%s 2>/dev/null)" || fail "invalid date '$iso_date' (expected YYYY-MM-DD)"
+  printf '%s\n' "$(((now_epoch - date_epoch) / 86400))"
+}
+
+assert_heading() {
+  local path="$1"
+  local heading="$2"
+  grep -Eq "^${heading}$" "$path" || fail "missing heading '${heading}' in $path"
+}
+
+printf '[session-bootstrap] validating required context files...\n'
+
+check_file "docs/README.md"
+check_file "docs/ruleset.md"
+check_file "docs/design/nitra_system_hld.md"
+check_file "docs/design/AI-enabled_trading_decision_platform.md"
+check_dir "docs/design/nitra_system_lld"
+check_file "docs/design/nitra_system_lld/00_README.md"
+check_file "docs/design/ingestion/ruleset.md"
+check_file "docs/development/04-memory/WHERE_ARE_WE.md"
+check_file "docs/development/04-memory/CURRENT_STATE.md"
+check_file "docs/development/04-memory/SESSION_LEDGER.md"
+check_file "docs/development/02-execution/KANBAN.md"
+check_file "docs/development/02-execution/ACTIVE_FOCUS.md"
+
+if [[ -f "AGENTS.md" ]]; then
+  printf '[session-bootstrap] repository instructions detected: AGENTS.md\n'
+else
+  printf '[session-bootstrap] AGENTS.md not present at repository root (allowed by ruleset when absent).\n'
+fi
+
+printf '[session-bootstrap] validating required status structure...\n'
+assert_heading "docs/development/04-memory/CURRENT_STATE.md" "### Completed"
+assert_heading "docs/development/04-memory/CURRENT_STATE.md" "### Recent"
+assert_heading "docs/development/04-memory/CURRENT_STATE.md" "### Current"
+assert_heading "docs/development/04-memory/CURRENT_STATE.md" "### Next"
+assert_heading "docs/development/04-memory/CURRENT_STATE.md" "### Risks/Blocks"
+
+assert_heading "docs/development/04-memory/WHERE_ARE_WE.md" "## Completed"
+assert_heading "docs/development/04-memory/WHERE_ARE_WE.md" "## Recent"
+assert_heading "docs/development/04-memory/WHERE_ARE_WE.md" "## Current"
+assert_heading "docs/development/04-memory/WHERE_ARE_WE.md" "## Next"
+assert_heading "docs/development/04-memory/WHERE_ARE_WE.md" "## Risks/Blocks"
+
+assert_heading "docs/development/02-execution/KANBAN.md" "## Backlog"
+assert_heading "docs/development/02-execution/KANBAN.md" "## In Progress"
+assert_heading "docs/development/02-execution/KANBAN.md" "## Done"
+assert_heading "docs/development/02-execution/KANBAN.md" "## Blocked"
+
+printf '[session-bootstrap] validating memory freshness and drift...\n'
+
+current_state_date="$(extract_last_updated "docs/development/04-memory/CURRENT_STATE.md")"
+where_are_we_date="$(extract_last_updated "docs/development/04-memory/WHERE_ARE_WE.md")"
+kanban_date="$(extract_last_updated "docs/development/02-execution/KANBAN.md")"
+latest_ledger_date="$(extract_latest_ledger_date "docs/development/04-memory/SESSION_LEDGER.md")"
+
+[[ "$current_state_date" == "$where_are_we_date" ]] || fail "memory drift: CURRENT_STATE ($current_state_date) != WHERE_ARE_WE ($where_are_we_date)"
+[[ "$current_state_date" == "$kanban_date" ]] || fail "memory drift: CURRENT_STATE ($current_state_date) != KANBAN ($kanban_date)"
+[[ "$current_state_date" == "$latest_ledger_date" ]] || fail "memory drift: CURRENT_STATE ($current_state_date) != latest SESSION_LEDGER entry ($latest_ledger_date)"
+
+staleness_days="$(days_since "$current_state_date")"
+if (( staleness_days > MAX_STALENESS_DAYS )); then
+  fail "memory freshness exceeded: CURRENT_STATE is ${staleness_days} days old (limit ${MAX_STALENESS_DAYS})"
+fi
+
+printf '[session-bootstrap] context check passed.\n'
+printf '[session-bootstrap] Last updated date: %s (staleness: %s days)\n' "$current_state_date" "$staleness_days"
+printf '[session-bootstrap] Read order:\n'
+printf '1. docs/README.md\n'
+printf '2. docs/ruleset.md\n'
+printf '3. docs/design/nitra_system_hld.md\n'
+printf '4. docs/design/AI-enabled_trading_decision_platform.md\n'
+printf '5. docs/design/nitra_system_lld/00_README.md\n'
+printf '6. docs/design/ingestion/ruleset.md\n'
+printf '7. docs/development/04-memory/WHERE_ARE_WE.md\n'
+printf '8. docs/development/04-memory/CURRENT_STATE.md\n'
+printf '9. docs/development/04-memory/SESSION_LEDGER.md\n'
+printf '10. docs/development/02-execution/KANBAN.md\n'
+printf '11. docs/development/02-execution/ACTIVE_FOCUS.md\n'
+printf 'SESSION_BOOTSTRAP_OK\n' | Inspect bootstrap checks to identify exact failing conditions. | Success |
+| 2026-04-26 13:07:43 +0330 | # NITRA Global Master Ruleset
+
+This file is the umbrella ruleset for the full `nitra` project.
+All contributors and AI agents must read and follow this file before planning or coding.
+
+## Rule 0: Scope and Precedence
+
+- `docs/ruleset.md` is the global baseline for the whole repository.
+- Subdomain rulesets (for example `docs/design/ingestion/ruleset.md`) are mandatory inside their own scope.
+- When a global and a subdomain rule conflict, apply the stricter rule unless an ADR explicitly approves an exception.
+
+## Rule 1: Documentation Is Mandatory and Structured
+
+- Documentation must remain current for architecture, delivery, operations, and testing.
+- Primary documentation roots are:
+  - `docs/design/` for project-wide architecture and planning.
+  - `docs/design/ingestion/` for ingestion-domain details.
+- Every meaningful implementation change must include matching documentation updates in the same change set.
+
+## Rule 2: Authoritative Architecture Baseline
+
+- `docs/design/nitra_system_hld.md` is the execution-facing HLD for implementation tracking.
+- `docs/design/AI-enabled_trading_decision_platform.md` is the strategic architecture baseline and principle source.
+- `docs/design/ARCHITECTURE_DECISIONS.md` ADR-0001 is the mandatory runtime technology allocation policy.
+- All epics/stories must include an HLD alignment check before implementation and before closure.
+- Any divergence requires ADR + migration/update notes and synchronized HLD updates.
+
+## Rule 3: Domain Rulebooks Must Be Respected
+
+- Contributors must load and follow domain-specific rulebooks when working in that domain.
+- Ingestion domain source of truth: `docs/design/ingestion/ruleset.md`.
+- Additional domain rulebooks may be added later and must be treated the same way.
+
+## Rule 4: Docker-First Runtime Is Mandatory
+
+- Development and server runtime must be operable via Docker Compose from repository root.
+- Root folder is the deployable unit.
+- Services must not require undocumented host-level manual runtime steps beyond Docker/Compose prerequisites.
+- Every runnable service must keep Dockerfile + Compose contract in sync.
+
+## Rule 5: CI/CD Readiness Is a Permanent Requirement
+
+- Every service must support containerized build/test/release workflows.
+- Branch, release, tagging, and promotion conventions must stay automation-friendly.
+- Security and quality checks are required gates for deployable changes.
+
+## Rule 6: Respect Existing Contracts
+
+- Do not break architecture, API, schema, or data contracts without explicit ADR and migration notes.
+- Section 5.1 technology allocation policy must pass hard gates via `make enforce-section-5-1`.
+
+## Rule 7: Small, Traceable, Step-Based Delivery
+
+- Keep changes small and reviewable with clear intent.
+- Every implemented change must be committed; completed work must not be left uncommitted.
+- Separate commits by scope (runtime, tests, docs, infra/config) with auditable messages.
+- SDLC commit order per step should be: implementation -> tests -> docs (or a tightly scoped equivalent).
+
+## Rule 8: Test-First SDLC by Project Step
+
+- Every implemented scope must include tests aligned to that step.
+- Tests should be organized under root `tests/` by epic/story when applicable.
+- Relevant tests must be run before commit, before merge, and before release/promotion.
+- A feature is not done without updated tests, test execution evidence, and test-scope documentation updates.
+
+## Rule 9: Safety, Operability, and Data Permanence First
+
+- Prefer reliability, observability, backup/restore readiness, and rollback safety over speed-only shortcuts.
+- Project/runtime data is permanent by default in dev and prod.
+- Destructive deletion patterns are prohibited by default, including:
+  - `docker compose down -v`
+  - `docker volume rm`
+  - `docker system prune`
+  - file deletion commands targeting project/runtime data
+- Any destructive action requires explicit owner approval and documented backup/rollback evidence.
+
+## Rule 10: Environment and Configuration Discipline
+
+- Keep `dev`, `paper/staging`, and `prod` aligned via explicit configuration.
+- All env vars must have documented schema, defaults, and validation behavior.
+- Secrets must never be committed in code or plain-text env files.
+
+## Rule 11: Session Resume Context Reload Is Mandatory
+
+- At the start of each session (or after pause/handoff/context switch), reload:
+  - documentation entrypoint (`docs/README.md`),
+  - repository instructions (`AGENTS.md` when present),
+  - this global ruleset (`docs/ruleset.md`),
+  - authoritative HLDs (`docs/design/nitra_system_hld.md`, `docs/design/AI-enabled_trading_decision_platform.md`),
+  - authoritative LLD folder (`docs/design/nitra_system_lld`),
+  - development state (`docs/development/04-memory/CURRENT_STATE.md`, `docs/development/02-execution/KANBAN.md`),
+  - relevant domain docs/rulesets for the active scope.
+
+## Rule 12: Mandatory Bug Registry
+
+- Every discovered bug must be recorded under `docs/development/debugging/` with a unique code (`BUG-00001` style).
+- Bug records must include:
+  - description and impact,
+  - reproducible steps,
+  - root cause,
+  - fix details,
+  - verification evidence and status.
+- Bug documentation should be updated in the same change set as the fix whenever feasible.
+
+## Rule 13: Network Access Proxy Fallback
+
+- For internet/image-pull failures (timeout/connection), retry via `proxychains`.
+- Prefer direct access first; proxy fallback is recovery path.
+- Document proxy-related reproducibility assumptions in applicable DevOps docs.
+
+## Rule 14: "Where Are We?" Status Response Is Mandatory
+
+- When asked "Where are we?" provide a concise structured status with exactly these sections:
+  - Completed
+  - Recent
+  - Current
+  - Next
+  - Risks/Blocks
+- The response must be sourced from:
+  - `docs/development/04-memory/CURRENT_STATE.md`
+  - `docs/development/04-memory/SESSION_LEDGER.md`
+  - `docs/development/02-execution/KANBAN.md`
+- After each substantial session, update these sources so future status answers remain accurate.
+
+## Rule 15: Debug Command Logging Is Mandatory
+
+- The main debugging documents folder is `docs/development/debugging`.
+- Development and debugging commands must be logged in `docs/development/debugging/debugcmd.md` with timestamp, command text, and purpose.
+- Add log entries continuously during active debugging/development sessions (do not defer to session end only).
+- If a command fails, record failure status and short reason/evidence in the same entry. | Re-load global ruleset before applying edits. | Success |
+| 2026-04-26 13:07:43 +0330 |  +  on  | Confirm stale metadata across memory files. | Success |
+| 2026-04-26 13:07:43 +0330 | # Where Are We
+
+Last updated: 2026-04-26
+
+## Completed
+
+- `DEV-00001..DEV-00007` ingestion baseline is complete.
+- Development operating system and memory system are in place.
+- Project-wide documentation system has been unified and cross-links cleaned.
+
+## Recent
+
+- Latest delivery commit for baseline scope: `f51c5f5`.
+- HLD Section 5 coverage reviewed and synchronized into roadmap.
+- `DEV-00010` completed: `market-ingestion` connector runtime migrated to Rust.
+- `DEV-00011` completed: `market-normalization` runtime migrated to Rust.
+- `DEV-00012` completed: bar/gap/backfill deterministic runtimes migrated to Rust.
+- Charting fix session completed: corrected live candle merge logic, improved live-fit behavior, and moved market selection to header dropdowns.
+- HLD/LLD updated with mandatory startup 90-day `1m` historical coverage policy for all active instruments.
+- `DEV-00013` created to implement startup coverage audit + missing-only broker backfill.
+- `DEV-00013` runtime baseline implemented: startup 90-day coverage scan in `gap-detection`, gap persistence/events, and chunked backfill job/replay orchestration in `backfill-worker`.
+- `DEV-00013` replay execution step implemented: `replay-controller` now consumes `replay.commands` and updates `ohlcv_bar` plus backfill/replay status tables.
+- `DEV-00014` implementation added in charting backfill path: Capital history adapter, Coinbase fallback route, and session-aware FX weekend continuity policy.
+- `DEV-00013` replay path upgraded with venue-history fallback adapters (`oanda`/`coinbase`/`capital`) for ranges that remain incomplete after raw-tick replay.
+- `DEV-00014` adapter hardening completed with retry behavior improvements and live probe endpoint `POST /api/v1/backfill/adapter-check`.
+- Backfill execution priority updated to recent-first (`newest -> oldest`) for missing ranges.
+- Added gap-detection periodic coverage scanner plus explicit charting window endpoint (`/api/v1/backfill/window`) for automatic and operator-driven gap recovery.
+- Charting non-`1m` timeframes now derive from `1m` backfilled history, improving full-range availability after 90d coverage rebuild.
+
+## Current
+
+- Section 5.1 hard-gate enforcement active with deterministic-core migration batch completed.
+- `DEV-00013` implementation is complete in code; runtime evidence capture is in progress.
+- `DEV-00014` implementation is complete in code; runtime evidence capture is in progress.
+
+## Next
+
+1. Run live compose validation and collect post-fix `backfill_jobs` / `replay_audit` evidence.
+2. Promote `DEV-00013` and `DEV-00014` from in-progress to done after evidence capture.
+3. Implement deterministic structure-engine runtime baseline.
+4. Implement deterministic risk/execution runtime baselines.
+
+## Risks/Blocks
+
+- Context drift if session close memory updates are skipped.
+- Delivery risk shifted to deterministic engine implementation depth (structure/risk/execution).
+- Open dependency: live runtime credentials/network still required to validate all venue adapters end-to-end.
+- Runtime dependency: Coinbase venue history can be blocked on Exchange endpoint; fallback endpoint behavior must be monitored.
+
+## Section 5.1 Compliance Snapshot
+
+- Hard gate status: active
+- Deterministic-core Python services: none
+- Blocked policy: no net-new deterministic Python scope
+- Current migration tickets: none | Inspect  header before edit. | Success |
+| 2026-04-26 13:07:43 +0330 | # NITRA Project Kanban
+
+Last updated: 2026-04-26
+
+## Backlog
+
+- [ ] Implement deterministic `structure-engine` runtime baseline.
+- [ ] Implement deterministic `risk-engine` runtime baseline.
+- [ ] Implement `execution-gateway` runtime baseline with order-state machine.
+- [ ] Implement project-wide audit/journal event persistence contract.
+
+## In Progress
+
+- [ ] `DEV-00013` enforce startup 90-day `1m` coverage and missing-only backfill for all active instruments.
+- [ ] `DEV-00014` implement venue-history adapters and session-aware continuity policy for 90-day backfill.
+
+## Done
+
+- [x] Initialized NITRA git repository and created baseline initial commit.
+- [x] Split ruleset responsibilities into global (`docs/ruleset.md`) and ingestion domain (`docs/design/ingestion/ruleset.md`).
+- [x] Created development workspace and registered `DEV-00001` program scope.
+- [x] `DEV-00002` ingestion reuse mapping (`../barsfp` -> `nitra`) with strict reject list.
+- [x] `DEV-00003` Kafka contracts and topic bootstrap for NITRA ingestion.
+- [x] `DEV-00004` canonical ingestion schema and idempotency ledger migrations.
+- [x] `DEV-00005` minimal ingestion service wire-up in compose.
+- [x] `DEV-00006` replay and idempotency verification tests.
+- [x] `DEV-00007` development runbook for live ingestion startup/validation.
+- [x] Reorganized `docs/` into a unified documentation entrypoint and coherent cross-link structure.
+- [x] Embedded mandatory "Where are we?" status protocol in rulesets and memory operating model.
+- [x] ADR/HLD/LLD policy baseline for Section 5.1 runtime allocation and boundaries.
+- [x] Section 5.1 hard-gate technology enforcement rollout (`make enforce-section-5-1`).
+- [x] `DEV-00010` Rust migration for market ingestion connectors.
+- [x] `DEV-00011` Rust migration for market normalization/replay.
+- [x] `DEV-00012` Rust migration for bar/gap/backfill controller.
+- [x] Implement replay controller to consume `replay.commands`.
+- [x] `DEV-00015` chart interaction UX parity upgrade (15 interaction features).
+
+## Blocked
+
+- [ ] (No blocked items) | Inspect  header before edit. | Success |
+| 2026-04-26 13:07:43 +0330 |  on  and  | Update both  headers to . | Success |
+| 2026-04-26 13:07:43 +0330 | scripts/session/session-bootstrap.sh
+[session-bootstrap] validating required context files...
+[session-bootstrap] AGENTS.md not present at repository root (allowed by ruleset when absent).
+[session-bootstrap] validating required status structure...
+[session-bootstrap] validating memory freshness and drift...
+[session-bootstrap] context check passed.
+[session-bootstrap] Last updated date: 2026-04-26 (staleness: 0 days)
+[session-bootstrap] Read order:
+1. docs/README.md
+2. docs/ruleset.md
+3. docs/design/nitra_system_hld.md
+4. docs/design/AI-enabled_trading_decision_platform.md
+5. docs/design/nitra_system_lld/00_README.md
+6. docs/design/ingestion/ruleset.md
+7. docs/development/04-memory/WHERE_ARE_WE.md
+8. docs/development/04-memory/CURRENT_STATE.md
+9. docs/development/04-memory/SESSION_LEDGER.md
+10. docs/development/02-execution/KANBAN.md
+11. docs/development/02-execution/ACTIVE_FOCUS.md
+SESSION_BOOTSTRAP_OK | Re-run requested bootstrap after metadata sync. | Success () |
+| 2026-04-26 13:07:43 +0330 | # Debug Command Log
+
+This file records development/debugging commands with timestamp, command text, purpose, and result.
+Timezone used in this log: `+0330` (Asia/Tehran).
+
+## Log Entries
+
+| Timestamp | Command | Purpose | Result |
+| --- | --- | --- | --- |
+| 2026-04-26 09:05:55 +0330 | `rg --files -g 'ruleset.md' -g 'docs/ruleset.md'` | Locate active ruleset files before making changes. | Success |
+| 2026-04-26 09:05:55 +0330 | `cat docs/ruleset.md` | Load global ruleset and apply repo policy. | Success |
+| 2026-04-26 09:05:55 +0330 | `find docs -type d \( -iname '*bug*' -o -iname '*debug*' \) | sort` | Discover existing bug/debug directories to migrate. | Success |
+| 2026-04-26 09:05:55 +0330 | `find docs -type f \( -iname '*bug*' -o -iname '*debug*' \) | sort` | Discover existing bug/debug files to migrate. | Success |
+| 2026-04-26 09:05:55 +0330 | `rg -n "docs/design/ingestion/bugs|/bugs/|BUG-000" docs` | Identify references that require path updates. | Success |
+| 2026-04-26 09:05:55 +0330 | `rg -n "debug|debugging|debugcmd" docs/ruleset.md docs/design/ingestion/ruleset.md docs/development/README.md` | Check for existing debug instruction coverage. | No matches (exit 1) |
+| 2026-04-26 09:05:55 +0330 | `mkdir -p docs/development/debugging && mv docs/design/ingestion/bugs/*.md docs/development/debugging/ && rmdir docs/design/ingestion/bugs` | Move all bug docs into the new canonical debugging folder. | Success |
+| 2026-04-26 09:05:55 +0330 | `rg -n "docs/design/ingestion/bugs|docs/bugs/|docs/bugs\`|docs/bugs"` | Search for old bug path references after move. | Failed (shell quote error: `unmatched \"`) |
+| 2026-04-26 09:05:55 +0330 | `rg -n 'docs/design/ingestion/bugs'` | Retry old-path reference scan with corrected quoting. | Success |
+| 2026-04-26 09:05:55 +0330 | `rg -n 'docs/bugs' docs` | Find references to legacy global bug path. | Success |
+| 2026-04-26 09:05:55 +0330 | `sed -n '1,220p' docs/ruleset.md` | Review ruleset section before applying policy update. | Success |
+| 2026-04-26 09:05:55 +0330 | `sed -n '1,240p' docs/design/ingestion/ruleset.md` | Review ingestion ruleset section before path changes. | Success |
+| 2026-04-26 09:05:55 +0330 | `sed -n '1,220p' docs/development/debugging/README.md` | Review moved bug registry readme before rewrite. | Success |
+| 2026-04-26 09:05:55 +0330 | `sed -n '1,180p' docs/knowledgebase/ingestion/KB-00002-stale-exchange-timestamp-ohlcv-gap.md` | Verify and update linked bug record path. | Success |
+| 2026-04-26 09:06:57 +0330 | `date '+%Y-%m-%d %H:%M:%S %z'` | Capture current local timestamp for log continuity. | Success |
+| 2026-04-26 09:06:57 +0330 | `apply_patch` on `docs/ruleset.md` | Update global bug-registry path and add debug command logging rule. | Success |
+| 2026-04-26 09:06:57 +0330 | `apply_patch` on `docs/design/ingestion/ruleset.md` | Update ingestion bug-registry path and remove old subject-folder reference. | Success |
+| 2026-04-26 09:06:57 +0330 | `apply_patch` on `docs/development/README.md` | Add new `debugging/` folder to development folder map. | Success |
+| 2026-04-26 09:06:57 +0330 | `apply_patch` on `docs/knowledgebase/ingestion/KB-00002-stale-exchange-timestamp-ohlcv-gap.md` | Replace linked bug file path to new debugging registry location. | Success |
+| 2026-04-26 09:06:57 +0330 | `apply_patch` on `docs/development/debugging/README.md` | Rewrite as debugging registry and add `debugcmd.md` requirement. | Success |
+| 2026-04-26 09:06:57 +0330 | `cat > docs/development/debugging/debugcmd.md <<'EOF' ...` | Create canonical debug command log file with timestamped entries. | Success |
+| 2026-04-26 09:06:57 +0330 | `rg -n 'docs/design/ingestion/bugs|docs/bugs' docs` | Final check for stale references to deprecated bug locations. | Success (matches only inside command log) |
+| 2026-04-26 09:06:57 +0330 | `ls -1 docs/development/debugging` | Validate migrated files and new log file exist in target folder. | Success |
+| 2026-04-26 09:06:57 +0330 | `git status --short` | Verify final working tree changes for user review/commit. | Success |
+| 2026-04-26 09:09:39 +0330 | `date '+%Y-%m-%d %H:%M:%S %z'` | Capture timestamp before updating Rule 15 wording. | Success |
+| 2026-04-26 09:09:39 +0330 | `rg -n "Rule 15|Debug Command Logging" docs/ruleset.md` | Locate Rule 15 section for precise edit. | Success |
+| 2026-04-26 09:09:39 +0330 | `apply_patch` on `docs/ruleset.md` | Add explicit statement that main debugging documents folder is `docs/development/debugging`. | Success |
+| 2026-04-26 09:13:24 +0330 | `docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT venue, canonical_symbol, COUNT(*) AS cnt FROM ohlcv_bar GROUP BY venue, canonical_symbol ORDER BY cnt DESC;"` | Run requested OHLCV coverage query using prior command pattern. | Failed (`postgres` service not running) |
+| 2026-04-26 09:13:24 +0330 | `docker compose ps` | Check active service names and health after query failure. | Success |
+| 2026-04-26 09:13:24 +0330 | `docker compose exec -T timescaledb psql -U trading -d trading -c "SELECT venue, canonical_symbol, COUNT(*) AS cnt FROM ohlcv_bar GROUP BY venue, canonical_symbol ORDER BY cnt DESC;"` | Re-run requested OHLCV coverage query on active DB service. | Success |
+| 2026-04-26 09:13:24 +0330 | `\d symbol_registry` | Probe expected symbol registry table for full-universe comparison. | Failed (relation not found) |
+| 2026-04-26 09:13:24 +0330 | `SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND (table_name ILIKE '%symbol%' OR table_name ILIKE '%instrument%' OR table_name ILIKE '%registry%' OR table_name ILIKE '%coverage%' OR table_name ILIKE '%gap%' OR table_name ILIKE '%backfill%') ORDER BY table_name;` | Discover available runtime coverage/gap/backfill tables. | Success |
+| 2026-04-26 09:13:24 +0330 | `\d coverage_state` | Inspect coverage-state schema to support missing-data analysis. | Success |
+| 2026-04-26 09:13:24 +0330 | `WITH counts AS (...) SELECT ... pct_of_venue_max ... FROM ohlcv_bar ...` | Quantify per-symbol OHLCV shortfall by venue. | Success |
+| 2026-04-26 09:13:24 +0330 | `SELECT venue, symbol, ... FROM gap_log WHERE resolved_at IS NULL ...` | Check unresolved gaps by symbol. | Failed (`symbol` column does not exist) |
+| 2026-04-26 09:13:24 +0330 | `SELECT status, COUNT(*) AS jobs FROM backfill_jobs GROUP BY status ORDER BY status;` | Check whether backlog persists in backfill pipeline. | Success |
+| 2026-04-26 09:13:24 +0330 | `\d gap_log` | Inspect gap_log schema and correct unresolved-gap query columns. | Success |
+| 2026-04-26 09:13:24 +0330 | `SELECT venue, canonical_symbol, timeframe, COUNT(*) AS open_gaps ... FROM gap_log WHERE status='open' ...` | Confirm whether symbols still have open gap records. | Success (0 open gaps) |
+| 2026-04-26 09:13:24 +0330 | `\d backfill_jobs` | Inspect backfill job schema for status drilldown fields. | Success |
+| 2026-04-26 09:13:24 +0330 | `SELECT venue, canonical_symbol, timeframe, status, COUNT(*) AS jobs ... FROM backfill_jobs ...` | Identify stalled/queued backfill ranges per symbol. | Success |
+| 2026-04-26 09:13:24 +0330 | `\d replay_audit` | Inspect replay audit schema for backlog-pressure verification. | Success |
+| 2026-04-26 09:13:24 +0330 | `SELECT status, COUNT(*) AS rows, MIN(started_at), MAX(started_at), SUM(moved_messages) FROM replay_audit GROUP BY status ORDER BY status;` | Quantify replay backlog and failure pressure impacting backfill convergence. | Success |
+| 2026-04-26 09:20:23 +0330 | `cat docs/ruleset.md` | Reload global ruleset before redesign/planning and edits. | Success |
+| 2026-04-26 09:20:23 +0330 | `cat docs/design/ingestion/ruleset.md` | Reload ingestion domain ruleset before redesign/planning and edits. | Success |
+| 2026-04-26 09:20:23 +0330 | `rg --files services | rg 'gap-detection|backfill-worker|replay-controller'` | Enumerate core recovery services for redesign scope. | Success |
+| 2026-04-26 09:20:23 +0330 | `sed -n '...' services/gap-detection/src/main.rs` | Review full gap detection flow and startup/periodic coverage scan logic. | Success |
+| 2026-04-26 09:20:23 +0330 | `sed -n '...' services/backfill-worker/src/main.rs` | Review gap chunking, enqueue, stale recovery, and requeue behavior. | Success |
+| 2026-04-26 09:20:23 +0330 | `sed -n '...' services/replay-controller/src/main.rs` | Review replay execution, history fallback, and job status transitions. | Success |
+| 2026-04-26 09:20:23 +0330 | `cat infra/symbols/registry.v1.json` | Validate registry mappings against active venue symbol universe. | Success |
+| 2026-04-26 09:20:23 +0330 | `apply_patch` on `infra/symbols/registry.v1.json` | Remove invalid `coinbase/EURUSD` mapping and add missing OANDA/CAPITAL index/metals mappings. | Success |
+| 2026-04-26 09:20:23 +0330 | `apply_patch` on `services/gap-detection/src/main.rs` | Add registry-scoped scan mode and drop unknown stream markets from gap planning. | Success |
+| 2026-04-26 09:20:23 +0330 | `apply_patch` on `services/backfill-worker/src/main.rs` | Enforce registry guardrail before creating/re-enqueuing replay workload. | Success |
+| 2026-04-26 09:20:23 +0330 | `apply_patch` on `services/replay-controller/src/main.rs` | Fail unknown markets fast with terminal status (`failed_unknown_market`). | Success |
+| 2026-04-26 09:20:23 +0330 | `apply_patch` on `docs/design/ingestion/07-devdocs/01-development-environment/ingestion-service-env.md` | Document new guardrail env vars and runtime behavior. | Success |
+| 2026-04-26 09:20:23 +0330 | `cat > .../simplified-gap-backfill-redesign.md <<'EOF'` | Add simplified practical redesign and rollout steps document. | Success |
+| 2026-04-26 09:20:23 +0330 | `cargo test` (`services/gap-detection`) | Validate redesigned gap detection changes and unit tests. | Success |
+| 2026-04-26 09:20:23 +0330 | `cargo test` (`services/backfill-worker`) | Validate registry guardrails and recovery logic tests. | Success |
+| 2026-04-26 09:20:23 +0330 | `cargo test` (`services/replay-controller`) | Validate unknown-market terminal handling and existing replay tests. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo fmt` (`services/gap-detection`) | Format modified gap detection source after redesign changes. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo fmt` (`services/backfill-worker`) | Format modified backfill worker source after redesign changes. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo fmt` (`services/replay-controller`) | Format modified replay controller source after redesign changes. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo test` (`services/gap-detection`) | Re-verify tests after formatting. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo test` (`services/backfill-worker`) | Re-verify tests after formatting. | Success |
+| 2026-04-26 09:21:11 +0330 | `cargo test` (`services/replay-controller`) | Re-verify tests after formatting. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT ... unknown backfill_jobs not in registry ...` | Capture before snapshot of legacy unknown-market backlog rows. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT ... 90d coverage debt by registry market ...` | Capture before coverage-debt baseline. | Failed (SQL alias `window` syntax conflict) |
+| 2026-04-26 09:34:15 +0330 | `SELECT ... 90d coverage debt by registry market ...` (corrected) | Re-run before coverage-debt baseline with corrected SQL. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT table_name,status,COUNT(*) FROM backfill_jobs/replay_audit ...` | Capture before backlog status distribution. | Success |
+| 2026-04-26 09:34:15 +0330 | `mkdir -p docs/development/debugging/sql docs/development/debugging/reports` | Create folders for one-time SQL cleanup and report artifacts. | Success |
+| 2026-04-26 09:34:15 +0330 | `cat > docs/development/debugging/sql/2026-04-26-one-time-cleanup-legacy-unknown-market-backfill.sql <<'EOF' ...` | Author safe one-time status-only cleanup SQL script for unknown markets. | Success |
+| 2026-04-26 09:34:15 +0330 | `docker compose exec -T timescaledb psql ... -f /workspace/...sql` | Execute cleanup script from file path in container. | Failed (path not mounted in container) |
+| 2026-04-26 09:34:15 +0330 | `cat ...sql | docker compose exec -T timescaledb psql ...` | Execute one-time cleanup SQL by piping script to psql. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT ... unknown backfill_jobs not in registry ...` | Capture after snapshot of unknown-market backlog rows. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT table_name,status,COUNT(*) FROM backfill_jobs/replay_audit ...` | Capture after backlog status distribution. | Success |
+| 2026-04-26 09:34:15 +0330 | `SELECT ... 90d coverage debt by registry market ...` | Capture after coverage-debt snapshot. | Success |
+| 2026-04-26 09:34:15 +0330 | `cat > docs/design/ingestion/03-reliability-risk-ops/backfill-backlog-cleanup-and-drain-policy.md <<'EOF' ...` | Add formal cleanup/drain policy for backlog normalization. | Success |
+| 2026-04-26 09:34:15 +0330 | `cat > docs/development/debugging/reports/coverage-debt-before-after-2026-04-26.md <<'EOF' ...` | Publish before/after cleanup + coverage-debt report with deltas. | Success |
+
+## Maintenance Rule
+
+For every future development/debugging session, append new entries to this file at execution time.
+| 2026-04-26 12:52:22 +0330 | `rg --files` | Inventory repository files before auditing session-resume mechanisms. | Success |
+| 2026-04-26 12:52:22 +0330 | `rg -n "bootstrap|resume|CURRENT_STATE|SESSION_LEDGER|KANBAN|where are we|ensure_readiness|ruleset|Rule 11|reload" docs scripts Makefile AGENTS.md` | Locate all documented/implemented resume and memory workflow references. | Failed (exit 2: some search roots missing) |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,220p' docs/development/README.md` | Verify mandatory resume read order and governance guidance. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,220p' docs/development/04-memory/MEMORY_OPERATING_SYSTEM.md` | Validate session protocol and memory operating model requirements. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,220p' docs/development/00-governance/SDLC_OPERATING_MODEL.md` | Validate SDLC-level enforcement expectations for session start/end behavior. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,260p' Makefile` | Check whether resume/memory workflow is enforced via runnable targets. | Success |
+| 2026-04-26 12:52:22 +0330 | `rg -n "CURRENT_STATE|SESSION_LEDGER|WHERE_ARE_WE|KANBAN|ruleset|session start|resume|mandatory read order|where-are-we|enforce" scripts tests .github .git/hooks` | Inspect executable automation and hooks for resume compliance checks. | Failed (exit 2: missing `.github`/hooks paths) |
+| 2026-04-26 12:52:22 +0330 | `find scripts -maxdepth 3 -type f | sort` | Enumerate available automation scripts related to enforcement. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,260p' docs/development/04-memory/CURRENT_STATE.md` | Check memory freshness and in-progress objective continuity. | Success |
+| 2026-04-26 12:52:22 +0330 | `tail -n 220 docs/development/04-memory/SESSION_LEDGER.md` | Inspect latest session entries for ongoing handoff continuity. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,260p' docs/development/02-execution/KANBAN.md` | Verify execution board freshness versus memory artifacts. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,240p' docs/development/04-memory/WHERE_ARE_WE.md` | Verify quick-status source freshness and consistency with CURRENT_STATE. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,220p' docs/README.md` | Confirm top-level documentation entrypoint still points to resume sources. | Success |
+| 2026-04-26 12:52:22 +0330 | `sed -n '1,240p' AGENTS.md` | Validate repository-level instructions presence for resume bootstrap. | Failed (`AGENTS.md` not found at repository root) |
+| 2026-04-26 12:53:02 +0330 | `ls -la scripts/evaluation` | Check for dedicated session-readiness/bootstrap automation path referenced in prior workflows. | Failed (`scripts/evaluation` missing) |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/ruleset.md` | Reload global ruleset before implementing session bootstrap enforcement. | Success |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/design/ingestion/ruleset.md` | Reload ingestion domain ruleset before implementing enforcement changes. | Success |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/development/04-memory/README.md` | Reload memory discipline docs to align bootstrap checks with required artifacts. | Success |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/development/04-memory/MEMORY_OPERATING_SYSTEM.md` | Reload memory operating protocol and "Where are we?" source expectations. | Success |
+| 2026-04-26 13:02:51 +0330 | `ls -la scripts && find scripts -maxdepth 2 -type f | sort` | Inspect script layout before adding session bootstrap automation. | Success |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/development/04-memory/SESSION_LEDGER.md` | Verify session ledger heading format for bootstrap parsing. | Success |
+| 2026-04-26 13:02:51 +0330 | `sed -n '1,220p' docs/development/02-execution/ACTIVE_FOCUS.md` | Verify active-focus file path for bootstrap required-context list. | Success |
+| 2026-04-26 13:02:51 +0330 | `apply_patch` on `scripts/session/session-bootstrap.sh` | Add strict session-start bootstrap validation script with freshness/drift checks. | Success |
+| 2026-04-26 13:02:51 +0330 | `apply_patch` on `Makefile` | Add single-command target `session-bootstrap` for session-start enforcement. | Success |
+| 2026-04-26 13:02:51 +0330 | `chmod +x scripts/session/session-bootstrap.sh && make session-bootstrap` | Mark bootstrap script executable and validate fail-fast behavior. | Failed (`CURRENT_STATE` and `WHERE_ARE_WE` date drift detected) |
+| 2026-04-26 13:02:51 +0330 | `apply_patch` on `docs/ruleset.md` | Fix Rule 11 typo in global ruleset path reference. | Success |
+| 2026-04-26 13:02:51 +0330 | `apply_patch` on `docs/development/README.md` | Document `make session-bootstrap` as the mandatory session-start command. | Success |
+| 2026-04-26 13:03:17 +0330 | `make session-bootstrap` | Re-run bootstrap command after wiring/docs changes to verify fail-fast behavior remains active. | Failed (`CURRENT_STATE` and `WHERE_ARE_WE` date drift detected) |
+| 2026-04-26 13:03:17 +0330 | `git status --short` | Confirm modified files and ensure session-bootstrap changes are present in working tree. | Success |
+| 2026-04-26 13:03:33 +0330 | `nl -ba Makefile | sed -n '1,40p'` | Capture line references for new `session-bootstrap` target. | Success |
+| 2026-04-26 13:03:33 +0330 | `nl -ba scripts/session/session-bootstrap.sh | sed -n '1,260p'` | Capture line references for bootstrap checks and fail-fast logic. | Success |
+| 2026-04-26 13:03:33 +0330 | `nl -ba docs/development/README.md | sed -n '1,80p'` | Capture line references for startup command documentation. | Success |
+| 2026-04-26 13:03:33 +0330 | `nl -ba docs/ruleset.md | sed -n '80,110p'` | Verify corrected Rule 11 path reference. | Success |
+| 2026-04-26 13:07:56 +0330 | `rg --files | rg '(^|/)ruleset\\.md$'` | Locate applicable ruleset files before running requested bootstrap command. | Success |
+| 2026-04-26 13:07:56 +0330 | `make session-bootstrap` | Run requested session bootstrap validation. | Failed (`CURRENT_STATE` vs `WHERE_ARE_WE` date drift) |
+| 2026-04-26 13:07:56 +0330 | `sed -n '1,220p' scripts/session/session-bootstrap.sh` | Inspect bootstrap checks to identify exact failing condition. | Success |
+| 2026-04-26 13:07:56 +0330 | `sed -n '1,220p' docs/ruleset.md` | Re-load global ruleset before applying edits. | Success |
+| 2026-04-26 13:07:56 +0330 | `grep -E '^Last updated:' docs/development/04-memory/CURRENT_STATE.md` | Check status metadata date used by bootstrap drift validation. | Success |
+| 2026-04-26 13:07:56 +0330 | `grep -E '^Last updated:' docs/development/04-memory/WHERE_ARE_WE.md` | Check status metadata date used by bootstrap drift validation. | Success |
+| 2026-04-26 13:07:56 +0330 | `grep -E '^Last updated:' docs/development/02-execution/KANBAN.md` | Check status metadata date used by bootstrap drift validation. | Success |
+| 2026-04-26 13:07:56 +0330 | `grep -E '^## [0-9]{4}-[0-9]{2}-[0-9]{2} — Session Entry [0-9]+' docs/development/04-memory/SESSION_LEDGER.md | tail -n1` | Verify latest ledger date for drift comparison. | Success |
+| 2026-04-26 13:07:56 +0330 | `sed -n '1,120p' docs/development/04-memory/WHERE_ARE_WE.md` | Inspect `WHERE_ARE_WE.md` header before edit. | Success |
+| 2026-04-26 13:07:56 +0330 | `sed -n '1,120p' docs/development/02-execution/KANBAN.md` | Inspect `KANBAN.md` header before edit. | Success |
+| 2026-04-26 13:07:56 +0330 | `apply_patch` on `docs/development/04-memory/WHERE_ARE_WE.md` and `docs/development/02-execution/KANBAN.md` | Update both `Last updated` headers to `2026-04-26`. | Success |
+| 2026-04-26 13:07:56 +0330 | `make session-bootstrap` | Re-run requested bootstrap after metadata synchronization. | Success (`SESSION_BOOTSTRAP_OK`) |
+| 2026-04-26 13:07:56 +0330 | `sed -n '1,200p' docs/development/debugging/debugcmd.md` | Verify command-log file before appending this session entries. | Success |
+| 2026-04-26 13:07:56 +0330 | `tail -n 40 docs/development/debugging/debugcmd.md` | Inspect trailing rows after failed append due to shell quoting. | Success |
+| 2026-04-26 13:07:56 +0330 | `nl -ba docs/development/debugging/debugcmd.md | tail -n 12` | Identify malformed table row location before repair. | Success |
+| 2026-04-26 13:07:56 +0330 | `date '+%Y-%m-%d %H:%M:%S %z'` | Capture timestamp for corrected debug-log entries. | Success |
+| 2026-04-26 13:33:06 +0330 | `sed -n '1,220p' docs/ruleset.md` | Reload global ruleset before applying user-requested commit-policy wording update. | Success |
+| 2026-04-26 13:33:06 +0330 | `tail -n 30 docs/development/debugging/debugcmd.md` | Inspect existing command-log tail before appending new entries. | Success |
+| 2026-04-26 13:33:06 +0330 | `git diff -- docs/ruleset.md` | Check current pending delta in ruleset file before adding new rule sentence. | Success |
+| 2026-04-26 13:33:06 +0330 | `apply_patch` on `docs/ruleset.md` | Add explicit Rule 7 statement requiring commit at task/session completion with proper message. | Success |
+| 2026-04-26 13:33:06 +0330 | `apply_patch` on `docs/development/debugging/debugcmd.md` | Append this session's debug-command log entries. | Success |
+| 2026-04-26 13:33:45 +0330 | `date '+%Y-%m-%d %H:%M:%S %z'` | Capture timestamp for commit-phase command logging. | Success |
+| 2026-04-26 13:33:45 +0330 | `git add docs/ruleset.md docs/development/debugging/debugcmd.md` | Stage only the requested rule update and corresponding command log entries. | Success |
+| 2026-04-26 13:33:45 +0330 | `git commit -m "docs: require end-of-task commit per session"` | Commit ruleset update with clear task-scoped message. | Success |

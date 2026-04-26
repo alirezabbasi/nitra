@@ -53,6 +53,7 @@ All contributors and AI agents must read and follow this file before planning or
 
 - Keep changes small and reviewable with clear intent.
 - Every implemented change must be committed; completed work must not be left uncommitted.
+- When a task is finished in any chat/session, commit the related changes in that same session with a clear, scope-accurate commit message.
 - Separate commits by scope (runtime, tests, docs, infra/config) with auditable messages.
 - SDLC commit order per step should be: implementation -> tests -> docs (or a tightly scoped equivalent).
 
@@ -93,7 +94,7 @@ All contributors and AI agents must read and follow this file before planning or
 
 ## Rule 12: Mandatory Bug Registry
 
-- Every discovered bug must be recorded under `docs/bugs/` with a unique code (`BUG-00001` style).
+- Every discovered bug must be recorded under `docs/development/debugging/` with a unique code (`BUG-00001` style).
 - Bug records must include:
   - description and impact,
   - reproducible steps,
@@ -121,3 +122,10 @@ All contributors and AI agents must read and follow this file before planning or
   - `docs/development/04-memory/SESSION_LEDGER.md`
   - `docs/development/02-execution/KANBAN.md`
 - After each substantial session, update these sources so future status answers remain accurate.
+
+## Rule 15: Debug Command Logging Is Mandatory
+
+- The main debugging documents folder is `docs/development/debugging`.
+- Development and debugging commands must be logged in `docs/development/debugging/debugcmd.md` with timestamp, command text, and purpose.
+- Add log entries continuously during active debugging/development sessions (do not defer to session end only).
+- If a command fails, record failure status and short reason/evidence in the same entry.
