@@ -137,6 +137,7 @@ COINBASE profile:
 - `GAP_PERIODIC_SCAN_INTERVAL_SECS` default `300` (periodic scan interval)
 - `GAP_PERIODIC_SCAN_MARKETS_PER_CYCLE` default `64` (bounded market scan per cycle)
 - `GAP_SYMBOL_REGISTRY_PATH` default `/etc/nitra/registry.v1.json`
+- `GAP_INCLUDE_DB_DISCOVERED_MARKETS` default `false` (when `false`, gap scanner is registry-scoped only to avoid accidental market fanout)
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 ## backfill-worker
@@ -146,6 +147,7 @@ COINBASE profile:
 - `BACKFILL_REPLAY_TOPIC` default `replay.commands`
 - `BACKFILL_GROUP_ID` default `nitra-backfill-worker-v1`
 - `BACKFILL_TARGET_GROUP` default `nitra-market-normalization-v1`
+- `BACKFILL_SYMBOL_REGISTRY_PATH` default `/etc/nitra/registry.v1.json`
 - `BACKFILL_STARTUP_PROCESS_OPEN_GAPS` default `true`
 - `BACKFILL_FETCH_CHUNK_MINUTES` default `1440` (larger default to reduce queue pressure for 90d rebuilds)
 - `BACKFILL_RECOVERY_ENABLED` default `true` (periodically re-enqueue orphaned `queued` jobs into `replay.commands`)
@@ -192,3 +194,4 @@ Notes:
 - Backfill recovery loop is persistent: stale `running` rows auto-reset, and `queued` jobs are periodically re-enqueued for replay execution so recovery can continue after consumer interruptions.
 - Recovery re-enqueue is stale-only: jobs are replayed only when queue/audit timestamps indicate they are stuck, and selection order is oldest pending enqueue first.
 - Recovery applies replay-queue backpressure: re-enqueue batch is dynamically reduced between low/high queued watermarks and hard-stopped above high watermark to prevent unbounded queue growth.
+- Registry guardrails are fail-closed: unknown `(venue, canonical_symbol)` pairs are ignored in backfill and marked failed in replay to prevent infinite queue churn from bad mappings.
