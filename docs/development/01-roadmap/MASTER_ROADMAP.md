@@ -1,6 +1,6 @@
 # Master Roadmap (HLD Section 5 Aligned)
 
-Last updated: 2026-04-24
+Last updated: 2026-04-26
 
 ## Status legend
 
@@ -21,7 +21,7 @@ Last updated: 2026-04-24
 | 2 | Raw Data Lake (Object Storage archival) | `partial` | `compliant` |
 | 3 | Kafka Event Backbone | `implemented` | `compliant` |
 | 4 | Market Normalization & Replay | `partial` | `compliant` |
-| 5 | Deterministic Structure Engine (Rust) | `scaffold` | `compliant` |
+| 5 | Deterministic Structure Engine (Rust) | `partial` | `compliant` |
 | 6 | Time-Series Storage (TimescaleDB) | `implemented` | `compliant` |
 | 7 | Feature Platform (Feast) | `not_started` | `blocked` |
 | 8 | Research/Backtesting/Dataset Builder + MLflow integration | `partial` | `compliant` |
@@ -35,13 +35,12 @@ Last updated: 2026-04-24
 
 ## Recommended next implementation sequence
 
-1. Structure engine baseline (service skeleton + input/output contracts)
-2. Risk engine deterministic checks baseline
-3. Execution gateway order-state machine baseline
-4. Audit/journal events for deterministic decision path
-5. Feature platform bootstrap (contract-first)
-6. Inference gateway service logic with schema validation
-7. RAG/LLM advisory path with strict boundaries
+1. Risk engine deterministic checks baseline
+2. Execution gateway order-state machine baseline
+3. Audit/journal events for deterministic decision path
+4. Feature platform bootstrap (contract-first)
+5. Inference gateway service logic with schema validation
+6. RAG/LLM advisory path with strict boundaries
 
 ## Gate policy between modules
 

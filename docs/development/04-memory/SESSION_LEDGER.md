@@ -432,3 +432,36 @@ Append one entry at the end of each substantial session.
   - adapter-check diagnostics surfaced explicit external-network failures (reachable observability path).
 - Next recommended action:
   - start deterministic `structure-engine` baseline ticket and open focused adapter-network resilience follow-up for runtime environments with unstable outbound connectivity.
+
+---
+
+## 2026-04-26 — Session Entry 020
+
+- Objective:
+  - implement deterministic `structure-engine` runtime baseline and remove scaffold-only status.
+- Work completed:
+  - replaced `services/structure-engine` scaffold with runnable Rust service (`Cargo.toml`, `src/main.rs`).
+  - implemented deterministic baseline state machine over `bar.1m` input:
+    - trend/objective/phase transitions,
+    - pullback + minor/major confirmation event emission,
+    - snapshot emission for every consumed bar.
+  - added replay-safe idempotency guard using `processed_message_ledger`.
+  - added persisted single-source-of-truth table `structure_state` (`infra/timescaledb/init/007_structure_state.sql`) with runtime `CREATE TABLE IF NOT EXISTS` safety.
+  - updated compose contract for `structure-engine` runtime env/topic wiring and removed `sleep` command.
+  - added structure Kafka topic bootstrap entries:
+    - `structure.snapshot.v1`
+    - `structure.pullback.v1`
+    - `structure.minor_confirmed.v1`
+    - `structure.major_confirmed.v1`
+  - added ticket + test pack:
+    - `docs/development/tickets/DEV-0018-structure-engine-baseline.md`
+    - `tests/dev-0018/run.sh`
+    - `make test-dev-0018` target.
+  - synchronized roadmap/kanban/memory/devdocs/LLD artifacts to mark structure baseline completed.
+- Verification:
+  - `CARGO_TARGET_DIR=/tmp/nitra-structure-engine-target cargo check --offline --manifest-path services/structure-engine/Cargo.toml` passes.
+  - `CARGO_TARGET_DIR=/tmp/nitra-structure-engine-target cargo test --offline --manifest-path services/structure-engine/Cargo.toml` passes.
+  - `tests/dev-0018/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+- Next recommended action:
+  - implement deterministic `risk-engine` baseline, then `execution-gateway` baseline, followed by project-wide audit/journal contract persistence.

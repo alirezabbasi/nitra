@@ -49,17 +49,23 @@ Last updated: 2026-04-26
   - SQL status snapshots captured for `backfill_jobs`, `replay_audit`, `gap_log`.
   - coverage metrics/status endpoints captured from charting.
   - adapter-check probes captured explicit external-network error diagnostics (`Network is unreachable`, `timed out`, `Temporary failure in name resolution`).
+- Completed `DEV-0018` deterministic structure-engine baseline:
+  - replaced `structure-engine` scaffold with runnable Rust runtime,
+  - consumes `bar.1m`, emits `structure.snapshot.v1`/`structure.pullback.v1`/`structure.minor_confirmed.v1`/`structure.major_confirmed.v1`,
+  - persists single-source-of-truth state in `structure_state`,
+  - added compose/topic/schema contracts plus `tests/dev-0018`.
 
 ### Current
 
 - `DEV-00013` closed with live runtime evidence and explicit surfaced error-state diagnostics.
 - `DEV-00014` closed with live adapter-check and coverage evidence.
+- `DEV-0018` closed with deterministic structure runtime baseline in production compose path.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Implement deterministic structure-engine runtime baseline.
-2. Implement deterministic risk-engine and execution-gateway runtime baselines.
+1. Implement deterministic risk-engine and execution-gateway runtime baselines.
+2. Add project-wide audit/journal event persistence contract.
 3. Open a focused adapter-network resilience ticket to reduce external DNS/connectivity failure impact.
 
 ### Risks/Blocks
@@ -79,8 +85,8 @@ Last updated: 2026-04-26
 ## Architecture coverage (HLD Section 5)
 
 - Implemented: ingestion connectors, Kafka backbone, Timescale baseline schema.
-- Partial: normalization/replay path, raw data lake archival, MLflow/research infra, observability basics.
-- Scaffold only: structure engine, risk engine, execution gateway, llm-analyst.
+- Partial: normalization/replay path, structure-engine baseline, raw data lake archival, MLflow/research infra, observability basics.
+- Scaffold only: risk engine, execution gateway, llm-analyst.
 - Not started: feature platform (Feast), portfolio engine, full online inference layer (Ray Serve).
 
 ## Section 5.1 Compliance Snapshot

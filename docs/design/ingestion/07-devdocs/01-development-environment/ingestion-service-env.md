@@ -195,3 +195,19 @@ Notes:
 - Recovery re-enqueue is stale-only: jobs are replayed only when queue/audit timestamps indicate they are stuck, and selection order is oldest pending enqueue first.
 - Recovery applies replay-queue backpressure: re-enqueue batch is dynamically reduced between low/high queued watermarks and hard-stopped above high watermark to prevent unbounded queue growth.
 - Registry guardrails are fail-closed: unknown `(venue, canonical_symbol)` pairs are ignored in backfill and marked failed in replay to prevent infinite queue churn from bad mappings.
+
+## structure-engine
+
+- `KAFKA_BROKERS` default `kafka:9092`
+- `STRUCTURE_INPUT_TOPIC` default `bar.1m`
+- `STRUCTURE_SNAPSHOT_TOPIC` default `structure.snapshot.v1`
+- `STRUCTURE_PULLBACK_TOPIC` default `structure.pullback.v1`
+- `STRUCTURE_MINOR_TOPIC` default `structure.minor_confirmed.v1`
+- `STRUCTURE_MAJOR_TOPIC` default `structure.major_confirmed.v1`
+- `STRUCTURE_GROUP_ID` default `nitra-structure-engine-v1`
+- `DATABASE_URL` required (compose sets from `POSTGRES_*`)
+
+Notes:
+- The baseline runtime is deterministic and replay-safe (`processed_message_ledger` idempotency).
+- Structure state is persisted in `structure_state` (single source of truth per `venue + symbol + timeframe`).
+- Baseline transitions emit snapshots on every bar and emit pullback/minor/major confirmations from deterministic state transitions.

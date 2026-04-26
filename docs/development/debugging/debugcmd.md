@@ -688,3 +688,21 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-26 13:55:10 +0330 | `curl -sS -X POST http://localhost:8110/api/v1/backfill/adapter-check ...` (coinbase/oanda/capital) | Run live adapter-check probes and capture surfaced diagnostics for DEV-00014 closure. | Success (returned explicit network error diagnostics) |
 | 2026-04-26 14:01:56 +0330 | `cat > docs/development/debugging/reports/live-runtime-evidence-dev-00013-00014-2026-04-26.md <<'EOF' ...` | Publish consolidated live runtime evidence report for ticket closure traceability. | Success |
 | 2026-04-26 14:01:56 +0330 | `apply_patch` on kanban/memory/ticket/roadmap docs + `cat >> SESSION_LEDGER.md` | Promote DEV-00013/DEV-00014 to done and synchronize execution/memory state with evidence links. | Success |
+| 2026-04-26 15:59:02 +0330 | `sed -n '1,220p' docs/ruleset.md` | Reload global ruleset before implementing structure-engine baseline. | Success |
+| 2026-04-26 15:59:02 +0330 | `sed -n '1,220p' docs/design/ingestion/ruleset.md` | Reload ingestion domain ruleset before implementation. | Success |
+| 2026-04-26 15:59:02 +0330 | `ls -la services/structure-engine` + `rg`/`sed` on compose/HLD/LLD/topics/tests | Collect current scaffold state and contract references for structure-engine baseline. | Success |
+| 2026-04-26 15:59:02 +0330 | `apply_patch` on `services/structure-engine/Dockerfile` | Convert structure-engine image from sleep scaffold to compiled Rust runtime. | Success |
+| 2026-04-26 15:59:02 +0330 | `cat > services/structure-engine/Cargo.toml` and `cat > services/structure-engine/src/main.rs` | Add deterministic Rust structure-engine baseline implementation with state machine + tests. | Success |
+| 2026-04-26 15:59:02 +0330 | `apply_patch` on `docker-compose.yml` | Wire structure-engine runtime env/topics and remove scaffold sleep command. | Success |
+| 2026-04-26 15:59:02 +0330 | `apply_patch` on `infra/kafka/topics.csv` | Register structure snapshot/pullback/confirmation Kafka topics. | Success |
+| 2026-04-26 15:59:02 +0330 | `cat > infra/timescaledb/init/007_structure_state.sql` | Add structure-state persistence schema migration. | Success |
+| 2026-04-26 15:59:02 +0330 | `cat > docs/development/tickets/DEV-0018-structure-engine-baseline.md` | Create and document structure-engine delivery ticket and acceptance evidence list. | Success |
+| 2026-04-26 15:59:02 +0330 | `cat > tests/dev-0018/run.sh` + `apply_patch` on `Makefile` | Add dedicated verification pack and Make target for DEV-0018. | Success |
+| 2026-04-26 15:59:02 +0330 | `cargo test --manifest-path services/structure-engine/Cargo.toml` + `tests/dev-0018/run.sh` | Run initial verification. | Failed (network access to crates index unavailable) |
+| 2026-04-26 15:59:02 +0330 | `proxychains cargo test ...` + `proxychains tests/dev-0018/run.sh` | Retry cargo/test via proxy fallback per ruleset Rule 13. | Failed (still cannot reach crates index) |
+| 2026-04-26 15:59:02 +0330 | `cargo check/test --offline ...` and `tests/dev-0018/run.sh` | Re-run verification using offline registry cache. | Failed initially (`services/structure-engine/target` permission denied) |
+| 2026-04-26 15:59:02 +0330 | `apply_patch` on `tests/dev-0018/run.sh` + `CARGO_TARGET_DIR=/tmp/... cargo check/test --offline` | Route cargo build artifacts to writable tmp target dir and complete offline validation. | Success |
+| 2026-04-26 15:59:02 +0330 | `make enforce-section-5-1` | Re-validate technology/contract hard gates after structure-engine changes. | Success |
+| 2026-04-26 15:59:02 +0330 | `apply_patch`/`cat >>` on roadmap/kanban/memory/LLD/devdocs/session ledger | Synchronize delivery state and architecture/memory docs after implementation. | Success |
+| 2026-04-26 15:59:02 +0330 | `make test-dev-0018` + `make session-bootstrap` | Run final ticket verification and memory drift/freshness bootstrap checks. | Success |
+| 2026-04-26 15:59:02 +0330 | `rm -f services/structure-engine/Cargo.lock` | Remove auto-generated per-service lockfile to match existing repo Rust-service conventions. | Success |

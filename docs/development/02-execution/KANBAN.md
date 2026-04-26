@@ -4,7 +4,6 @@ Last updated: 2026-04-26
 
 ## Backlog
 
-- [ ] Implement deterministic `structure-engine` runtime baseline.
 - [ ] Implement deterministic `risk-engine` runtime baseline.
 - [ ] Implement `execution-gateway` runtime baseline with order-state machine.
 - [ ] Implement project-wide audit/journal event persistence contract.
@@ -35,6 +34,7 @@ Last updated: 2026-04-26
 - [x] `DEV-00014` implement venue-history adapters and session-aware continuity policy for 90-day backfill (closed with live runtime evidence on 2026-04-26).
 - [x] Implement replay controller to consume `replay.commands`.
 - [x] `DEV-00015` chart interaction UX parity upgrade (15 interaction features).
+- [x] `DEV-0018` deterministic `structure-engine` runtime baseline (Rust service + Kafka contracts + persisted structure state).
 
 ## Blocked
 

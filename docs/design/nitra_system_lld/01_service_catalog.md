@@ -149,7 +149,7 @@ Enforcement command:
   - crypto venues evaluate required continuity on all minutes (`24/7`)
 
 **Consumes**
-- `md.bars.*`
+- `md.bars.*` (baseline runtime currently consumes `bar.1m`)
 
 **Produces**
 - `md.gap_detected.v1`
@@ -220,6 +220,11 @@ Enforcement command:
 
 **Hard rule**
 - single source of truth for structure state
+
+**Baseline status (2026-04-26)**
+- deterministic Rust runtime baseline implemented
+- replay-safe idempotency via `processed_message_ledger`
+- state persisted in `structure_state` per `venue + canonical_symbol + timeframe`
 
 ---
 

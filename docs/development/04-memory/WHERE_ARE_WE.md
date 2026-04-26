@@ -27,17 +27,19 @@ Last updated: 2026-04-26
 - Added gap-detection periodic coverage scanner plus explicit charting window endpoint (`/api/v1/backfill/window`) for automatic and operator-driven gap recovery.
 - Charting non-`1m` timeframes now derive from `1m` backfilled history, improving full-range availability after 90d coverage rebuild.
 - Captured live runtime evidence for `DEV-00013`/`DEV-00014` on 2026-04-26 (`backfill_jobs`, `replay_audit`, `gap_log`, coverage metrics, adapter-check diagnostics) and closed both tickets.
+- `DEV-0018` completed: deterministic `structure-engine` baseline implemented in Rust (`bar.1m` consumer, structure topics, persisted `structure_state`, idempotent ledger semantics).
 
 ## Current
 
 - Section 5.1 hard-gate enforcement active with deterministic-core migration batch completed.
 - `DEV-00013` is closed with live runtime evidence and explicit surfaced external-network adapter error diagnostics.
 - `DEV-00014` is closed with live runtime adapter-check and coverage evidence.
+- `DEV-0018` is closed with deterministic runtime baseline, compose wiring, topic contracts, and test pack (`dev-0018`).
 
 ## Next
 
-1. Implement deterministic structure-engine runtime baseline.
-2. Implement deterministic risk/execution runtime baselines.
+1. Implement deterministic risk/execution runtime baselines.
+2. Add project-wide audit/journal event persistence contract.
 3. Add follow-up operability ticket for adapter-network resilience (timeouts/name-resolution handling and retry/backoff tuning).
 
 ## Risks/Blocks

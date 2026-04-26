@@ -171,19 +171,18 @@ services:
       RUST_LOG: info
       DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
       KAFKA_BROKERS: kafka:9092
-      REDIS_URL: redis://redis:6379/0
+      STRUCTURE_INPUT_TOPIC: ${STRUCTURE_INPUT_TOPIC:-bar.1m}
+      STRUCTURE_SNAPSHOT_TOPIC: ${STRUCTURE_SNAPSHOT_TOPIC:-structure.snapshot.v1}
+      STRUCTURE_PULLBACK_TOPIC: ${STRUCTURE_PULLBACK_TOPIC:-structure.pullback.v1}
+      STRUCTURE_MINOR_TOPIC: ${STRUCTURE_MINOR_TOPIC:-structure.minor_confirmed.v1}
+      STRUCTURE_MAJOR_TOPIC: ${STRUCTURE_MAJOR_TOPIC:-structure.major_confirmed.v1}
+      STRUCTURE_GROUP_ID: ${STRUCTURE_GROUP_ID:-nitra-structure-engine-v1}
     depends_on:
       timescaledb:
         condition: service_healthy
       kafka:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    volumes:
-      - ./services/structure-engine:/app
-      - cargo_cache:/usr/local/cargo/registry
-      - target_structure:/app/target
-    command: ["sleep", "infinity"]
+    restart: unless-stopped
 
   risk-engine:
     build:

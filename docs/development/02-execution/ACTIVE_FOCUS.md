@@ -12,6 +12,6 @@ Transition from ingestion-only completion into full-platform, HLD-aligned increm
 
 ## Immediate next slices
 
-1. Define next ticket batch for structure/risk/execution baseline.
-2. Establish minimal contracts for each service before coding.
-3. Add corresponding test and docs scaffolds for each ticket.
+1. Implement deterministic `risk-engine` runtime baseline.
+2. Implement deterministic `execution-gateway` runtime baseline.
+3. Add audit/journal event persistence contract for decision/risk/execution traceability.
