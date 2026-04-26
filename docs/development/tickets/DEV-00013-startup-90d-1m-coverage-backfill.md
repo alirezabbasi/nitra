@@ -62,6 +62,7 @@ Architectural ownership note:
   - deterministic drain tuning:
     - queued recovery now applies stale-only gating (`BACKFILL_QUEUED_STALE_SECS`) and oldest-first scheduling,
     - avoids broad queue churn by requiring stale replay-audit evidence before re-enqueue.
+    - replay-queue backpressure now dynamically scales (and hard-stops) recovery re-enqueue when `replay_audit.queued` exceeds configurable watermarks, preventing backlog amplification under sustained load.
 - Added runtime schema support for coverage/gap/backfill/replay tables:
   - `infra/timescaledb/init/004_gap_backfill_runtime.sql`.
   - runtime `CREATE TABLE IF NOT EXISTS` safety in gap/backfill services.

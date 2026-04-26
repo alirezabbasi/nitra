@@ -158,6 +158,10 @@ COINBASE profile:
 - `BACKFILL_FAILED_RETRY_AFTER_SECS` default `21600` (cooldown before retry-eligible `failed_no_source_data` jobs are re-queued)
 - `BACKFILL_FAILED_RETRY_MAX_ATTEMPTS` default `6` (cap failed-range retry attempts)
 - `BACKFILL_FAILED_RETRY_BATCH_SIZE` default `300` (per-cycle cap for failed-range requeue)
+- `BACKFILL_REPLAY_QUEUE_BACKPRESSURE_ENABLED` default `true` (watermark-based pressure control for queued replay backlog)
+- `BACKFILL_REPLAY_QUEUE_HIGH_WATERMARK` default `120000` (hard-stop re-enqueue above this queued replay count)
+- `BACKFILL_REPLAY_QUEUE_LOW_WATERMARK` default `90000` (full recovery batch allowed below this queued replay count)
+- `BACKFILL_REPLAY_QUEUE_MIN_BATCH` default `100` (minimum dynamic batch while queue sits between low/high watermarks)
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 ## replay-controller
@@ -187,3 +191,4 @@ Notes:
 - Venue-history fetch in replay is window-paginated for long ranges (backend-only 90d recovery without chart trigger dependency).
 - Backfill recovery loop is persistent: stale `running` rows auto-reset, and `queued` jobs are periodically re-enqueued for replay execution so recovery can continue after consumer interruptions.
 - Recovery re-enqueue is stale-only: jobs are replayed only when queue/audit timestamps indicate they are stuck, and selection order is oldest pending enqueue first.
+- Recovery applies replay-queue backpressure: re-enqueue batch is dynamically reduced between low/high queued watermarks and hard-stopped above high watermark to prevent unbounded queue growth.

@@ -34,12 +34,12 @@
         width: 100%;
         height: 100%;
         display: grid;
-        grid-template-columns: 56px 284px 1fr;
+        grid-template-columns: 56px 1fr;
         grid-template-rows: 44px 1fr 40px;
         grid-template-areas:
-          "topbar topbar topbar"
-          "sidebar drawpanel chart"
-          "sidebar bottombar bottombar";
+          "topbar topbar"
+          "sidebar chart"
+          "sidebar bottombar";
       }
 
       .topbar {
@@ -318,14 +318,104 @@
         border-color: #3f5278;
       }
 
-      .draw-panel {
-        grid-area: drawpanel;
-        border-right: 1px solid var(--line);
-        border-top: 1px solid #1f273a;
-        background: linear-gradient(180deg, #171d2b 0%, #151b29 100%);
+      .draw-icon-btn:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+
+      .draw-sidebar {
+        position: static;
+      }
+
+      .draw-nested-menu {
+        position: fixed;
+        top: 86px;
+        left: 76px;
+        width: 320px;
+        max-width: calc(100vw - 92px);
+        max-height: calc(100vh - 96px);
+        border: 1px solid #273146;
+        border-radius: 16px;
+        background: rgba(20, 31, 51, 0.98);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+        z-index: 200;
+        overflow: hidden;
+      }
+
+      .draw-nested-menu.hidden {
+        display: none;
+      }
+
+      .draw-nested-menu .draw-menu-list {
+        max-height: calc(100vh - 146px);
+        overflow-y: auto;
+      }
+
+      .draw-nested-header {
+        padding: 14px 14px 8px;
+        font-size: 12px;
+        font-weight: 700;
+        color: #cfd9f5;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .draw-menu-list {
         display: flex;
         flex-direction: column;
-        min-height: 0;
+        gap: 1px;
+        margin: 0;
+        padding: 0 0 8px;
+        list-style: none;
+      }
+
+      .draw-menu-item {
+        display: grid;
+        grid-template-columns: 36px 1fr 28px;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 14px;
+        background: #121927;
+        color: #e2e8f5;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        cursor: pointer;
+      }
+
+      .draw-menu-item:hover {
+        background: #1f2a48;
+      }
+
+      .draw-menu-item.active {
+        background: #23315a;
+        border-left: 3px solid #4c7ddc;
+      }
+
+      .draw-menu-icon {
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #8ea8db;
+      }
+
+      .draw-menu-title {
+        font-size: 13px;
+        color: #edf2fb;
+        line-height: 1.2;
+      }
+
+      .draw-menu-action {
+        width: 20px;
+        height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #7f92bb;
+      }
+
+      .draw-panel {
+        display: none;
       }
 
       .draw-panel-head {
@@ -546,58 +636,134 @@
         <button class="tool-btn" id="snapshot-btn">Snapshot</button>
         <button class="tool-btn" id="backfill-btn">Backfill</button>
         <button class="tool-btn" id="settings-btn" title="Venue and ingestion settings">⚙ Settings</button>
-        <div class="divider"></div>
-        <div class="draw-controls">
-          <button class="tool-btn active" id="draw-cursor-btn" title="Cursor / navigate mode">Cursor</button>
-          <button class="tool-btn" id="draw-line-btn" title="Line tools">Line</button>
-          <select id="draw-line-select" class="select draw-select" title="Line tool">
-            <option value="horizontalStraightLine">H Line</option>
-            <option value="horizontalRayLine">H Ray</option>
-            <option value="horizontalSegment">H Segment</option>
-            <option value="verticalStraightLine">V Line</option>
-            <option value="verticalRayLine">V Ray</option>
-            <option value="verticalSegment">V Segment</option>
-            <option value="straightLine">Straight</option>
-            <option value="rayLine">Ray Line</option>
-            <option value="ray">Ray</option>
-            <option value="segment">Segment</option>
-            <option value="arrow">Arrow</option>
-            <option value="priceLine">Price Line</option>
-          </select>
-          <button class="tool-btn" id="draw-more-btn" title="Channel and measure tools">More</button>
-          <select id="draw-more-select" class="select draw-select" title="Channel / measure tool">
-            <option value="priceChannelLine">Price Channel</option>
-            <option value="parallelStraightLine">Parallel Line</option>
-            <option value="parallelChannel">Parallel Channel</option>
-            <option value="measure">Measure</option>
-          </select>
-          <button class="tool-btn" id="draw-shape-btn" title="Shape tools">Shape</button>
-          <select id="draw-shape-select" class="select draw-select" title="Shape tool">
-            <option value="rect">Rectangle</option>
-            <option value="circle">Circle</option>
-            <option value="triangle">Triangle</option>
-            <option value="parallelogram">Parallelogram</option>
-          </select>
-          <button class="tool-btn" id="draw-risk-btn" title="Long/short position tools">Risk</button>
-          <select id="draw-risk-select" class="select draw-select" title="Risk tool">
-            <option value="longPosition">Long Position</option>
-            <option value="shortPosition">Short Position</option>
-          </select>
-          <button class="tool-btn" id="draw-brush-btn" title="Brush tool">Brush</button>
-          <input id="draw-brush-color" class="draw-color" type="color" value="#1677ff" title="Brush color" />
-          <input id="draw-brush-size" class="draw-range" type="range" min="1" max="10" step="1" value="2" title="Brush thickness" />
-          <input id="draw-brush-opacity" class="draw-range" type="range" min="10" max="100" step="5" value="100" title="Brush opacity" />
-          <button class="tool-btn" id="draw-mode-btn" title="Magnet mode">Mode: Normal</button>
-          <button class="tool-btn" id="draw-lock-btn" title="Lock drawings">Lock: Off</button>
-          <button class="tool-btn active" id="draw-visible-btn" title="Show/hide drawings">Visible</button>
-          <button class="tool-btn" id="draw-remove-btn" title="Remove all drawings">Remove</button>
-          <button class="tool-btn" id="draw-undo-btn" title="Undo (Ctrl+Z)">Undo</button>
-          <button class="tool-btn" id="draw-redo-btn" title="Redo (Ctrl+Y)">Redo</button>
-          <button class="tool-btn" id="draw-save-btn" title="Save layout">Save</button>
-          <button class="tool-btn" id="draw-load-btn" title="Load layout">Load</button>
-        </div>
         <div id="status" class="meta">Loading...</div>
       </div>
+
+      <aside class="draw-sidebar" id="draw-sidebar">
+        <div class="draw-nested-menu hidden" id="draw-nested-menu"></div>
+        <button class="draw-icon-btn active" id="draw-cursor-btn" title="Cursor / navigate">
+          <svg viewBox="0 0 24 24"><path d="M4 4l8 8-5 2 3 5 4-4 4 4-1-9L4 4z"/></svg>
+        </button>
+        <button class="draw-icon-btn" id="draw-line-btn" title="Trend line tools">
+          <svg viewBox="0 0 24 24"><path d="M4 18l16-12"/><circle cx="4" cy="18" r="1.5"/><circle cx="20" cy="6" r="1.5"/></svg>
+        </button>
+        <button class="draw-icon-btn" id="draw-more-btn" title="Channel and measure tools">
+          <svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/></svg>
+        </button>
+        <button class="draw-icon-btn" id="draw-shape-btn" title="Shape tools">
+          <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7"/><circle cx="17" cy="8" r="3"/><path d="M6 19l5-5 5 5"/></svg>
+        </button>
+        <button class="draw-icon-btn" id="draw-risk-btn" title="Risk tools">
+          <svg viewBox="0 0 24 24"><path d="M4 18h16"/><path d="M6 15l4-4 3 3 4-7 3 5"/><circle cx="6" cy="15" r="1.5"/><circle cx="13" cy="14" r="1.5"/><circle cx="20" cy="11" r="1.5"/></svg>
+        </button>
+        <button class="draw-icon-btn" id="draw-brush-btn" title="Brush">
+          <svg viewBox="0 0 24 24"><path d="M4 20c2.5 0 4-1.5 4-4l8-8 4 4-8 8c-2.5 0-4 1-7 1z"/><path d="M14 6l4-4 4 4-4 4"/></svg>
+        </button>
+        <div class="sidebar-divider"></div>
+        <button class="draw-icon-btn" id="draw-mode-btn" title="Magnet mode">
+          <svg viewBox="0 0 24 24"><path d="M7 4v7a5 5 0 0010 0V4"/><path d="M7 4h3m4 0h3"/><path d="M7 10h3m4 0h3"/></svg>
+        </button>
+        <button class="draw-icon-btn" id="draw-lock-btn" title="Lock drawings">
+          <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 118 0v3"/></svg>
+        </button>
+        <button class="draw-icon-btn active" id="draw-visible-btn" title="Show/hide drawings">
+          <svg viewBox="0 0 24 24"><path d="M2 12s4-6 10-6 10 6 10 6-4 6-10 6-10-6-10-6z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <button class="draw-icon-btn" id="draw-remove-btn" title="Remove drawings">
+          <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/></svg>
+        </button>
+        <div class="sidebar-divider"></div>
+        <button class="draw-icon-btn" id="draw-undo-btn" title="Undo (Ctrl+Z)">
+          <svg viewBox="0 0 24 24"><path d="M9 8H4v5"/><path d="M4 13c1.8-3.6 5-6 9-6 4.8 0 8 3.2 8 8"/></svg>
+        </button>
+        <button class="draw-icon-btn" id="draw-redo-btn" title="Redo (Ctrl+Y)">
+          <svg viewBox="0 0 24 24"><path d="M15 8h5v5"/><path d="M20 13c-1.8-3.6-5-6-9-6-4.8 0-8 3.2-8 8"/></svg>
+        </button>
+        <button class="draw-icon-btn" id="draw-save-btn" title="Save layout">
+          <svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h8V4"/><path d="M8 20v-6h8v6"/></svg>
+        </button>
+        <button class="draw-icon-btn" id="draw-load-btn" title="Load layout">
+          <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 20h16"/></svg>
+        </button>
+      </aside>
+
+      <aside class="draw-panel" id="draw-panel">
+        <div class="draw-panel-head">
+          <div class="draw-panel-title">Drawing Tools</div>
+        </div>
+        <div class="draw-panel-body">
+          <section class="draw-section">
+            <h4>Lines</h4>
+            <div class="draw-row">
+              <button class="tool-btn" id="draw-line-trigger-btn" title="Activate selected line tool">Use</button>
+              <select id="draw-line-select" class="select" title="Line tool">
+                <option value="horizontalStraightLine">Horizontal Line</option>
+                <option value="horizontalRayLine">Horizontal Ray</option>
+                <option value="horizontalSegment">Horizontal Segment</option>
+                <option value="verticalStraightLine">Vertical Line</option>
+                <option value="verticalRayLine">Vertical Ray</option>
+                <option value="verticalSegment">Vertical Segment</option>
+                <option value="straightLine">Trend Line</option>
+                <option value="rayLine">Extended Line</option>
+                <option value="ray">Ray</option>
+                <option value="segment">Segment</option>
+                <option value="arrow">Arrow</option>
+                <option value="priceLine">Price Line</option>
+              </select>
+            </div>
+          </section>
+          <section class="draw-section">
+            <h4>Channels</h4>
+            <div class="draw-row">
+              <button class="tool-btn" id="draw-more-trigger-btn" title="Activate selected channel or measure tool">Use</button>
+              <select id="draw-more-select" class="select" title="Channel / measure tool">
+                <option value="priceChannelLine">Price Channel</option>
+                <option value="parallelStraightLine">Parallel Line</option>
+                <option value="parallelChannel">Parallel Channel</option>
+                <option value="measure">Measure</option>
+              </select>
+            </div>
+          </section>
+          <section class="draw-section">
+            <h4>Shapes</h4>
+            <div class="draw-row">
+              <button class="tool-btn" id="draw-shape-trigger-btn" title="Activate selected shape tool">Use</button>
+              <select id="draw-shape-select" class="select" title="Shape tool">
+                <option value="rect">Rectangle</option>
+                <option value="circle">Circle</option>
+                <option value="triangle">Triangle</option>
+                <option value="parallelogram">Parallelogram</option>
+              </select>
+            </div>
+          </section>
+          <section class="draw-section">
+            <h4>Risk</h4>
+            <div class="draw-row">
+              <button class="tool-btn" id="draw-risk-trigger-btn" title="Activate selected risk tool">Use</button>
+              <select id="draw-risk-select" class="select" title="Risk tool">
+                <option value="longPosition">Long Position</option>
+                <option value="shortPosition">Short Position</option>
+              </select>
+            </div>
+          </section>
+          <section class="draw-section">
+            <h4>Brush</h4>
+            <div class="draw-row">
+              <button class="tool-btn" id="draw-brush-trigger-btn" title="Activate brush">Use</button>
+              <input id="draw-brush-color" class="draw-color" type="color" value="#1677ff" title="Brush color" />
+              <span class="label">Color</span>
+            </div>
+            <div class="draw-row">
+              <span class="label" style="min-width: 62px;">Size</span>
+              <input id="draw-brush-size" class="draw-range" type="range" min="1" max="10" step="1" value="2" title="Brush thickness" />
+            </div>
+            <div class="draw-row">
+              <span class="label" style="min-width: 62px;">Opacity</span>
+              <input id="draw-brush-opacity" class="draw-range" type="range" min="10" max="100" step="5" value="100" title="Brush opacity" />
+            </div>
+          </section>
+        </div>
+      </aside>
 
       <section class="chart-wrap">
         <div id="kline"></div>
@@ -737,6 +903,11 @@
       const drawMoreSelectEl = document.getElementById("draw-more-select");
       const drawShapeSelectEl = document.getElementById("draw-shape-select");
       const drawRiskSelectEl = document.getElementById("draw-risk-select");
+      const drawLineTriggerBtn = document.getElementById("draw-line-trigger-btn");
+      const drawMoreTriggerBtn = document.getElementById("draw-more-trigger-btn");
+      const drawShapeTriggerBtn = document.getElementById("draw-shape-trigger-btn");
+      const drawRiskTriggerBtn = document.getElementById("draw-risk-trigger-btn");
+      const drawBrushTriggerBtn = document.getElementById("draw-brush-trigger-btn");
       const drawBrushColorEl = document.getElementById("draw-brush-color");
       const drawBrushSizeEl = document.getElementById("draw-brush-size");
       const drawBrushOpacityEl = document.getElementById("draw-brush-opacity");
@@ -748,6 +919,136 @@
       const drawRedoBtn = document.getElementById("draw-redo-btn");
       const drawSaveBtn = document.getElementById("draw-save-btn");
       const drawLoadBtn = document.getElementById("draw-load-btn");
+      const drawSidebarEl = document.getElementById("draw-sidebar");
+      const drawNestedMenuEl = document.getElementById("draw-nested-menu");
+
+      const DRAW_GROUP_MENU_ITEMS = {
+        line: [
+          { tool: "horizontalStraightLine", label: "Horizontal", icon: "<svg viewBox='0 0 24 24'><path d='M4 12h16'/><circle cx='4' cy='12' r='1.5'/><circle cx='20' cy='12' r='1.5'/></svg>" },
+          { tool: "straightLine", label: "Trend", icon: "<svg viewBox='0 0 24 24'><path d='M4 18l16-12'/></svg>" },
+          { tool: "ray", label: "Ray", icon: "<svg viewBox='0 0 24 24'><path d='M4 20l16-12'/><circle cx='4' cy='20' r='2'/></svg>" },
+          { tool: "segment", label: "Segment", icon: "<svg viewBox='0 0 24 24'><path d='M4 18l16-12'/><circle cx='4' cy='18' r='2'/><circle cx='20' cy='6' r='2'/></svg>" },
+          { tool: "arrow", label: "Arrow", icon: "<svg viewBox='0 0 24 24'><path d='M4 18l16-12'/><path d='M17 7l5 5-5 5'/></svg>" },
+          { tool: "priceLine", label: "Price", icon: "<svg viewBox='0 0 24 24'><path d='M4 12h16'/><path d='M12 8v8'/></svg>" },
+        ],
+        more: [
+          { tool: "priceChannelLine", label: "Channel", icon: "<svg viewBox='0 0 24 24'><path d='M4 8h16'/><path d='M4 16h16'/><path d='M4 12h16'/></svg>" },
+          { tool: "parallelStraightLine", label: "Parallel", icon: "<svg viewBox='0 0 24 24'><path d='M4 8h16'/><path d='M6 16h16'/></svg>" },
+          { tool: "parallelChannel", label: "Band", icon: "<svg viewBox='0 0 24 24'><path d='M4 8h16'/><path d='M4 16h16'/><path d='M6 8l10 8'/></svg>" },
+          { tool: "measure", label: "Measure", icon: "<svg viewBox='0 0 24 24'><path d='M4 12h16'/><path d='M6 10v4'/><path d='M18 10v4'/></svg>" },
+        ],
+        shape: [
+          { tool: "rect", label: "Rectangle", icon: "<svg viewBox='0 0 24 24'><rect x='5' y='5' width='14' height='14'/></svg>" },
+          { tool: "circle", label: "Circle", icon: "<svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='7'/></svg>" },
+          { tool: "triangle", label: "Triangle", icon: "<svg viewBox='0 0 24 24'><path d='M12 5l9 14H3z'/></svg>" },
+          { tool: "parallelogram", label: "Parallelogram", icon: "<svg viewBox='0 0 24 24'><path d='M7 5h11l-4 14H3z'/></svg>" },
+        ],
+        risk: [
+          { tool: "longPosition", label: "Long", icon: "<svg viewBox='0 0 24 24'><path d='M6 16l6-6 6 6'/><path d='M12 10v10'/></svg>" },
+          { tool: "shortPosition", label: "Short", icon: "<svg viewBox='0 0 24 24'><path d='M6 8l6 6 6-6'/><path d='M12 14V4'/></svg>" },
+        ],
+        brush: [
+          { tool: "brush", label: "Brush", icon: "<svg viewBox='0 0 24 24'><path d='M4 20c2.5 0 4-1.5 4-4l8-8 3 3-8 8c-2.5 0-4 1-7 1z'/><path d='M14 6l3-3 4 4-3 3'/></svg>" },
+        ],
+      };
+      let activeGroupMenu = null;
+      let activeMenuAnchor = null;
+
+      const DRAW_GROUP_MENU_LABELS = {
+        line: "Lines",
+        more: "Channels",
+        shape: "Shapes",
+        risk: "Risk",
+        brush: "Brush",
+      };
+
+      function updateNestedMenuPosition(anchorButton) {
+        if (!anchorButton) return;
+        const rect = anchorButton.getBoundingClientRect();
+        const left = Math.min(rect.right + 12, window.innerWidth - 340);
+        const top = Math.max(80, rect.top - 4);
+        drawNestedMenuEl.style.left = `${left}px`;
+        drawNestedMenuEl.style.top = `${top}px`;
+      }
+
+      function isToolInGroup(tool, group) {
+        const items = DRAW_GROUP_MENU_ITEMS[group] || [];
+        return items.some((item) => item.tool === tool);
+      }
+
+      function renderNestedMenu(group, anchorButton) {
+        const items = DRAW_GROUP_MENU_ITEMS[group] || [];
+        if (!items.length) {
+          drawNestedMenuEl.classList.add("hidden");
+          activeGroupMenu = null;
+          activeMenuAnchor = null;
+          return;
+        }
+
+        const title = DRAW_GROUP_MENU_LABELS[group] || "Tools";
+        const activeTool = state.drawingGroupSelection[group];
+        drawNestedMenuEl.innerHTML = `
+          <div class="draw-nested-header">${title}</div>
+          <div class="draw-menu-list">
+            ${items
+              .map(
+                (item) =>
+                  `<div role="menuitem" class="draw-menu-item${item.tool === activeTool ? " active" : ""}" data-group="${group}" data-tool="${item.tool}" title="${item.label}">
+                    <span class="draw-menu-icon">${item.icon}</span>
+                    <span class="draw-menu-title">${item.label}</span>
+                    <span class="draw-menu-action">→</span>
+                  </div>`
+              )
+              .join("")}
+          </div>
+        `;
+        drawNestedMenuEl.classList.remove("hidden");
+        activeGroupMenu = group;
+        activeMenuAnchor = anchorButton || null;
+        setActiveDrawingButton(state.activeDrawingTool);
+        anchorButton?.classList.add("active");
+        updateNestedMenuPosition(anchorButton || drawSidebarEl);
+      }
+
+      function closeNestedMenu() {
+        activeGroupMenu = null;
+        activeMenuAnchor = null;
+        drawNestedMenuEl.classList.add("hidden");
+        setActiveDrawingButton(state.activeDrawingTool);
+      }
+
+      function openNestedMenu(group, anchorButton) {
+        if (activeGroupMenu === group) {
+          closeNestedMenu();
+          return;
+        }
+        renderNestedMenu(group, anchorButton);
+      }
+
+      window.addEventListener("resize", () => {
+        if (drawNestedMenuEl.classList.contains("hidden")) return;
+        updateNestedMenuPosition(activeMenuAnchor);
+      });
+
+      function activateNestedTool(tool, group) {
+        if (group === "line") {
+          state.drawingGroupSelection.line = tool;
+        } else if (group === "more") {
+          state.drawingGroupSelection.more = tool;
+        } else if (group === "shape") {
+          state.drawingGroupSelection.shape = tool;
+        } else if (group === "risk") {
+          state.drawingGroupSelection.risk = tool;
+        }
+        syncDrawingToolSelectionUi();
+        activateDrawingTool(tool);
+      }
+
+      document.addEventListener("click", (event) => {
+        if (!drawSidebarEl.contains(event.target) && !drawNestedMenuEl.contains(event.target)) {
+          closeNestedMenu();
+        }
+      });
 
       const state = {
         timeframe: "1m",
@@ -949,15 +1250,18 @@
         drawBrushColorEl.value = state.brush.color;
         drawBrushSizeEl.value = String(state.brush.size);
         drawBrushOpacityEl.value = String(Math.round(state.brush.opacity * 100));
-        drawModeBtn.textContent =
+        const modeLabel =
           state.drawingMode === "normal"
-            ? "Mode: Normal"
+            ? "Magnet mode: normal"
             : state.drawingMode === "weak_magnet"
-              ? "Mode: Weak Magnet"
-              : "Mode: Strong Magnet";
-        drawLockBtn.textContent = `Lock: ${state.drawingLock ? "On" : "Off"}`;
+              ? "Magnet mode: weak"
+              : "Magnet mode: strong";
+        drawModeBtn.title = modeLabel;
+        drawModeBtn.classList.toggle("active", state.drawingMode !== "normal");
+        drawLockBtn.title = state.drawingLock ? "Unlock drawings" : "Lock drawings";
+        drawLockBtn.classList.toggle("active", state.drawingLock);
         drawVisibleBtn.classList.toggle("active", state.drawingVisible);
-        drawVisibleBtn.textContent = state.drawingVisible ? "Visible" : "Hidden";
+        drawVisibleBtn.title = state.drawingVisible ? "Hide drawings" : "Show drawings";
       }
 
       function setActiveDrawingButton(tool) {
@@ -2908,6 +3212,7 @@
       });
 
       drawCursorBtn.addEventListener("click", () => {
+        closeNestedMenu();
         setDrawingCursorMode();
       });
 
@@ -2929,19 +3234,44 @@
       });
 
       drawLineBtn.addEventListener("click", () => {
+        openNestedMenu("line", drawLineBtn);
+      });
+      drawLineTriggerBtn.addEventListener("click", () => {
         activateDrawingTool(state.drawingGroupSelection.line);
       });
       drawMoreBtn.addEventListener("click", () => {
+        openNestedMenu("more", drawMoreBtn);
+      });
+      drawMoreTriggerBtn.addEventListener("click", () => {
         activateDrawingTool(state.drawingGroupSelection.more);
       });
       drawShapeBtn.addEventListener("click", () => {
+        openNestedMenu("shape", drawShapeBtn);
+      });
+      drawShapeTriggerBtn.addEventListener("click", () => {
         activateDrawingTool(state.drawingGroupSelection.shape);
       });
       drawRiskBtn.addEventListener("click", () => {
+        openNestedMenu("risk", drawRiskBtn);
+      });
+      drawRiskTriggerBtn.addEventListener("click", () => {
         activateDrawingTool(state.drawingGroupSelection.risk);
       });
       drawBrushBtn.addEventListener("click", () => {
+        openNestedMenu("brush", drawBrushBtn);
+      });
+      drawBrushTriggerBtn.addEventListener("click", () => {
         activateDrawingTool("brush");
+      });
+
+      drawNestedMenuEl.addEventListener("click", (event) => {
+        const item = event.target.closest("[data-tool]");
+        if (!item) return;
+        const tool = item.dataset.tool;
+        const group = item.dataset.group;
+        if (!tool) return;
+        activateNestedTool(tool, group);
+        closeNestedMenu();
       });
 
       drawBrushColorEl.addEventListener("input", () => {

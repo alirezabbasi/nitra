@@ -516,6 +516,49 @@ async fn requeue_stale_failed_no_source_data_jobs(
     Ok(rows.len() as u64)
 }
 
+async fn replay_queued_count(conn: &Client) -> Result<i64, tokio_postgres::Error> {
+    let row = conn
+        .query_one(
+            "
+            SELECT COUNT(*)::bigint
+            FROM replay_audit
+            WHERE status = 'queued'
+            ",
+            &[],
+        )
+        .await?;
+    Ok(row.get(0))
+}
+
+fn dynamic_reenqueue_batch(
+    base_batch: i64,
+    replay_queued: i64,
+    low_watermark: i64,
+    high_watermark: i64,
+    min_batch: i64,
+) -> i64 {
+    if base_batch <= 0 {
+        return 0;
+    }
+    if high_watermark <= 0 || replay_queued <= low_watermark {
+        return base_batch;
+    }
+    if replay_queued >= high_watermark {
+        return 0;
+    }
+
+    let min_batch = min_batch.clamp(0, base_batch);
+    if high_watermark <= low_watermark {
+        return min_batch;
+    }
+
+    let span = (high_watermark - low_watermark) as f64;
+    let remaining = (high_watermark - replay_queued).max(0) as f64;
+    let ratio = (remaining / span).clamp(0.0, 1.0);
+    let scaled = (min_batch as f64) + ((base_batch - min_batch) as f64 * ratio);
+    scaled.round() as i64
+}
+
 #[derive(Debug)]
 struct QueuedJob {
     job_id: Uuid,
@@ -688,6 +731,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let failed_retry_max_attempts = env_i64_or("BACKFILL_FAILED_RETRY_MAX_ATTEMPTS", 6).max(1);
     let failed_retry_batch_size =
         env_usize_or("BACKFILL_FAILED_RETRY_BATCH_SIZE", 250).max(1) as i64;
+    let queue_backpressure_enabled = env_bool_or("BACKFILL_REPLAY_QUEUE_BACKPRESSURE_ENABLED", true);
+    let queue_backpressure_high =
+        env_i64_or("BACKFILL_REPLAY_QUEUE_HIGH_WATERMARK", 120000).max(1);
+    let queue_backpressure_low = env_i64_or("BACKFILL_REPLAY_QUEUE_LOW_WATERMARK", 90000).max(0);
+    let queue_backpressure_min_batch =
+        env_i64_or("BACKFILL_REPLAY_QUEUE_MIN_BATCH", 100).max(0);
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
     tokio::spawn(async move {
@@ -735,20 +784,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         } else {
             0
         };
+        let replay_queued = replay_queued_count(&conn).await?;
+        let effective_recovery_batch = if queue_backpressure_enabled {
+            dynamic_reenqueue_batch(
+                recovery_batch_size,
+                replay_queued,
+                queue_backpressure_low,
+                queue_backpressure_high,
+                queue_backpressure_min_batch,
+            )
+        } else {
+            recovery_batch_size
+        };
         let enqueued = reenqueue_queued_jobs(
             &conn,
             &producer,
             &output_topic,
             &target_group,
-            recovery_batch_size,
+            effective_recovery_batch,
             queued_stale_secs,
             reenqueue_cooldown_secs,
         )
         .await?;
-        if reset > 0 || failed_requeued > 0 || enqueued > 0 {
+        if reset > 0
+            || failed_requeued > 0
+            || enqueued > 0
+            || (queue_backpressure_enabled && effective_recovery_batch != recovery_batch_size)
+        {
             eprintln!(
-                "backfill-worker startup recovery reset_running={} failed_requeued={} re_enqueued={}",
-                reset, failed_requeued, enqueued
+                "backfill-worker startup recovery replay_queued={} recovery_batch={} reset_running={} failed_requeued={} re_enqueued={}",
+                replay_queued, effective_recovery_batch, reset, failed_requeued, enqueued
             );
         }
     }
@@ -772,19 +837,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 } else {
                     0
                 };
+                let replay_queued = replay_queued_count(&conn).await?;
+                let effective_recovery_batch = if queue_backpressure_enabled {
+                    dynamic_reenqueue_batch(
+                        recovery_batch_size,
+                        replay_queued,
+                        queue_backpressure_low,
+                        queue_backpressure_high,
+                        queue_backpressure_min_batch,
+                    )
+                } else {
+                    recovery_batch_size
+                };
                 let enqueued = reenqueue_queued_jobs(
                     &conn,
                     &producer,
                     &output_topic,
                     &target_group,
-                    recovery_batch_size,
+                    effective_recovery_batch,
                     queued_stale_secs,
                     reenqueue_cooldown_secs,
                 ).await?;
-                if reset > 0 || failed_requeued > 0 || enqueued > 0 {
+                if reset > 0
+                    || failed_requeued > 0
+                    || enqueued > 0
+                    || (queue_backpressure_enabled && effective_recovery_batch != recovery_batch_size)
+                {
                     eprintln!(
-                        "backfill-worker periodic recovery reset_running={} failed_requeued={} re_enqueued={}",
-                        reset, failed_requeued, enqueued
+                        "backfill-worker periodic recovery replay_queued={} recovery_batch={} reset_running={} failed_requeued={} re_enqueued={}",
+                        replay_queued, effective_recovery_batch, reset, failed_requeued, enqueued
                     );
                 }
             }
@@ -879,5 +960,21 @@ mod tests {
 
         let chunks = split_gap_into_chunks(start, end, 5);
         assert!(chunks.is_empty());
+    }
+
+    #[test]
+    fn dynamic_batch_stops_at_high_watermark() {
+        assert_eq!(dynamic_reenqueue_batch(1000, 120000, 90000, 120000, 100), 0);
+    }
+
+    #[test]
+    fn dynamic_batch_full_below_low_watermark() {
+        assert_eq!(dynamic_reenqueue_batch(1000, 50000, 90000, 120000, 100), 1000);
+    }
+
+    #[test]
+    fn dynamic_batch_scales_between_watermarks() {
+        let batch = dynamic_reenqueue_batch(1000, 105000, 90000, 120000, 100);
+        assert_eq!(batch, 550);
     }
 }

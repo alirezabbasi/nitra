@@ -39,7 +39,12 @@ Last updated: 2026-04-26
 - Backfill queue-drain hardening implemented:
   - stale-only queued recovery gating (`BACKFILL_QUEUED_STALE_SECS`) with deterministic oldest-first re-enqueue order.
   - replay-controller scaled with safe multi-worker consumer mode (`REPLAY_WORKER_COUNT`) for partition-level parallel drain.
+- Live operational pass added replay-queue backpressure gate:
+  - `replay.commands` expanded to 8 partitions.
+  - `backfill-worker` now applies queued-watermark backpressure (`BACKFILL_REPLAY_QUEUE_*`) so recovery re-enqueue is hard-stopped when replay backlog is above high watermark.
+  - live slope check now shows replay queued backlog declining under backpressure-enabled settings.
 - Charting drawing workflow upgraded with TradingView-style annotation features: grouped drawing tool memory, cursor/navigate draw-exit mode, auto-retrigger drawing lifecycle, brush styling controls, custom measure/long/short overlays, undo/redo history, and local layout/drawing persistence.
+- Charting UI redesigned from crowded top-row controls to a TradingView-style left icon sidebar plus grouped drawing control panel for faster annotation workflows and cleaner primary header.
 
 ### Current
 
