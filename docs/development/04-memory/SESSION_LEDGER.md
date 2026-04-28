@@ -570,3 +570,37 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - add adapter-network resilience hardening ticket (retry/backoff policy + DNS/connectivity degraded-mode strategy).
+
+---
+
+## 2026-04-28 — Session Entry 024
+
+- Objective:
+  - add deterministic portfolio-state baseline and wire richer risk constraints.
+- Work completed:
+  - added runnable Rust `portfolio-engine` baseline (`Cargo.toml`, `Dockerfile`, `src/main.rs`).
+  - implemented fill-driven deterministic portfolio state updates with replay-safe idempotency via `processed_message_ledger`.
+  - added portfolio persistence migration `011_portfolio_state.sql`:
+    - `portfolio_position_state`
+    - `portfolio_account_state`
+    - `portfolio_fill_log`
+  - added portfolio snapshot event stream `portfolio.snapshot.v1` and compose/topic contracts.
+  - upgraded `risk-engine` policy layer with portfolio-aware constraints:
+    - `RISK_MAX_SYMBOL_EXPOSURE_NOTIONAL`
+    - `RISK_MAX_PORTFOLIO_GROSS_EXPOSURE_NOTIONAL`
+    - `RISK_MIN_AVAILABLE_EQUITY`
+    - `RISK_PORTFOLIO_ACCOUNT_ID`
+  - added dedicated verification pack `tests/dev-0023/run.sh` + `make test-dev-0023`.
+  - synchronized roadmap/kanban/active-focus/memory/LLD/env docs and policy manifest for portfolio runtime compliance.
+- Verification:
+  - `cargo fmt --manifest-path services/portfolio-engine/Cargo.toml` passes.
+  - `cargo fmt --manifest-path services/risk-engine/Cargo.toml` passes.
+  - `CARGO_TARGET_DIR=/tmp/nitra-portfolio-risk-target cargo check --offline --manifest-path services/portfolio-engine/Cargo.toml` passes.
+  - `CARGO_TARGET_DIR=/tmp/nitra-portfolio-risk-target cargo test --offline --manifest-path services/portfolio-engine/Cargo.toml` passes.
+  - `CARGO_TARGET_DIR=/tmp/nitra-portfolio-risk-target cargo check --offline --manifest-path services/risk-engine/Cargo.toml` passes.
+  - `CARGO_TARGET_DIR=/tmp/nitra-portfolio-risk-target cargo test --offline --manifest-path services/risk-engine/Cargo.toml` passes.
+  - `tests/dev-0023/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - continue `DEV-0022` execution adapter network resilience hardening and attach live degraded-network evidence.

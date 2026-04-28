@@ -341,10 +341,14 @@ Enforcement command:
 **Hard rule**
 - if unavailable, trading fails closed
 
-**Baseline status (2026-04-26)**
+**Baseline status (2026-04-28)**
 - deterministic Rust runtime baseline implemented
 - idempotent decision processing via `processed_message_ledger`
 - persisted state/log tables: `risk_state`, `risk_decision_log`
+- portfolio-aware constraints baseline implemented:
+  - symbol exposure cap
+  - portfolio gross exposure cap
+  - minimum available equity gate
 
 ---
 
@@ -361,6 +365,15 @@ Enforcement command:
 
 **Technology (mandatory)**
 - Rust
+
+**Baseline status (2026-04-28)**
+- deterministic Rust runtime baseline implemented
+- consumes `exec.fill_received.v1` and emits `portfolio.snapshot.v1`
+- idempotent processing via `processed_message_ledger`
+- persisted baseline contracts:
+  - `portfolio_position_state`
+  - `portfolio_account_state`
+  - `portfolio_fill_log`
 
 ---
 

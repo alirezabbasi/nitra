@@ -32,10 +32,20 @@ struct RiskState {
 }
 
 #[derive(Clone, Debug)]
+struct PortfolioSnapshot {
+    symbol_gross_exposure_notional: f64,
+    portfolio_gross_exposure_notional: f64,
+    equity: f64,
+}
+
+#[derive(Clone, Debug)]
 struct RiskPolicy {
     min_confidence: f64,
     max_notional: f64,
     max_drawdown_pct: f64,
+    max_symbol_exposure_notional: f64,
+    max_portfolio_gross_exposure_notional: f64,
+    min_available_equity: f64,
 }
 
 #[derive(Clone, Debug)]
@@ -150,7 +160,12 @@ fn parse_risk_input(payload: &Value, default_notional: f64) -> Option<RiskInput>
     })
 }
 
-fn evaluate_policy(input: &RiskInput, state: &RiskState, policy: &RiskPolicy) -> RiskDecision {
+fn evaluate_policy(
+    input: &RiskInput,
+    state: &RiskState,
+    portfolio: &PortfolioSnapshot,
+    policy: &RiskPolicy,
+) -> RiskDecision {
     let mut violations = Vec::new();
 
     if state.kill_switch_enabled {
@@ -164,6 +179,27 @@ fn evaluate_policy(input: &RiskInput, state: &RiskState, policy: &RiskPolicy) ->
     }
     if input.side != "hold" && input.confidence < policy.min_confidence {
         violations.push("confidence_below_threshold".to_string());
+    }
+
+    let next_symbol_exposure = if input.side == "buy" {
+        state.current_exposure_notional + input.requested_notional
+    } else {
+        (state.current_exposure_notional - input.requested_notional).max(0.0)
+    };
+    if next_symbol_exposure > policy.max_symbol_exposure_notional {
+        violations.push("max_symbol_exposure_exceeded".to_string());
+    }
+
+    let next_portfolio_gross =
+        portfolio.portfolio_gross_exposure_notional + input.requested_notional;
+    if next_portfolio_gross > policy.max_portfolio_gross_exposure_notional {
+        violations.push("max_portfolio_gross_exposure_exceeded".to_string());
+    }
+
+    let available_equity =
+        (portfolio.equity - portfolio.portfolio_gross_exposure_notional).max(0.0);
+    if available_equity < policy.min_available_equity {
+        violations.push("min_available_equity_breached".to_string());
     }
 
     if input.side == "hold" {
@@ -281,6 +317,51 @@ async fn load_risk_state(
         equity: 100000.0,
         drawdown_pct: 0.0,
         kill_switch_enabled: false,
+    })
+}
+
+async fn load_portfolio_snapshot(
+    conn: &Client,
+    account_id: &str,
+    venue: &str,
+    symbol: &str,
+    timeframe: &str,
+) -> Result<PortfolioSnapshot, tokio_postgres::Error> {
+    let symbol_row = conn
+        .query_opt(
+            "
+            SELECT gross_exposure_notional
+            FROM portfolio_position_state
+            WHERE account_id = $1 AND venue = $2 AND canonical_symbol = $3 AND timeframe = $4
+            ",
+            &[&account_id, &venue, &symbol, &timeframe],
+        )
+        .await?;
+
+    let account_row = conn
+        .query_opt(
+            "
+            SELECT gross_exposure_notional, equity
+            FROM portfolio_account_state
+            WHERE account_id = $1
+            ",
+            &[&account_id],
+        )
+        .await?;
+
+    Ok(PortfolioSnapshot {
+        symbol_gross_exposure_notional: symbol_row
+            .as_ref()
+            .map(|r| r.get::<_, f64>(0))
+            .unwrap_or(0.0),
+        portfolio_gross_exposure_notional: account_row
+            .as_ref()
+            .map(|r| r.get::<_, f64>(0))
+            .unwrap_or(0.0),
+        equity: account_row
+            .as_ref()
+            .map(|r| r.get::<_, f64>(1))
+            .unwrap_or(100000.0),
     })
 }
 
@@ -453,8 +534,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         min_confidence: env_f64_or("RISK_MIN_CONFIDENCE", 0.55).clamp(0.0, 1.0),
         max_notional: env_f64_or("RISK_MAX_NOTIONAL", 100000.0).max(1.0),
         max_drawdown_pct: env_f64_or("RISK_MAX_DRAWDOWN_PCT", 5.0).max(0.0),
+        max_symbol_exposure_notional: env_f64_or("RISK_MAX_SYMBOL_EXPOSURE_NOTIONAL", 250000.0)
+            .max(1.0),
+        max_portfolio_gross_exposure_notional: env_f64_or(
+            "RISK_MAX_PORTFOLIO_GROSS_EXPOSURE_NOTIONAL",
+            500000.0,
+        )
+        .max(1.0),
+        min_available_equity: env_f64_or("RISK_MIN_AVAILABLE_EQUITY", 10000.0).max(0.0),
     };
     let default_notional = env_f64_or("RISK_DEFAULT_NOTIONAL", 1000.0).max(1.0);
+    let account_id = env_or("RISK_PORTFOLIO_ACCOUNT_ID", "paper");
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
     tokio::spawn(async move {
@@ -519,7 +609,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &input.timeframe,
         )
         .await?;
-        let decision = evaluate_policy(&input, &current_state, &policy);
+        let portfolio = load_portfolio_snapshot(
+            &conn,
+            &account_id,
+            &input.venue,
+            &input.canonical_symbol,
+            &input.timeframe,
+        )
+        .await?;
+        let decision = evaluate_policy(&input, &current_state, &portfolio, &policy);
 
         persist_risk_state(&conn, &input, &current_state, &decision).await?;
         insert_decision_log(&conn, &source_topic, &input, &decision).await?;
@@ -547,12 +645,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "min_confidence": policy.min_confidence,
                     "max_notional": policy.max_notional,
                     "max_drawdown_pct": policy.max_drawdown_pct,
+                    "max_symbol_exposure_notional": policy.max_symbol_exposure_notional,
+                    "max_portfolio_gross_exposure_notional": policy.max_portfolio_gross_exposure_notional,
+                    "min_available_equity": policy.min_available_equity,
                 },
                 "state": {
                     "current_exposure_notional": current_state.current_exposure_notional,
                     "equity": current_state.equity,
                     "drawdown_pct": current_state.drawdown_pct,
                     "kill_switch_enabled": current_state.kill_switch_enabled,
+                    "portfolio_symbol_gross_exposure_notional": portfolio.symbol_gross_exposure_notional,
+                    "portfolio_gross_exposure_notional": portfolio.portfolio_gross_exposure_notional,
+                    "portfolio_equity": portfolio.equity,
                 }
             }
         });
@@ -616,18 +720,29 @@ mod tests {
         }
     }
 
+    fn base_portfolio() -> PortfolioSnapshot {
+        PortfolioSnapshot {
+            symbol_gross_exposure_notional: 0.0,
+            portfolio_gross_exposure_notional: 10000.0,
+            equity: 100000.0,
+        }
+    }
+
     fn base_policy() -> RiskPolicy {
         RiskPolicy {
             min_confidence: 0.55,
             max_notional: 100000.0,
             max_drawdown_pct: 5.0,
+            max_symbol_exposure_notional: 250000.0,
+            max_portfolio_gross_exposure_notional: 500000.0,
+            min_available_equity: 10000.0,
         }
     }
 
     #[test]
     fn approves_trade_within_limits() {
         let input = mk_input("buy", 0.8, 1000.0);
-        let decision = evaluate_policy(&input, &base_state(), &base_policy());
+        let decision = evaluate_policy(&input, &base_state(), &base_portfolio(), &base_policy());
         assert!(decision.approved);
         assert!(decision.violations.is_empty());
     }
@@ -635,7 +750,7 @@ mod tests {
     #[test]
     fn rejects_on_low_confidence() {
         let input = mk_input("buy", 0.2, 1000.0);
-        let decision = evaluate_policy(&input, &base_state(), &base_policy());
+        let decision = evaluate_policy(&input, &base_state(), &base_portfolio(), &base_policy());
         assert!(!decision.approved);
         assert!(decision
             .violations
@@ -646,7 +761,7 @@ mod tests {
     #[test]
     fn rejects_on_notional_cap() {
         let input = mk_input("buy", 0.9, 250000.0);
-        let decision = evaluate_policy(&input, &base_state(), &base_policy());
+        let decision = evaluate_policy(&input, &base_state(), &base_portfolio(), &base_policy());
         assert!(!decision.approved);
         assert!(decision
             .violations
@@ -659,12 +774,25 @@ mod tests {
         let input = mk_input("sell", 0.9, 1000.0);
         let mut state = base_state();
         state.kill_switch_enabled = true;
-        let decision = evaluate_policy(&input, &state, &base_policy());
+        let decision = evaluate_policy(&input, &state, &base_portfolio(), &base_policy());
         assert!(!decision.approved);
         assert!(decision
             .violations
             .iter()
             .any(|v| v == "kill_switch_enabled"));
+    }
+
+    #[test]
+    fn rejects_on_portfolio_gross_exposure_cap() {
+        let input = mk_input("buy", 0.9, 1000.0);
+        let mut portfolio = base_portfolio();
+        portfolio.portfolio_gross_exposure_notional = 500000.0;
+        let decision = evaluate_policy(&input, &base_state(), &portfolio, &base_policy());
+        assert!(!decision.approved);
+        assert!(decision
+            .violations
+            .iter()
+            .any(|v| v == "max_portfolio_gross_exposure_exceeded"));
     }
 
     #[test]

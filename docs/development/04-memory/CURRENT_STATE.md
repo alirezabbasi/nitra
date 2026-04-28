@@ -70,6 +70,10 @@ Last updated: 2026-04-28
   - added ack/fill ingest stream consumption (`broker.execution.ack.v1`) and order-command stream (`exec.order_command.v1`),
   - persisted command decisions to `execution_command_log`,
   - extended execution journal with `broker_order_id` and `state_version`.
+- Completed `DEV-0023` deterministic portfolio baseline + richer risk constraints:
+  - added runnable Rust `portfolio-engine` with fill-driven state updates and `portfolio.snapshot.v1` emission,
+  - added portfolio persistence contracts: `portfolio_position_state`, `portfolio_account_state`, `portfolio_fill_log`,
+  - wired risk-engine portfolio-aware limits (`max_symbol_exposure`, `max_portfolio_gross_exposure`, `min_available_equity`).
 
 ### Current
 
@@ -80,13 +84,14 @@ Last updated: 2026-04-28
 - `DEV-0020` closed with deterministic execution runtime baseline and persisted audit/journal contract.
 - `DEV-0021` closed with broker adapter baseline and ack/fill ingest path.
 - `DEV-0022` opened and moved to active execution track for adapter-network resilience (DNS/connectivity/runtime robustness).
+- `DEV-0023` closed with deterministic portfolio-state baseline and richer portfolio-aware risk controls.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
 1. Deliver `DEV-0022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
-2. Add deterministic portfolio-state baseline and wire richer risk constraints.
-3. Expand reconciliation/runbook evidence capture for live adapter behavior.
+2. Expand reconciliation/runbook evidence capture for live adapter behavior.
+3. Add execution adapter chaos-test coverage and operator recovery playbooks.
 
 ### Risks/Blocks
 
@@ -107,7 +112,7 @@ Last updated: 2026-04-28
 - Implemented: ingestion connectors, Kafka backbone, Timescale baseline schema.
 - Partial: normalization/replay path, structure-engine baseline, risk-engine baseline, execution-gateway baseline, audit/journal contract baseline, raw data lake archival, MLflow/research infra, observability basics.
 - Scaffold only: llm-analyst.
-- Not started: feature platform (Feast), portfolio engine, full online inference layer (Ray Serve).
+- Not started: feature platform (Feast), full online inference layer (Ray Serve).
 
 ## Section 5.1 Compliance Snapshot
 

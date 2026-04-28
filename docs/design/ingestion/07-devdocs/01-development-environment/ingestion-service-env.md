@@ -223,12 +223,31 @@ Notes:
 - `RISK_MAX_NOTIONAL` default `100000`
 - `RISK_MAX_DRAWDOWN_PCT` default `5`
 - `RISK_DEFAULT_NOTIONAL` default `1000`
+- `RISK_MAX_SYMBOL_EXPOSURE_NOTIONAL` default `250000`
+- `RISK_MAX_PORTFOLIO_GROSS_EXPOSURE_NOTIONAL` default `500000`
+- `RISK_MIN_AVAILABLE_EQUITY` default `10000`
+- `RISK_PORTFOLIO_ACCOUNT_ID` default `paper`
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 Notes:
-- The baseline risk service is deterministic and fail-closed for kill-switch/drawdown/notional/confidence violations.
+- The baseline risk service is deterministic and fail-closed for kill-switch/drawdown/notional/confidence and portfolio-cap violations.
 - Risk state and audit history are persisted in `risk_state` and `risk_decision_log`.
 - `processed_message_ledger` idempotency is enforced to keep replay-safe decision behavior.
+
+## portfolio-engine
+
+- `KAFKA_BROKERS` default `kafka:9092`
+- `PORTFOLIO_INPUT_FILL_TOPIC` default `exec.fill_received.v1`
+- `PORTFOLIO_SNAPSHOT_TOPIC` default `portfolio.snapshot.v1`
+- `PORTFOLIO_GROUP_ID` default `nitra-portfolio-engine-v1`
+- `PORTFOLIO_ACCOUNT_ID` default `paper`
+- `PORTFOLIO_DEFAULT_EQUITY` default `100000`
+- `DATABASE_URL` required (compose sets from `POSTGRES_*`)
+
+Notes:
+- Baseline portfolio runtime is deterministic and replay-safe via `processed_message_ledger`.
+- Portfolio baseline persistence contracts: `portfolio_position_state`, `portfolio_account_state`, `portfolio_fill_log`.
+- Baseline portfolio snapshots are emitted on `portfolio.snapshot.v1` for downstream controls and observability.
 
 ## execution-gateway
 

@@ -120,9 +120,11 @@
       "allowed_runtimes": [
         "rust"
       ],
-      "current_runtime": "none",
-      "owner_status": "blocked",
-      "repo_paths": [],
+      "current_runtime": "rust",
+      "owner_status": "compliant",
+      "repo_paths": [
+        "services/portfolio-engine"
+      ],
       "contracts": {
         "openapi_ref": "docs/design/nitra_system_lld/03_openapi_contracts.md",
         "asyncapi_ref": "docs/design/nitra_system_lld/04_asyncapi_event_contracts.md"

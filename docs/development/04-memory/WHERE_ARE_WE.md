@@ -31,6 +31,7 @@ Last updated: 2026-04-28
 - `DEV-0019` completed: deterministic `risk-engine` baseline implemented in Rust (policy checks, `decision.risk_checked.v1`, `ops.policy_violation.v1`, persisted `risk_state` and `risk_decision_log`).
 - `DEV-0020` completed: deterministic `execution-gateway` baseline implemented in Rust with persisted `execution_order_journal` and project-wide `audit_event_log` contract.
 - `DEV-0021` completed: broker-venue adapter baseline added to `execution-gateway` for live submit/amend/cancel and broker ack/fill ingest (`exec.order_command.v1`, `broker.execution.ack.v1`) with `execution_command_log` persistence.
+- `DEV-0023` completed: deterministic `portfolio-engine` baseline added with persisted position/account/fill state and `portfolio.snapshot.v1` emission; `risk-engine` upgraded with portfolio-aware exposure/equity constraints.
 
 ## Current
 
@@ -42,12 +43,13 @@ Last updated: 2026-04-28
 - `DEV-0020` is closed with deterministic runtime baseline, execution topics, and audit/journal persistence contract in runtime + schema.
 - `DEV-0021` is closed with broker adapter baseline, command/ack topics, and extended execution journal/command persistence contract.
 - `DEV-0022` is now open and in progress for execution adapter network resilience (DNS/connectivity/runtime robustness).
+- `DEV-0023` is closed with deterministic portfolio-state baseline and richer risk constraints.
 
 ## Next
 
 1. Deliver `DEV-0022` implementation for timeout/name-resolution handling and bounded retry/backoff tuning.
-2. Add portfolio-state baseline to deepen risk/execution constraints.
-3. Expand post-trade reconciliation runbooks and evidence captures for live broker venues.
+2. Expand post-trade reconciliation runbooks and evidence captures for live broker venues.
+3. Add execution adapter chaos-test coverage and operator recovery playbooks.
 
 ## Risks/Blocks
 

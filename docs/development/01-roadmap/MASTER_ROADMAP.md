@@ -27,7 +27,7 @@ Last updated: 2026-04-28
 | 8 | Research/Backtesting/Dataset Builder + MLflow integration | `partial` | `compliant` |
 | 9 | Online Inference Layer (Ray Serve) | `not_started` | `compliant` |
 | 10 | Risk Engine | `partial` | `compliant` |
-| 11 | Portfolio Engine | `not_started` | `blocked` |
+| 11 | Portfolio Engine | `partial` | `compliant` |
 | 12 | RAG + LLM Analyst Layer | `scaffold` | `compliant` |
 | 13 | Execution Gateway | `partial` | `compliant` |
 | 14 | Audit/Journaling/Monitoring | `partial` | `compliant` |

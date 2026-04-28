@@ -4,7 +4,6 @@ Last updated: 2026-04-28
 
 ## Backlog
 
-- [ ] Add deterministic portfolio-state baseline and wire richer risk/execution constraints.
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
 
 ## In Progress
@@ -37,6 +36,7 @@ Last updated: 2026-04-28
 - [x] `DEV-0019` deterministic `risk-engine` runtime baseline (Rust service + deterministic policy checks + persisted risk state/audit).
 - [x] `DEV-0020` deterministic `execution-gateway` baseline and audit/journal persistence contract.
 - [x] `DEV-0021` broker-venue adapter layer for `execution-gateway` (submit/amend/cancel + ack/fill ingest).
+- [x] `DEV-0023` deterministic portfolio-state baseline and richer risk constraints (`portfolio-engine` + portfolio-aware risk caps).
 
 ## Blocked
 

@@ -201,6 +201,31 @@ services:
       RISK_MAX_NOTIONAL: ${RISK_MAX_NOTIONAL:-100000}
       RISK_MAX_DRAWDOWN_PCT: ${RISK_MAX_DRAWDOWN_PCT:-5}
       RISK_DEFAULT_NOTIONAL: ${RISK_DEFAULT_NOTIONAL:-1000}
+      RISK_MAX_SYMBOL_EXPOSURE_NOTIONAL: ${RISK_MAX_SYMBOL_EXPOSURE_NOTIONAL:-250000}
+      RISK_MAX_PORTFOLIO_GROSS_EXPOSURE_NOTIONAL: ${RISK_MAX_PORTFOLIO_GROSS_EXPOSURE_NOTIONAL:-500000}
+      RISK_MIN_AVAILABLE_EQUITY: ${RISK_MIN_AVAILABLE_EQUITY:-10000}
+      RISK_PORTFOLIO_ACCOUNT_ID: ${RISK_PORTFOLIO_ACCOUNT_ID:-paper}
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  portfolio-engine:
+    build:
+      context: ./services/portfolio-engine
+      dockerfile: Dockerfile
+    container_name: portfolio-engine
+    environment:
+      RUST_LOG: info
+      DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
+      KAFKA_BROKERS: kafka:9092
+      PORTFOLIO_INPUT_FILL_TOPIC: ${PORTFOLIO_INPUT_FILL_TOPIC:-exec.fill_received.v1}
+      PORTFOLIO_SNAPSHOT_TOPIC: ${PORTFOLIO_SNAPSHOT_TOPIC:-portfolio.snapshot.v1}
+      PORTFOLIO_GROUP_ID: ${PORTFOLIO_GROUP_ID:-nitra-portfolio-engine-v1}
+      PORTFOLIO_ACCOUNT_ID: ${PORTFOLIO_ACCOUNT_ID:-paper}
+      PORTFOLIO_DEFAULT_EQUITY: ${PORTFOLIO_DEFAULT_EQUITY:-100000}
     depends_on:
       timescaledb:
         condition: service_healthy
