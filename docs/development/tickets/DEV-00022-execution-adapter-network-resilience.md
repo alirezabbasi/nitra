@@ -1,4 +1,4 @@
-# DEV-0022: Execution Adapter Network Resilience
+# DEV-00022: Execution Adapter Network Resilience
 
 ## Status
 

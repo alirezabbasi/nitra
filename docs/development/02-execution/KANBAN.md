@@ -18,7 +18,7 @@ Last updated: 2026-04-28
 
 ## In Progress
 
-- [ ] `DEV-0022` execution adapter network resilience (DNS/connectivity/runtime robustness).
+- [ ] `DEV-00022` execution adapter network resilience (DNS/connectivity/runtime robustness).
 
 ## Done
 
@@ -42,11 +42,11 @@ Last updated: 2026-04-28
 - [x] `DEV-00014` implement venue-history adapters and session-aware continuity policy for 90-day backfill (closed with live runtime evidence on 2026-04-26).
 - [x] Implement replay controller to consume `replay.commands`.
 - [x] `DEV-00015` chart interaction UX parity upgrade (15 interaction features).
-- [x] `DEV-0018` deterministic `structure-engine` runtime baseline (Rust service + Kafka contracts + persisted structure state).
-- [x] `DEV-0019` deterministic `risk-engine` runtime baseline (Rust service + deterministic policy checks + persisted risk state/audit).
-- [x] `DEV-0020` deterministic `execution-gateway` baseline and audit/journal persistence contract.
-- [x] `DEV-0021` broker-venue adapter layer for `execution-gateway` (submit/amend/cancel + ack/fill ingest).
-- [x] `DEV-0023` deterministic portfolio-state baseline and richer risk constraints (`portfolio-engine` + portfolio-aware risk caps).
+- [x] `DEV-00018` deterministic `structure-engine` runtime baseline (Rust service + Kafka contracts + persisted structure state).
+- [x] `DEV-00019` deterministic `risk-engine` runtime baseline (Rust service + deterministic policy checks + persisted risk state/audit).
+- [x] `DEV-00020` deterministic `execution-gateway` baseline and audit/journal persistence contract.
+- [x] `DEV-00021` broker-venue adapter layer for `execution-gateway` (submit/amend/cancel + ack/fill ingest).
+- [x] `DEV-00023` deterministic portfolio-state baseline and richer risk constraints (`portfolio-engine` + portfolio-aware risk caps).
 - [x] `DEV-00025` control panel foundation shell and design system (FastAPI route + professional black/white sidebar admin shell baseline).
 
 ## Blocked

@@ -49,28 +49,28 @@ Last updated: 2026-04-28
   - SQL status snapshots captured for `backfill_jobs`, `replay_audit`, `gap_log`.
   - coverage metrics/status endpoints captured from charting.
   - adapter-check probes captured explicit external-network error diagnostics (`Network is unreachable`, `timed out`, `Temporary failure in name resolution`).
-- Completed `DEV-0018` deterministic structure-engine baseline:
+- Completed `DEV-00018` deterministic structure-engine baseline:
   - replaced `structure-engine` scaffold with runnable Rust runtime,
   - consumes `bar.1m`, emits `structure.snapshot.v1`/`structure.pullback.v1`/`structure.minor_confirmed.v1`/`structure.major_confirmed.v1`,
   - persists single-source-of-truth state in `structure_state`,
   - added compose/topic/schema contracts plus `tests/dev-0018`.
-- Completed `DEV-0019` deterministic risk-engine baseline:
+- Completed `DEV-00019` deterministic risk-engine baseline:
   - replaced `risk-engine` scaffold with runnable Rust runtime,
   - consumes configurable input stream (baseline `structure.snapshot.v1`) and enforces deterministic policy checks,
   - emits `decision.risk_checked.v1` and `ops.policy_violation.v1`,
   - persists `risk_state` and `risk_decision_log` with idempotent processing semantics.
-- Completed `DEV-0020` deterministic execution-gateway baseline + audit/journal persistence contract:
+- Completed `DEV-00020` deterministic execution-gateway baseline + audit/journal persistence contract:
   - replaced `execution-gateway` scaffold with runnable Rust runtime,
   - consumes `decision.risk_checked.v1` and emits `exec.order_submitted.v1` / `exec.order_updated.v1` / `exec.fill_received.v1` / `exec.reconciliation_issue.v1`,
   - persists lifecycle state to `execution_order_journal`,
   - persists cross-service trace events to `audit_event_log`,
   - preserves idempotent processing semantics via `processed_message_ledger`.
-- Completed `DEV-0021` broker-venue adapter baseline for execution-gateway:
+- Completed `DEV-00021` broker-venue adapter baseline for execution-gateway:
   - added live broker submit/amend/cancel adapter routes with deterministic dry-run fallback,
   - added ack/fill ingest stream consumption (`broker.execution.ack.v1`) and order-command stream (`exec.order_command.v1`),
   - persisted command decisions to `execution_command_log`,
   - extended execution journal with `broker_order_id` and `state_version`.
-- Completed `DEV-0023` deterministic portfolio baseline + richer risk constraints:
+- Completed `DEV-00023` deterministic portfolio baseline + richer risk constraints:
   - added runnable Rust `portfolio-engine` with fill-driven state updates and `portfolio.snapshot.v1` emission,
   - added portfolio persistence contracts: `portfolio_position_state`, `portfolio_account_state`, `portfolio_fill_log`,
   - wired risk-engine portfolio-aware limits (`max_symbol_exposure`, `max_portfolio_gross_exposure`, `min_available_equity`).
@@ -87,17 +87,17 @@ Last updated: 2026-04-28
 
 - `DEV-00013` closed with live runtime evidence and explicit surfaced error-state diagnostics.
 - `DEV-00014` closed with live adapter-check and coverage evidence.
-- `DEV-0018` closed with deterministic structure runtime baseline in production compose path.
-- `DEV-0019` closed with deterministic risk runtime baseline in production compose path.
-- `DEV-0020` closed with deterministic execution runtime baseline and persisted audit/journal contract.
-- `DEV-0021` closed with broker adapter baseline and ack/fill ingest path.
-- `DEV-0022` opened and moved to active execution track for adapter-network resilience (DNS/connectivity/runtime robustness).
-- `DEV-0023` closed with deterministic portfolio-state baseline and richer portfolio-aware risk controls.
+- `DEV-00018` closed with deterministic structure runtime baseline in production compose path.
+- `DEV-00019` closed with deterministic risk runtime baseline in production compose path.
+- `DEV-00020` closed with deterministic execution runtime baseline and persisted audit/journal contract.
+- `DEV-00021` closed with broker adapter baseline and ack/fill ingest path.
+- `DEV-00022` opened and moved to active execution track for adapter-network resilience (DNS/connectivity/runtime robustness).
+- `DEV-00023` closed with deterministic portfolio-state baseline and richer portfolio-aware risk controls.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Deliver `DEV-0022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
+1. Deliver `DEV-00022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
 2. Execute `DEV-00026..DEV-00030` core control-panel operations modules (RBAC, ingestion ops, risk/portfolio, execution OMS, charting workbench integration).
 3. Expand control-panel governance modules (`DEV-00031..DEV-00034`) after operational modules are stable.
 

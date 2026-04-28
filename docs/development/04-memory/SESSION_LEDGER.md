@@ -454,7 +454,7 @@ Append one entry at the end of each substantial session.
     - `structure.minor_confirmed.v1`
     - `structure.major_confirmed.v1`
   - added ticket + test pack:
-    - `docs/development/tickets/DEV-0018-structure-engine-baseline.md`
+    - `docs/development/tickets/DEV-00018-structure-engine-baseline.md`
     - `tests/dev-0018/run.sh`
     - `make test-dev-0018` target.
   - synchronized roadmap/kanban/memory/devdocs/LLD artifacts to mark structure baseline completed.
@@ -487,7 +487,7 @@ Append one entry at the end of each substantial session.
   - added Timescale schema migration `008_risk_state.sql` (`risk_state`, `risk_decision_log`) plus runtime `CREATE TABLE IF NOT EXISTS` safety.
   - updated compose/runtime contracts (`RISK_*` envs), Kafka topic bootstrap list, LLD/devdocs, and execution/memory roadmap artifacts.
   - added ticket and test pack:
-    - `docs/development/tickets/DEV-0019-risk-engine-baseline.md`
+    - `docs/development/tickets/DEV-00019-risk-engine-baseline.md`
     - `tests/dev-0019/run.sh`
     - `make test-dev-0019`.
 - Verification:
@@ -522,7 +522,7 @@ Append one entry at the end of each substantial session.
     - migration `infra/timescaledb/init/009_execution_audit_journal.sql`.
   - updated compose contracts (`EXEC_*` envs) and removed execution scaffold runtime command.
   - added ticket + test pack:
-    - `docs/development/tickets/DEV-0020-execution-gateway-baseline-and-audit-journal-contract.md`
+    - `docs/development/tickets/DEV-00020-execution-gateway-baseline-and-audit-journal-contract.md`
     - `tests/dev-0020/run.sh`
     - `make test-dev-0020`.
   - synchronized LLD/devdocs/roadmap/kanban/memory artifacts to close execution+audit baseline scope.
@@ -558,7 +558,7 @@ Append one entry at the end of each substantial session.
     - migration `infra/timescaledb/init/010_execution_broker_adapter.sql`
   - updated compose/kafka contracts for new topics and adapter env vars.
   - added ticket + test pack:
-    - `docs/development/tickets/DEV-0021-execution-gateway-broker-venue-adapter-layer.md`
+    - `docs/development/tickets/DEV-00021-execution-gateway-broker-venue-adapter-layer.md`
     - `tests/dev-0021/run.sh`
     - `make test-dev-0021`.
 - Verification:
@@ -603,7 +603,7 @@ Append one entry at the end of each substantial session.
   - `make enforce-section-5-1` passes.
   - `make session-bootstrap` passes.
 - Next recommended action:
-  - continue `DEV-0022` execution adapter network resilience hardening and attach live degraded-network evidence.
+  - continue `DEV-00022` execution adapter network resilience hardening and attach live degraded-network evidence.
 
 ---
 
@@ -630,7 +630,7 @@ Append one entry at the end of each substantial session.
   - documentation-only planning slice; no runtime code changes.
   - session memory and status artifacts synchronized for future "where are we?" continuity.
 - Next recommended action:
-  - implement `DEV-00025` control-panel shell and design-system baseline while `DEV-0022` continues in parallel.
+  - implement `DEV-00025` control-panel shell and design-system baseline while `DEV-00022` continues in parallel.
 
 ---
 

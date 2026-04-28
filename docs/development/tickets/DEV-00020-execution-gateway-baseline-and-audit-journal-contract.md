@@ -1,4 +1,4 @@
-# DEV-0020: Execution Gateway Baseline and Audit/Journal Persistence Contract
+# DEV-00020: Execution Gateway Baseline and Audit/Journal Persistence Contract
 
 ## Status
 
