@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -31,3 +31,4 @@ Provide professional OMS workflows for order lifecycle monitoring, broker adapte
 
 - OMS workflow integration tests.
 - End-to-end validation with simulated broker ack/fill paths.
+- `tests/dev-00029/run.sh`

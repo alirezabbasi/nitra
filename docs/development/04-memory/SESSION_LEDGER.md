@@ -774,3 +774,42 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - implement `DEV-00029` execution OMS and broker operations center module.
+
+---
+
+## 2026-04-29 — Session Entry 030
+
+- Objective:
+  - implement `DEV-00029` execution OMS and broker operations center module.
+- Work completed:
+  - added execution module APIs in `services/charting/app.py`:
+    - `GET /api/v1/control-panel/execution`
+      - order lifecycle blotter from `execution_order_journal`,
+      - command log from `execution_command_log`,
+      - reconciliation queue from terminal execution statuses,
+      - broker diagnostics aggregation from `audit_event_log`.
+    - `POST /api/v1/control-panel/execution/command`
+      - role-gated amend/cancel workflows (`operator+`),
+      - mandatory justification,
+      - command persistence to `execution_command_log`,
+      - journal transition hints (`amend_requested` / `cancel_requested`),
+      - audited mutation flow.
+  - expanded control-panel UI (`services/charting/static/control-panel.html`) with `Execution OMS` workspace:
+    - execution KPI cards,
+    - order blotter table,
+    - command submission form,
+    - reconciliation queue table,
+    - broker diagnostics table.
+  - added test pack and make target:
+    - `tests/dev-00029/run.sh`,
+    - `make test-dev-00029`.
+  - synchronized ticket/kanban/active-focus/memory docs to mark `DEV-00029` done and move next focus to `DEV-00030`.
+- Verification:
+  - `tests/dev-00028/run.sh` passes.
+  - `tests/dev-00029/run.sh` passes.
+  - `make test-dev-00028` passes.
+  - `make test-dev-00029` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - implement `DEV-00030` charting workbench integration module.

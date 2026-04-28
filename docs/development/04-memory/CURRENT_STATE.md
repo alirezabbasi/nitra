@@ -95,6 +95,10 @@ Last updated: 2026-04-29
   - added `/api/v1/control-panel/risk-limits` with bounded validation and `risk_manager+` role gate,
   - added `/api/v1/control-panel/risk/kill-switch` for global/market kill-switch control with audited mutation flow,
   - added risk/portfolio workspace UI section with limits editor, kill-switch controls, and live posture tables.
+- Completed `DEV-00029` control panel execution OMS/broker-ops baseline:
+  - added `/api/v1/control-panel/execution` for order lifecycle, command log, reconciliation queue, and broker diagnostics views,
+  - added `/api/v1/control-panel/execution/command` for role-gated amend/cancel workflows with justification and audit trails,
+  - added execution workspace UI section with order blotter, command form, reconciliation table, and broker diagnostics.
 
 ### Current
 
@@ -108,12 +112,13 @@ Last updated: 2026-04-29
 - `DEV-00023` closed with deterministic portfolio-state baseline and richer portfolio-aware risk controls.
 - `DEV-00027` closed with ingestion/data-quality operations center baseline in control panel.
 - `DEV-00028` closed with strategy/risk/portfolio control center baseline in control panel.
+- `DEV-00029` closed with execution OMS and broker-operations center baseline in control panel.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
 1. Deliver `DEV-00022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
-2. Execute `DEV-00029..DEV-00030` remaining core control-panel operations modules (execution OMS, charting workbench integration).
+2. Execute `DEV-00030` charting workbench integration module.
 3. Expand control-panel governance modules (`DEV-00031..DEV-00034`) after operational modules are stable.
 
 ### Risks/Blocks

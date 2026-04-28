@@ -306,6 +306,56 @@
             </article>
           </article>
         </section>
+
+        <section class="workspace hidden" id="workspace-execution">
+          <article class="card">
+            <div><strong>Execution OMS Live State</strong></div>
+            <div class="muted">Order lifecycle, reconciliation exceptions, and broker diagnostics</div>
+            <section class="grid" id="executionMetrics" style="margin-top:10px"></section>
+            <table class="table" id="ordersTable">
+              <thead><tr><th>Order</th><th>Market</th><th>Side</th><th>Status</th><th>Notional</th><th>Updated</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Order Command</strong></div>
+              <div class="small">Role-gated amend/cancel with mandatory justification</div>
+              <div class="form-row">
+                <input id="exOrderId" placeholder="order_id uuid" />
+                <input id="exAction" value="cancel" placeholder="action: amend|cancel" />
+                <input id="exNotional" placeholder="new_notional (amend)" />
+                <input id="exJustification" placeholder="justification" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto; margin-top:8px">
+                <div class="small">Commands are audited and reflected in execution journal state.</div>
+                <button class="btn" id="executionCmdBtn">Submit Command</button>
+              </div>
+              <div class="small" id="executionCmdResult" style="margin-top:8px">No command submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Command Log (Recent)</strong></div>
+              <table class="table" id="commandsTable">
+                <thead><tr><th>Action</th><th>Order</th><th>Accepted</th><th>Created</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Reconciliation Queue</strong></div>
+              <table class="table" id="reconciliationTable">
+                <thead><tr><th>Order</th><th>Market</th><th>Status</th><th>Updated</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Broker Diagnostics (24h)</strong></div>
+              <table class="table" id="brokerDiagTable">
+                <thead><tr><th>Event Type</th><th>Count</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
       </main>
     </div>
 
@@ -361,6 +411,7 @@
         document.getElementById("workspace-overview").classList.toggle("hidden", section !== "overview");
         document.getElementById("workspace-ingestion").classList.toggle("hidden", section !== "ingestion");
         document.getElementById("workspace-risk").classList.toggle("hidden", section !== "risk");
+        document.getElementById("workspace-execution").classList.toggle("hidden", section !== "execution");
       }
 
       function fmt(value) {
@@ -590,6 +641,91 @@
         await loadRiskPortfolio();
       }
 
+      function renderExecution(data) {
+        const metricMap = [
+          ["orders_total", "Orders Total"],
+          ["submitted_24h", "Submitted (24h)"],
+          ["filled_24h", "Filled (24h)"],
+          ["rejected_24h", "Rejected (24h)"],
+          ["cancelled_24h", "Cancelled (24h)"],
+          ["reconciliation_issues_open", "Recon Issues"],
+        ];
+        const m = document.getElementById("executionMetrics");
+        m.innerHTML = "";
+        for (const [key, label] of metricMap) {
+          const card = document.createElement("article");
+          card.className = "card";
+          card.innerHTML = `<div class="muted">${label}</div><div class="metric">${fmt(data.metrics[key])}</div>`;
+          m.appendChild(card);
+        }
+
+        const ordersBody = document.querySelector("#ordersTable tbody");
+        ordersBody.innerHTML = "";
+        for (const row of data.order_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.order_id}</td><td>${row.venue}:${row.symbol}</td><td>${row.side}</td><td>${row.status}</td><td>${fmt(row.requested_notional)}</td><td>${row.updated_at || "-"}</td>`;
+          ordersBody.appendChild(tr);
+        }
+
+        const cmdBody = document.querySelector("#commandsTable tbody");
+        cmdBody.innerHTML = "";
+        for (const row of data.command_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.action}</td><td>${row.order_id}</td><td>${row.accepted ? "YES" : "NO"}</td><td>${row.created_at || "-"}</td>`;
+          cmdBody.appendChild(tr);
+        }
+
+        const recBody = document.querySelector("#reconciliationTable tbody");
+        recBody.innerHTML = "";
+        for (const row of data.reconciliation_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.order_id}</td><td>${row.venue}:${row.symbol}</td><td>${row.status}</td><td>${row.updated_at || "-"}</td>`;
+          recBody.appendChild(tr);
+        }
+
+        const bdBody = document.querySelector("#brokerDiagTable tbody");
+        bdBody.innerHTML = "";
+        for (const row of data.broker_diagnostics || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.event_type}</td><td>${row.count_24h}</td>`;
+          bdBody.appendChild(tr);
+        }
+      }
+
+      async function loadExecution() {
+        const res = await authedFetch("/api/v1/control-panel/execution?row_limit=25");
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          throw new Error("unauthorized");
+        }
+        const data = await res.json();
+        applyRoleVisibility(data.session || {});
+        renderExecution(data);
+      }
+
+      async function submitExecutionCommand() {
+        const payload = {
+          order_id: document.getElementById("exOrderId").value.trim(),
+          action: document.getElementById("exAction").value.trim(),
+          new_notional: document.getElementById("exNotional").value.trim() ? Number(document.getElementById("exNotional").value.trim()) : null,
+          justification: document.getElementById("exJustification").value.trim(),
+        };
+        const out = document.getElementById("executionCmdResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/execution/command", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Accepted: ${data.action} for ${data.order_id}`;
+        await loadExecution();
+      }
+
       document.querySelectorAll(".nav-item[data-section]").forEach((el) => {
         el.addEventListener("click", async () => {
           const section = el.dataset.section || "overview";
@@ -598,6 +734,8 @@
             await loadIngestion();
           } else if (section === "risk") {
             await loadRiskPortfolio();
+          } else if (section === "execution") {
+            await loadExecution();
           } else {
             await loadOverview();
           }
@@ -606,11 +744,14 @@
       document.getElementById("backfillBtn").addEventListener("click", () => submitBackfillWindow().catch(console.error));
       document.getElementById("riskLimitsBtn").addEventListener("click", () => submitRiskLimits().catch(console.error));
       document.getElementById("killSwitchBtn").addEventListener("click", () => submitKillSwitch().catch(console.error));
+      document.getElementById("executionCmdBtn").addEventListener("click", () => submitExecutionCommand().catch(console.error));
       document.getElementById('refreshBtn').addEventListener('click', () => {
         if (currentSection === "ingestion") {
           loadIngestion().catch(console.error);
         } else if (currentSection === "risk") {
           loadRiskPortfolio().catch(console.error);
+        } else if (currentSection === "execution") {
+          loadExecution().catch(console.error);
         } else {
           loadOverview().catch(console.error);
         }

@@ -895,6 +895,300 @@ def control_panel_risk_kill_switch(
     return {"status": "updated", "enabled": enabled, "scope": scope, "affected_rows": affected_rows}
 
 
+@app.get("/api/v1/control-panel/execution")
+def control_panel_execution(
+    x_control_panel_token: str | None = Header(default=None),
+    row_limit: int = Query(default=30, ge=1, le=200),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    metrics = {
+        "orders_total": 0,
+        "submitted_24h": 0,
+        "filled_24h": 0,
+        "rejected_24h": 0,
+        "cancelled_24h": 0,
+        "reconciliation_issues_open": 0,
+    }
+    order_rows: list[dict] = []
+    command_rows: list[dict] = []
+    reconciliation_rows: list[dict] = []
+    broker_diagnostics: list[dict] = []
+    mode = "online"
+
+    try:
+        with psycopg.connect(db_url()) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM execution_order_journal")
+                metrics["orders_total"] = int(cur.fetchone()[0] or 0)
+
+                cur.execute(
+                    """
+                    SELECT
+                      COUNT(*) FILTER (WHERE status = 'submitted' AND updated_at >= now() - interval '24 hours'),
+                      COUNT(*) FILTER (WHERE status = 'filled' AND updated_at >= now() - interval '24 hours'),
+                      COUNT(*) FILTER (WHERE status IN ('rejected', 'rejected_by_broker', 'rejected_by_risk') AND updated_at >= now() - interval '24 hours'),
+                      COUNT(*) FILTER (WHERE status IN ('cancelled', 'cancel_requested') AND updated_at >= now() - interval '24 hours')
+                    FROM execution_order_journal
+                    """
+                )
+                row = cur.fetchone()
+                metrics["submitted_24h"] = int(row[0] or 0)
+                metrics["filled_24h"] = int(row[1] or 0)
+                metrics["rejected_24h"] = int(row[2] or 0)
+                metrics["cancelled_24h"] = int(row[3] or 0)
+
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM execution_order_journal
+                    WHERE status IN ('rejected', 'rejected_by_broker', 'cancelled')
+                    """
+                )
+                metrics["reconciliation_issues_open"] = int(cur.fetchone()[0] or 0)
+
+                cur.execute(
+                    """
+                    SELECT
+                      order_id,
+                      venue,
+                      canonical_symbol,
+                      side,
+                      status,
+                      broker_order_id,
+                      requested_notional,
+                      updated_at
+                    FROM execution_order_journal
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for r in cur.fetchall():
+                    order_rows.append(
+                        {
+                            "order_id": str(r[0]),
+                            "venue": str(r[1]),
+                            "symbol": str(r[2]),
+                            "side": str(r[3]),
+                            "status": str(r[4]),
+                            "broker_order_id": r[5],
+                            "requested_notional": float(r[6] or 0.0),
+                            "updated_at": r[7].isoformat() if r[7] else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT
+                      command_id,
+                      order_id,
+                      action,
+                      accepted,
+                      reason,
+                      created_at
+                    FROM execution_command_log
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for r in cur.fetchall():
+                    command_rows.append(
+                        {
+                            "command_id": str(r[0]),
+                            "order_id": str(r[1]),
+                            "action": str(r[2]),
+                            "accepted": bool(r[3]),
+                            "reason": r[4],
+                            "created_at": r[5].isoformat() if r[5] else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT
+                      order_id,
+                      venue,
+                      canonical_symbol,
+                      status,
+                      updated_at
+                    FROM execution_order_journal
+                    WHERE status IN ('rejected', 'rejected_by_broker', 'cancelled')
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for r in cur.fetchall():
+                    reconciliation_rows.append(
+                        {
+                            "order_id": str(r[0]),
+                            "venue": str(r[1]),
+                            "symbol": str(r[2]),
+                            "status": str(r[3]),
+                            "updated_at": r[4].isoformat() if r[4] else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT event_type, COUNT(*)::bigint
+                    FROM audit_event_log
+                    WHERE event_domain = 'execution'
+                      AND created_at >= now() - interval '24 hours'
+                    GROUP BY event_type
+                    ORDER BY COUNT(*) DESC, event_type ASC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for event_type, count in cur.fetchall():
+                    broker_diagnostics.append(
+                        {
+                            "event_type": str(event_type),
+                            "count_24h": int(count or 0),
+                        }
+                    )
+    except Exception:
+        mode = "degraded"
+
+    return {
+        "service": "control-panel",
+        "module": "execution",
+        "mode": mode,
+        "session": session,
+        "metrics": metrics,
+        "order_rows": order_rows,
+        "command_rows": command_rows,
+        "reconciliation_rows": reconciliation_rows,
+        "broker_diagnostics": broker_diagnostics,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.post("/api/v1/control-panel/execution/command")
+def control_panel_execution_command(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+
+    order_id = str(payload.get("order_id", "")).strip()
+    action = str(payload.get("action", "")).strip().lower()
+    if action not in {"amend", "cancel"}:
+        raise HTTPException(status_code=400, detail="action must be amend or cancel")
+    try:
+        uuid.UUID(order_id)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="invalid order_id uuid") from exc
+
+    new_notional = payload.get("new_notional")
+    parsed_new_notional = None
+    if action == "amend":
+        if new_notional is None:
+            raise HTTPException(status_code=400, detail="new_notional required for amend")
+        parsed_new_notional = float(new_notional)
+        if parsed_new_notional <= 0:
+            raise HTTPException(status_code=400, detail="new_notional must be positive")
+
+    with psycopg.connect(db_url()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO execution_command_log (
+                  command_id, order_id, action, accepted, reason, payload, created_at
+                ) VALUES (%s::uuid, %s::uuid, %s, TRUE, %s, %s::jsonb, now())
+                """,
+                (
+                    str(uuid.uuid4()),
+                    order_id,
+                    action,
+                    "control_panel_request",
+                    json.dumps(
+                        {
+                            "source": "control_panel",
+                            "new_notional": parsed_new_notional,
+                            "justification": justification,
+                        }
+                    ),
+                ),
+            )
+
+            if action == "cancel":
+                cur.execute(
+                    """
+                    UPDATE execution_order_journal
+                    SET
+                      status = 'cancel_requested',
+                      execution_metadata = execution_metadata || %s::jsonb,
+                      state_version = state_version + 1,
+                      updated_at = now()
+                    WHERE order_id = %s::uuid
+                    """,
+                    (
+                        json.dumps(
+                            {
+                                "control_panel_action": action,
+                                "control_panel_user": session["user_id"],
+                                "control_panel_justification": justification,
+                            }
+                        ),
+                        order_id,
+                    ),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE execution_order_journal
+                    SET
+                      status = 'amend_requested',
+                      execution_metadata = execution_metadata || %s::jsonb,
+                      state_version = state_version + 1,
+                      updated_at = now()
+                    WHERE order_id = %s::uuid
+                    """,
+                    (
+                        json.dumps(
+                            {
+                                "control_panel_action": action,
+                                "control_panel_user": session["user_id"],
+                                "control_panel_justification": justification,
+                                "control_panel_new_notional": parsed_new_notional,
+                            }
+                        ),
+                        order_id,
+                    ),
+                )
+
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action=f"execution.{action}",
+            section="execution",
+            target=order_id,
+            status="approved",
+            reason=None,
+            metadata={
+                "justification": justification,
+                "new_notional": parsed_new_notional,
+            },
+        )
+        conn.commit()
+
+    return {
+        "status": "accepted",
+        "order_id": order_id,
+        "action": action,
+        "new_notional": parsed_new_notional,
+        "requested_by": session["user_id"],
+    }
+
+
 @app.post("/api/v1/control-panel/actions/privileged")
 def control_panel_privileged_action(
     payload: dict = Body(...),
