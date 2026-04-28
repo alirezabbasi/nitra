@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -31,3 +31,4 @@ Integrate charting as a first-class sub-module in the control panel, including i
 
 - Navigation integration tests for instrument -> chart transitions.
 - UX regression checks for chart continuity and context carryover.
+- `tests/dev-00030/run.sh`

@@ -813,3 +813,28 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - implement `DEV-00030` charting workbench integration module.
+
+---
+
+## 2026-04-29 — Session Entry 022
+
+- Objective:
+  - deliver `DEV-00031` control-panel alerting, incidents, and runbooks center baseline.
+- Work completed:
+  - added ops persistence tables and APIs in `services/charting/app.py`:
+    - `GET /api/v1/control-panel/ops`
+    - `POST /api/v1/control-panel/ops/alerts/ingest`
+    - `POST /api/v1/control-panel/ops/alerts/action`
+    - `POST /api/v1/control-panel/ops/runbook/execute`
+  - wired auditable alert lifecycle, incident creation path, and runbook execution history using `control_panel_audit_log`.
+  - added control-panel ops workspace UI in `services/charting/static/control-panel.html` with alert inbox, incident table, runbook launcher/history, and refresh/section routing support.
+  - added verification pack `tests/dev-00031/run.sh` and `Makefile` target `test-dev-00031`.
+  - updated ticket/kanban/memory files to mark `DEV-00031` done and move next focus to `DEV-00032`.
+- Verification:
+  - `tests/dev-00030/run.sh` passes.
+  - `tests/dev-00031/run.sh` passes.
+  - `make test-dev-00031` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - start `DEV-00032` (research/backtesting/model-ops center) on top of current control-panel module set.

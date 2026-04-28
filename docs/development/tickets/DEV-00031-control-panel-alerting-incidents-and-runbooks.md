@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -30,3 +30,4 @@ Build incident command workflows that unify alerts, diagnostics, ownership, and 
 
 - Incident flow integration tests.
 - Audit checks for runbook action execution history.
+- `tests/dev-00031/run.sh`

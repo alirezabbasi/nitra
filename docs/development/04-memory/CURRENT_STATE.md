@@ -99,6 +99,15 @@ Last updated: 2026-04-29
   - added `/api/v1/control-panel/execution` for order lifecycle, command log, reconciliation queue, and broker diagnostics views,
   - added `/api/v1/control-panel/execution/command` for role-gated amend/cancel workflows with justification and audit trails,
   - added execution workspace UI section with order blotter, command form, reconciliation table, and broker diagnostics.
+- Completed `DEV-00030` control panel charting workbench integration baseline:
+  - added `/api/v1/control-panel/charting/profile` for instrument profile + operational context (latest bar, risk, execution, gap state),
+  - added dedicated charting workspace with split-view profile panel + embedded live chart frame,
+  - added one-click context handoff from ingestion/risk/execution tables into chart workbench (`openChartWorkbench`).
+- Completed `DEV-00031` control panel alerting/incidents/runbooks center baseline:
+  - added `/api/v1/control-panel/ops` for alert inbox, incident workspace, and runbook execution telemetry,
+  - added `/api/v1/control-panel/ops/alerts/ingest` + `/api/v1/control-panel/ops/alerts/action` for lifecycle ownership/suppression/incident creation flows,
+  - added `/api/v1/control-panel/ops/runbook/execute` with auditable runbook execution persistence,
+  - added ops workspace UI section with alert queue, incident table, and runbook launcher/history.
 
 ### Current
 
@@ -113,13 +122,15 @@ Last updated: 2026-04-29
 - `DEV-00027` closed with ingestion/data-quality operations center baseline in control panel.
 - `DEV-00028` closed with strategy/risk/portfolio control center baseline in control panel.
 - `DEV-00029` closed with execution OMS and broker-operations center baseline in control panel.
+- `DEV-00030` closed with charting workbench integration baseline in control panel.
+- `DEV-00031` closed with alerting/incidents/runbooks center baseline in control panel.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
 1. Deliver `DEV-00022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
-2. Execute `DEV-00030` charting workbench integration module.
-3. Expand control-panel governance modules (`DEV-00031..DEV-00034`) after operational modules are stable.
+2. Execute control-panel governance modules (`DEV-00032..DEV-00034`) now that operations alerting baseline is in place.
+3. Continue `DEV-00022` resilience hardening in parallel and attach live degraded-network evidence.
 
 ### Risks/Blocks
 

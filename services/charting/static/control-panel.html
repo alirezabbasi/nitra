@@ -91,6 +91,7 @@
         cursor: pointer;
       }
       .btn:hover { border-color: #444; }
+      .btn.mini { padding: 4px 8px; font-size: 11px; border-radius: 6px; }
       .grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(160px, 1fr));
@@ -356,6 +357,90 @@
             </article>
           </article>
         </section>
+
+        <section class="workspace hidden" id="workspace-charting">
+          <article class="card">
+            <div><strong>Instrument Workbench</strong></div>
+            <div class="small">Deep-linkable chart context with risk/execution overlays</div>
+            <div class="form-row" style="margin-top:10px">
+              <input id="cwVenue" value="coinbase" placeholder="venue" />
+              <input id="cwSymbol" value="BTCUSD" placeholder="symbol" />
+              <input id="cwTimeframe" value="1m" placeholder="timeframe" />
+              <button class="btn" id="cwLoadBtn">Load Profile</button>
+            </div>
+            <div class="grid" id="cwMetrics" style="margin-top:10px"></div>
+            <table class="table" id="cwProfileTable">
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Live Chart</strong></div>
+              <div class="small" id="cwLinkLabel" style="margin: 8px 0;">No chart loaded.</div>
+              <iframe id="cwFrame" title="Chart Workbench" style="width:100%; min-height:460px; border:1px solid var(--border); border-radius:8px; background:#0d0d0d;"></iframe>
+            </article>
+            <article class="card">
+              <div><strong>Context Handoff</strong></div>
+              <div class="small">Use Chart buttons from ingestion/risk/execution rows for one-click pivots.</div>
+            </article>
+          </article>
+        </section>
+        <section class="workspace hidden" id="workspace-ops">
+          <article class="card">
+            <div><strong>Alert Inbox</strong></div>
+            <div class="muted">Severity, ownership, and SLA posture in one queue</div>
+            <section class="grid" id="opsMetrics" style="margin-top:10px"></section>
+            <table class="table" id="alertTable">
+              <thead><tr><th>Alert</th><th>Severity</th><th>Status</th><th>Owner</th><th>SLA Due</th><th>Action</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Create Alert</strong></div>
+              <div class="form-row">
+                <input id="oaSource" value="execution-gateway" placeholder="source" />
+                <input id="oaSeverity" value="warning" placeholder="severity" />
+                <input id="oaTitle" value="Broker ack latency above SLA" placeholder="title" />
+                <input id="oaSlaMinutes" value="30" placeholder="sla_minutes" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto; margin-top:8px">
+                <input id="oaSignalRef" placeholder="signal_ref (optional)" />
+                <button class="btn" id="opsAlertBtn">Create Alert</button>
+              </div>
+              <div class="small" id="opsAlertResult" style="margin-top:8px">No alert created.</div>
+            </article>
+            <article class="card">
+              <div><strong>Incident Workspace</strong></div>
+              <table class="table" id="incidentTable">
+                <thead><tr><th>Incident</th><th>Severity</th><th>Status</th><th>Owner</th><th>Opened</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Runbook Launcher</strong></div>
+              <div class="small">Operator role required, every execution is audited</div>
+              <div class="form-row">
+                <input id="rbIncidentId" placeholder="incident_id (optional)" />
+                <input id="rbCode" value="RB-NET-001" placeholder="runbook_code" />
+                <input id="rbAction" value="execute" placeholder="action" />
+                <input id="rbJustification" placeholder="justification" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto; margin-top:8px">
+                <input id="rbNote" placeholder="operator note (optional)" />
+                <button class="btn" id="runbookBtn">Execute Runbook</button>
+              </div>
+              <div class="small" id="runbookResult" style="margin-top:8px">No runbook action submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Runbook History (Recent)</strong></div>
+              <table class="table" id="runbookTable">
+                <thead><tr><th>Runbook</th><th>Action</th><th>Status</th><th>Incident</th><th>Created</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
       </main>
     </div>
 
@@ -412,6 +497,8 @@
         document.getElementById("workspace-ingestion").classList.toggle("hidden", section !== "ingestion");
         document.getElementById("workspace-risk").classList.toggle("hidden", section !== "risk");
         document.getElementById("workspace-execution").classList.toggle("hidden", section !== "execution");
+        document.getElementById("workspace-charting").classList.toggle("hidden", section !== "charting");
+        document.getElementById("workspace-ops").classList.toggle("hidden", section !== "ops");
       }
 
       function fmt(value) {
@@ -473,7 +560,7 @@
         connectorBody.innerHTML = "";
         for (const row of data.connector_health || []) {
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${row.venue}</td><td>${row.symbol}</td><td><span class="status ${row.status === "online" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td><td>${row.updated_at || "-"}</td>`;
+          tr.innerHTML = `<td>${row.venue}</td><td>${row.symbol} <button class="btn mini" onclick="openChartWorkbench('${row.venue}','${row.symbol}','1m')">Chart</button></td><td><span class="status ${row.status === "online" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td><td>${row.updated_at || "-"}</td>`;
           connectorBody.appendChild(tr);
         }
 
@@ -551,7 +638,7 @@
         strategyBody.innerHTML = "";
         for (const row of data.strategy_rows || []) {
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${row.venue}:${row.symbol}</td><td>${row.decisions_24h}</td><td>${fmt(row.avg_confidence)}</td><td>${row.violations_24h}</td><td><span class="status ${row.status === "healthy" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td>`;
+          tr.innerHTML = `<td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartWorkbench('${row.venue}','${row.symbol}','1m')">Chart</button></td><td>${row.decisions_24h}</td><td>${fmt(row.avg_confidence)}</td><td>${row.violations_24h}</td><td><span class="status ${row.status === "healthy" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td>`;
           strategyBody.appendChild(tr);
         }
 
@@ -663,7 +750,7 @@
         ordersBody.innerHTML = "";
         for (const row of data.order_rows || []) {
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${row.order_id}</td><td>${row.venue}:${row.symbol}</td><td>${row.side}</td><td>${row.status}</td><td>${fmt(row.requested_notional)}</td><td>${row.updated_at || "-"}</td>`;
+          tr.innerHTML = `<td>${row.order_id}</td><td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartWorkbench('${row.venue}','${row.symbol}','1m')">Chart</button></td><td>${row.side}</td><td>${row.status}</td><td>${fmt(row.requested_notional)}</td><td>${row.updated_at || "-"}</td>`;
           ordersBody.appendChild(tr);
         }
 
@@ -726,6 +813,184 @@
         await loadExecution();
       }
 
+      function renderChartingWorkbench(data) {
+        const profile = data.profile || {};
+        const metrics = [
+          ["Open Gaps", profile.open_gap_count ?? 0],
+          ["Ingest Enabled", profile.ingest_enabled ? "YES" : "NO"],
+          ["Market Enabled", profile.market_enabled ? "YES" : "NO"],
+          ["Asset Class", profile.asset_class || "unknown"],
+        ];
+        const grid = document.getElementById("cwMetrics");
+        grid.innerHTML = "";
+        for (const [label, value] of metrics) {
+          const card = document.createElement("article");
+          card.className = "card";
+          card.innerHTML = `<div class="muted">${label}</div><div class="metric">${value}</div>`;
+          grid.appendChild(card);
+        }
+
+        const tbody = document.querySelector("#cwProfileTable tbody");
+        const latestBar = profile.latest_bar || {};
+        const latestRisk = profile.latest_risk_state || {};
+        const latestExec = profile.latest_execution_state || {};
+        tbody.innerHTML = `
+          <tr><th>Latest Bar</th><td>${latestBar.bucket_start || "-"} | O:${fmt(latestBar.open)} H:${fmt(latestBar.high)} L:${fmt(latestBar.low)} C:${fmt(latestBar.close)}</td></tr>
+          <tr><th>Risk State</th><td>Exposure:${fmt(latestRisk.exposure_notional)} Drawdown:${fmt(latestRisk.drawdown_pct)} KillSwitch:${latestRisk.kill_switch_enabled ? "ON" : "OFF"}</td></tr>
+          <tr><th>Execution State</th><td>${latestExec.status || "-"} ${latestExec.side || ""} ${fmt(latestExec.requested_notional)}</td></tr>
+        `;
+
+        const chartLink = data.links?.full_chart || "/";
+        document.getElementById("cwFrame").src = chartLink;
+        document.getElementById("cwLinkLabel").textContent = `${profile.venue}:${profile.symbol}:${profile.timeframe} → ${chartLink}`;
+      }
+
+      async function loadChartingWorkbench(venue, symbol, timeframe) {
+        if (venue) document.getElementById("cwVenue").value = venue;
+        if (symbol) document.getElementById("cwSymbol").value = symbol;
+        if (timeframe) document.getElementById("cwTimeframe").value = timeframe;
+        const v = document.getElementById("cwVenue").value.trim();
+        const s = document.getElementById("cwSymbol").value.trim();
+        const tf = document.getElementById("cwTimeframe").value.trim() || "1m";
+
+        const qs = new URLSearchParams({venue: v, symbol: s, timeframe: tf});
+        const res = await authedFetch(`/api/v1/control-panel/charting/profile?${qs.toString()}`);
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          throw new Error("unauthorized");
+        }
+        const data = await res.json();
+        applyRoleVisibility(data.session || {});
+        renderChartingWorkbench(data);
+      }
+
+      function renderOps(data) {
+        const metricMap = [
+          ["alerts_open", "Alerts Open"],
+          ["alerts_critical", "Critical Alerts"],
+          ["incidents_open", "Incidents Open"],
+          ["sla_breached_open_alerts", "SLA Breached Alerts"],
+          ["runbooks_24h", "Runbooks (24h)"],
+          ["mttr_minutes_7d", "MTTR Minutes (7d)"],
+        ];
+        const m = document.getElementById("opsMetrics");
+        m.innerHTML = "";
+        for (const [key, label] of metricMap) {
+          const card = document.createElement("article");
+          card.className = "card";
+          card.innerHTML = `<div class="muted">${label}</div><div class="metric">${fmt(data.metrics[key])}</div>`;
+          m.appendChild(card);
+        }
+
+        const alertBody = document.querySelector("#alertTable tbody");
+        alertBody.innerHTML = "";
+        for (const row of data.alert_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.title}</td><td>${row.severity}</td><td>${row.status}</td><td>${row.owner || "-"}</td><td>${row.sla_due_at || "-"}</td><td><button class="btn mini" onclick="submitAlertAction('${row.alert_id}','acknowledge')">Acknowledge</button> <button class="btn mini" onclick="submitAlertAction('${row.alert_id}','incident')">Incident</button></td>`;
+          alertBody.appendChild(tr);
+        }
+
+        const incidentBody = document.querySelector("#incidentTable tbody");
+        incidentBody.innerHTML = "";
+        for (const row of data.incident_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.incident_id}</td><td>${row.severity}</td><td>${row.status}</td><td>${row.owner || "-"}</td><td>${row.opened_at || "-"}</td>`;
+          incidentBody.appendChild(tr);
+        }
+
+        const runbookBody = document.querySelector("#runbookTable tbody");
+        runbookBody.innerHTML = "";
+        for (const row of data.runbook_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.runbook_code}</td><td>${row.action}</td><td>${row.status}</td><td>${row.incident_id || "-"}</td><td>${row.created_at || "-"}</td>`;
+          runbookBody.appendChild(tr);
+        }
+      }
+
+      async function loadOps() {
+        const res = await authedFetch("/api/v1/control-panel/ops?row_limit=25");
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          throw new Error("unauthorized");
+        }
+        const data = await res.json();
+        applyRoleVisibility(data.session || {});
+        renderOps(data);
+      }
+
+      async function submitAlertAction(alertId, action) {
+        const res = await authedFetch("/api/v1/control-panel/ops/alerts/action", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({
+            alert_id: alertId,
+            action,
+            owner: "ops@desk",
+            note: "action from ops workspace",
+            justification: `Operator action ${action} executed from control panel`,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(`Action rejected: ${data.detail || "unknown error"}`);
+          return;
+        }
+        await loadOps();
+      }
+
+      async function submitRunbook() {
+        const payload = {
+          incident_id: document.getElementById("rbIncidentId").value.trim() || null,
+          runbook_code: document.getElementById("rbCode").value.trim(),
+          action: document.getElementById("rbAction").value.trim(),
+          justification: document.getElementById("rbJustification").value.trim(),
+          operator_note: document.getElementById("rbNote").value.trim(),
+        };
+        const out = document.getElementById("runbookResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ops/runbook/execute", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Runbook completed: ${data.runbook_code} (${data.execution_id})`;
+        await loadOps();
+      }
+
+      async function submitOpsAlert() {
+        const payload = {
+          source: document.getElementById("oaSource").value.trim(),
+          severity: document.getElementById("oaSeverity").value.trim(),
+          title: document.getElementById("oaTitle").value.trim(),
+          sla_minutes: Number(document.getElementById("oaSlaMinutes").value.trim() || "30"),
+          signal_ref: document.getElementById("oaSignalRef").value.trim() || null,
+        };
+        const out = document.getElementById("opsAlertResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ops/alerts/ingest", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Alert created: ${data.alert_id}`;
+        await loadOps();
+      }
+
+      function openChartWorkbench(venue, symbol, timeframe = "1m") {
+        switchSection("charting");
+        loadChartingWorkbench(venue, symbol, timeframe).catch(console.error);
+      }
+
       document.querySelectorAll(".nav-item[data-section]").forEach((el) => {
         el.addEventListener("click", async () => {
           const section = el.dataset.section || "overview";
@@ -736,6 +1001,10 @@
             await loadRiskPortfolio();
           } else if (section === "execution") {
             await loadExecution();
+          } else if (section === "charting") {
+            await loadChartingWorkbench();
+          } else if (section === "ops") {
+            await loadOps();
           } else {
             await loadOverview();
           }
@@ -745,6 +1014,9 @@
       document.getElementById("riskLimitsBtn").addEventListener("click", () => submitRiskLimits().catch(console.error));
       document.getElementById("killSwitchBtn").addEventListener("click", () => submitKillSwitch().catch(console.error));
       document.getElementById("executionCmdBtn").addEventListener("click", () => submitExecutionCommand().catch(console.error));
+      document.getElementById("cwLoadBtn").addEventListener("click", () => loadChartingWorkbench().catch(console.error));
+      document.getElementById("runbookBtn").addEventListener("click", () => submitRunbook().catch(console.error));
+      document.getElementById("opsAlertBtn").addEventListener("click", () => submitOpsAlert().catch(console.error));
       document.getElementById('refreshBtn').addEventListener('click', () => {
         if (currentSection === "ingestion") {
           loadIngestion().catch(console.error);
@@ -752,6 +1024,10 @@
           loadRiskPortfolio().catch(console.error);
         } else if (currentSection === "execution") {
           loadExecution().catch(console.error);
+        } else if (currentSection === "charting") {
+          loadChartingWorkbench().catch(console.error);
+        } else if (currentSection === "ops") {
+          loadOps().catch(console.error);
         } else {
           loadOverview().catch(console.error);
         }

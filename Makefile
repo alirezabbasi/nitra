@@ -72,6 +72,12 @@ test-dev-00028:
 test-dev-00029:
 	tests/dev-00029/run.sh
 
+test-dev-00030:
+	tests/dev-00030/run.sh
+
+test-dev-00031:
+	tests/dev-00031/run.sh
+
 test-dev-0010:
 	tests/dev-0010/run.sh
 

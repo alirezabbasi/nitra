@@ -565,6 +565,76 @@ def ensure_control_panel_risk_limits_table(conn: psycopg.Connection) -> None:
         )
 
 
+def ensure_control_panel_ops_tables(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_alert (
+              alert_id UUID PRIMARY KEY,
+              source TEXT NOT NULL,
+              severity TEXT NOT NULL,
+              title TEXT NOT NULL,
+              status TEXT NOT NULL,
+              owner TEXT,
+              sla_due_at TIMESTAMPTZ,
+              signal_ref TEXT,
+              details JSONB NOT NULL DEFAULT '{}'::jsonb,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_control_panel_alert_updated_at
+              ON control_panel_alert (updated_at DESC)
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_incident (
+              incident_id UUID PRIMARY KEY,
+              alert_id UUID REFERENCES control_panel_alert(alert_id) ON DELETE SET NULL,
+              title TEXT NOT NULL,
+              severity TEXT NOT NULL,
+              status TEXT NOT NULL,
+              owner TEXT,
+              opened_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              resolved_at TIMESTAMPTZ,
+              timeline JSONB NOT NULL DEFAULT '[]'::jsonb,
+              notes TEXT
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_control_panel_incident_opened_at
+              ON control_panel_incident (opened_at DESC)
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_runbook_execution (
+              execution_id UUID PRIMARY KEY,
+              incident_id UUID REFERENCES control_panel_incident(incident_id) ON DELETE SET NULL,
+              runbook_code TEXT NOT NULL,
+              action TEXT NOT NULL,
+              status TEXT NOT NULL,
+              triggered_by TEXT NOT NULL,
+              justification TEXT NOT NULL,
+              output JSONB NOT NULL DEFAULT '{}'::jsonb,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_control_panel_runbook_execution_created_at
+              ON control_panel_runbook_execution (created_at DESC)
+            """
+        )
+
+
 def load_current_risk_limits(conn: psycopg.Connection) -> dict:
     ensure_control_panel_risk_limits_table(conn)
     with conn.cursor() as cur:
@@ -1186,6 +1256,542 @@ def control_panel_execution_command(
         "action": action,
         "new_notional": parsed_new_notional,
         "requested_by": session["user_id"],
+    }
+
+
+@app.get("/api/v1/control-panel/ops")
+def control_panel_ops(
+    x_control_panel_token: str | None = Header(default=None),
+    row_limit: int = Query(default=30, ge=1, le=200),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    metrics = {
+        "alerts_open": 0,
+        "alerts_critical": 0,
+        "incidents_open": 0,
+        "sla_breached_open_alerts": 0,
+        "runbooks_24h": 0,
+        "mttr_minutes_7d": 0.0,
+    }
+    alert_rows: list[dict] = []
+    incident_rows: list[dict] = []
+    runbook_rows: list[dict] = []
+    mode = "online"
+    try:
+        with psycopg.connect(db_url()) as conn:
+            ensure_control_panel_ops_tables(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                      COUNT(*) FILTER (WHERE status IN ('open', 'acknowledged')),
+                      COUNT(*) FILTER (WHERE status IN ('open', 'acknowledged') AND severity = 'critical'),
+                      COUNT(*) FILTER (WHERE status IN ('open', 'acknowledged') AND sla_due_at IS NOT NULL AND sla_due_at < now())
+                    FROM control_panel_alert
+                    """
+                )
+                row = cur.fetchone()
+                metrics["alerts_open"] = int(row[0] or 0)
+                metrics["alerts_critical"] = int(row[1] or 0)
+                metrics["sla_breached_open_alerts"] = int(row[2] or 0)
+
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM control_panel_incident
+                    WHERE status IN ('open', 'investigating')
+                    """
+                )
+                metrics["incidents_open"] = int(cur.fetchone()[0] or 0)
+
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM control_panel_runbook_execution
+                    WHERE created_at >= now() - interval '24 hours'
+                    """
+                )
+                metrics["runbooks_24h"] = int(cur.fetchone()[0] or 0)
+
+                cur.execute(
+                    """
+                    SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (resolved_at - opened_at)) / 60.0), 0.0)
+                    FROM control_panel_incident
+                    WHERE resolved_at IS NOT NULL
+                      AND opened_at >= now() - interval '7 days'
+                    """
+                )
+                metrics["mttr_minutes_7d"] = float(cur.fetchone()[0] or 0.0)
+
+                cur.execute(
+                    """
+                    SELECT alert_id, source, severity, title, status, owner, sla_due_at, signal_ref, updated_at
+                    FROM control_panel_alert
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for row in cur.fetchall():
+                    alert_rows.append(
+                        {
+                            "alert_id": str(row[0]),
+                            "source": str(row[1]),
+                            "severity": str(row[2]),
+                            "title": str(row[3]),
+                            "status": str(row[4]),
+                            "owner": row[5],
+                            "sla_due_at": row[6].isoformat() if row[6] else None,
+                            "signal_ref": row[7],
+                            "updated_at": row[8].isoformat() if row[8] else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT incident_id, alert_id, title, severity, status, owner, opened_at, resolved_at
+                    FROM control_panel_incident
+                    ORDER BY opened_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for row in cur.fetchall():
+                    incident_rows.append(
+                        {
+                            "incident_id": str(row[0]),
+                            "alert_id": str(row[1]) if row[1] else None,
+                            "title": str(row[2]),
+                            "severity": str(row[3]),
+                            "status": str(row[4]),
+                            "owner": row[5],
+                            "opened_at": row[6].isoformat() if row[6] else None,
+                            "resolved_at": row[7].isoformat() if row[7] else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT execution_id, incident_id, runbook_code, action, status, triggered_by, created_at
+                    FROM control_panel_runbook_execution
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for row in cur.fetchall():
+                    runbook_rows.append(
+                        {
+                            "execution_id": str(row[0]),
+                            "incident_id": str(row[1]) if row[1] else None,
+                            "runbook_code": str(row[2]),
+                            "action": str(row[3]),
+                            "status": str(row[4]),
+                            "triggered_by": str(row[5]),
+                            "created_at": row[6].isoformat() if row[6] else None,
+                        }
+                    )
+    except Exception:
+        mode = "degraded"
+
+    return {
+        "service": "control-panel",
+        "module": "ops",
+        "mode": mode,
+        "session": session,
+        "metrics": metrics,
+        "alert_rows": alert_rows,
+        "incident_rows": incident_rows,
+        "runbook_rows": runbook_rows,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.post("/api/v1/control-panel/ops/alerts/action")
+def control_panel_ops_alert_action(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    alert_id = str(payload.get("alert_id", "")).strip()
+    action = str(payload.get("action", "")).strip().lower()
+    owner = str(payload.get("owner", "")).strip() or session["user_id"]
+    note = str(payload.get("note", "")).strip()
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if action not in {"acknowledge", "suppress", "resolve", "incident"}:
+        raise HTTPException(status_code=400, detail="action must be acknowledge|suppress|resolve|incident")
+    try:
+        parsed_alert_id = str(uuid.UUID(alert_id))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="invalid alert_id uuid") from exc
+
+    incident_id = None
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_ops_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT title, severity, status
+                FROM control_panel_alert
+                WHERE alert_id = %s::uuid
+                """,
+                (parsed_alert_id,),
+            )
+            existing = cur.fetchone()
+            if not existing:
+                raise HTTPException(status_code=404, detail="alert not found")
+
+            next_status = {
+                "acknowledge": "acknowledged",
+                "suppress": "suppressed",
+                "resolve": "resolved",
+                "incident": "acknowledged",
+            }[action]
+            cur.execute(
+                """
+                UPDATE control_panel_alert
+                SET status = %s, owner = %s, updated_at = now(), details = details || %s::jsonb
+                WHERE alert_id = %s::uuid
+                """,
+                (
+                    next_status,
+                    owner,
+                    json.dumps({"control_panel_note": note, "last_action": action}),
+                    parsed_alert_id,
+                ),
+            )
+            if action == "incident":
+                incident_id = str(uuid.uuid4())
+                cur.execute(
+                    """
+                    INSERT INTO control_panel_incident (
+                      incident_id, alert_id, title, severity, status, owner, opened_at, timeline, notes
+                    ) VALUES (%s::uuid, %s::uuid, %s, %s, 'open', %s, now(), %s::jsonb, %s)
+                    """,
+                    (
+                        incident_id,
+                        parsed_alert_id,
+                        str(existing[0]),
+                        str(existing[1]),
+                        owner,
+                        json.dumps(
+                            [
+                                {
+                                    "ts": datetime.now(timezone.utc).isoformat(),
+                                    "event": "incident_created_from_alert",
+                                    "actor": session["user_id"],
+                                }
+                            ]
+                        ),
+                        note or "created from alert lifecycle action",
+                    ),
+                )
+
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action=f"ops.alert.{action}",
+            section="ops",
+            target=parsed_alert_id,
+            status="approved",
+            reason=None,
+            metadata={"owner": owner, "note": note, "justification": justification, "incident_id": incident_id},
+        )
+        conn.commit()
+
+    return {
+        "status": "accepted",
+        "alert_id": parsed_alert_id,
+        "action": action,
+        "incident_id": incident_id,
+        "owner": owner,
+        "requested_by": session["user_id"],
+    }
+
+
+@app.post("/api/v1/control-panel/ops/alerts/ingest")
+def control_panel_ops_alert_ingest(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+    source = str(payload.get("source", "")).strip().lower() or "manual"
+    severity = str(payload.get("severity", "")).strip().lower() or "warning"
+    title = str(payload.get("title", "")).strip()
+    signal_ref = str(payload.get("signal_ref", "")).strip() or None
+    sla_minutes = int(payload.get("sla_minutes", 30))
+    if len(title) < 6:
+        raise HTTPException(status_code=400, detail="title must be at least 6 characters")
+    if severity not in {"info", "warning", "critical"}:
+        raise HTTPException(status_code=400, detail="severity must be info|warning|critical")
+    if sla_minutes < 1 or sla_minutes > 1440:
+        raise HTTPException(status_code=400, detail="sla_minutes must be in [1, 1440]")
+    alert_id = str(uuid.uuid4())
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_ops_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_alert (
+                  alert_id, source, severity, title, status, owner, sla_due_at, signal_ref, details
+                ) VALUES (%s::uuid, %s, %s, %s, 'open', %s, now() + (%s || ' minutes')::interval, %s, %s::jsonb)
+                """,
+                (
+                    alert_id,
+                    source,
+                    severity,
+                    title,
+                    session["user_id"],
+                    str(sla_minutes),
+                    signal_ref,
+                    json.dumps({"ingest_mode": "control_panel_manual"}),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ops.alert.ingest",
+            section="ops",
+            target=alert_id,
+            status="approved",
+            reason=None,
+            metadata={"source": source, "severity": severity, "title": title, "signal_ref": signal_ref},
+        )
+        conn.commit()
+    return {"status": "created", "alert_id": alert_id}
+
+
+@app.post("/api/v1/control-panel/ops/runbook/execute")
+def control_panel_ops_runbook_execute(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    runbook_code = str(payload.get("runbook_code", "")).strip().upper()
+    action = str(payload.get("action", "")).strip().lower() or "execute"
+    incident_id_raw = str(payload.get("incident_id", "")).strip()
+    justification = str(payload.get("justification", "")).strip()
+    if len(runbook_code) < 4:
+        raise HTTPException(status_code=400, detail="runbook_code is required")
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    incident_id = None
+    if incident_id_raw:
+        try:
+            incident_id = str(uuid.UUID(incident_id_raw))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="invalid incident_id uuid") from exc
+
+    execution_id = str(uuid.uuid4())
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_ops_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_runbook_execution (
+                  execution_id, incident_id, runbook_code, action, status, triggered_by, justification, output
+                ) VALUES (%s::uuid, %s::uuid, %s, %s, 'completed', %s, %s, %s::jsonb)
+                """,
+                (
+                    execution_id,
+                    incident_id,
+                    runbook_code,
+                    action,
+                    session["user_id"],
+                    justification,
+                    json.dumps(
+                        {
+                            "summary": "Runbook execution recorded by control panel baseline",
+                            "operator_note": str(payload.get("operator_note", "")).strip(),
+                        }
+                    ),
+                ),
+            )
+            if incident_id:
+                cur.execute(
+                    """
+                    UPDATE control_panel_incident
+                    SET timeline = timeline || %s::jsonb
+                    WHERE incident_id = %s::uuid
+                    """,
+                    (
+                        json.dumps(
+                            [
+                                {
+                                    "ts": datetime.now(timezone.utc).isoformat(),
+                                    "event": "runbook_executed",
+                                    "runbook_code": runbook_code,
+                                    "action": action,
+                                    "actor": session["user_id"],
+                                }
+                            ]
+                        ),
+                        incident_id,
+                    ),
+                )
+
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ops.runbook.execute",
+            section="ops",
+            target=incident_id,
+            status="approved",
+            reason=None,
+            metadata={
+                "execution_id": execution_id,
+                "runbook_code": runbook_code,
+                "action": action,
+                "justification": justification,
+            },
+        )
+        conn.commit()
+
+    return {
+        "status": "completed",
+        "execution_id": execution_id,
+        "incident_id": incident_id,
+        "runbook_code": runbook_code,
+        "action": action,
+        "triggered_by": session["user_id"],
+    }
+
+
+@app.get("/api/v1/control-panel/charting/profile")
+def control_panel_charting_profile(
+    venue: str = Query(min_length=1, max_length=64),
+    symbol: str = Query(min_length=1, max_length=64),
+    timeframe: str = Query(default="1m", min_length=1, max_length=16),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    venue_norm = normalize_venue(venue)
+    symbol_norm = normalize_symbol(symbol)
+    tf = timeframe.strip().lower()
+
+    profile = {
+        "venue": venue_norm,
+        "symbol": symbol_norm,
+        "timeframe": tf,
+        "asset_class": "unknown",
+        "ingest_enabled": None,
+        "market_enabled": None,
+        "latest_bar": None,
+        "latest_risk_state": None,
+        "latest_execution_state": None,
+        "open_gap_count": 0,
+    }
+
+    with psycopg.connect(db_url()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT asset_class, enabled, ingest_enabled
+                FROM venue_market
+                WHERE venue = %s AND symbol = %s
+                LIMIT 1
+                """,
+                (venue_norm, symbol_norm),
+            )
+            row = cur.fetchone()
+            if row:
+                profile["asset_class"] = str(row[0])
+                profile["market_enabled"] = bool(row[1])
+                profile["ingest_enabled"] = bool(row[2])
+
+            cur.execute(
+                """
+                SELECT bucket_start, open, high, low, close, volume, trade_count
+                FROM ohlcv_bar
+                WHERE venue = %s AND canonical_symbol = %s AND timeframe = %s
+                ORDER BY bucket_start DESC
+                LIMIT 1
+                """,
+                (venue_norm, symbol_norm, tf),
+            )
+            row = cur.fetchone()
+            if row:
+                profile["latest_bar"] = {
+                    "bucket_start": row[0].isoformat() if row[0] else None,
+                    "open": float(row[1] or 0.0),
+                    "high": float(row[2] or 0.0),
+                    "low": float(row[3] or 0.0),
+                    "close": float(row[4] or 0.0),
+                    "volume": float(row[5] or 0.0),
+                    "trade_count": int(row[6] or 0),
+                }
+
+            cur.execute(
+                """
+                SELECT current_exposure_notional, drawdown_pct, kill_switch_enabled, updated_at
+                FROM risk_state
+                WHERE venue = %s AND canonical_symbol = %s AND timeframe = %s
+                ORDER BY updated_at DESC
+                LIMIT 1
+                """,
+                (venue_norm, symbol_norm, tf),
+            )
+            row = cur.fetchone()
+            if row:
+                profile["latest_risk_state"] = {
+                    "exposure_notional": float(row[0] or 0.0),
+                    "drawdown_pct": float(row[1] or 0.0),
+                    "kill_switch_enabled": bool(row[2]),
+                    "updated_at": row[3].isoformat() if row[3] else None,
+                }
+
+            cur.execute(
+                """
+                SELECT order_id, status, side, requested_notional, updated_at
+                FROM execution_order_journal
+                WHERE venue = %s AND canonical_symbol = %s AND timeframe = %s
+                ORDER BY updated_at DESC
+                LIMIT 1
+                """,
+                (venue_norm, symbol_norm, tf),
+            )
+            row = cur.fetchone()
+            if row:
+                profile["latest_execution_state"] = {
+                    "order_id": str(row[0]),
+                    "status": str(row[1]),
+                    "side": str(row[2]),
+                    "requested_notional": float(row[3] or 0.0),
+                    "updated_at": row[4].isoformat() if row[4] else None,
+                }
+
+            cur.execute(
+                """
+                SELECT COUNT(*)
+                FROM gap_log
+                WHERE venue = %s
+                  AND canonical_symbol = %s
+                  AND status IN ('open', 'backfill_queued')
+                """,
+                (venue_norm, symbol_norm),
+            )
+            profile["open_gap_count"] = int(cur.fetchone()[0] or 0)
+
+    return {
+        "service": "control-panel",
+        "module": "charting-workbench",
+        "session": session,
+        "profile": profile,
+        "links": {
+            "full_chart": f"/?venue={urllib.parse.quote(venue_norm)}&symbol={urllib.parse.quote(symbol_norm)}&timeframe={urllib.parse.quote(tf)}",
+            "bars_history_api": f"/api/v1/bars/history?venue={urllib.parse.quote(venue_norm)}&symbol={urllib.parse.quote(symbol_norm)}&timeframe={urllib.parse.quote(tf)}&limit=500",
+        },
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
