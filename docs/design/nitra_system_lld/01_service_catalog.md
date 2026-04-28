@@ -396,6 +396,8 @@ Enforcement command:
 - idempotent processing via `processed_message_ledger`
 - baseline order lifecycle persisted in `execution_order_journal`
 - execution audit trail persisted in `audit_event_log`
+- broker adapter baseline implemented for submit/amend/cancel and ack/fill ingest (`exec.order_command.v1`, `broker.execution.ack.v1`)
+- command decisions persisted in `execution_command_log`
 
 ---
 
@@ -446,6 +448,7 @@ Enforcement command:
 **Baseline status (2026-04-28)**
 - persistence contract baseline implemented with `audit_event_log`
 - execution journal linkage baseline implemented with `execution_order_journal`
+- execution command persistence baseline implemented with `execution_command_log`
 
 **Technology (mandatory)**
 - OpenTelemetry

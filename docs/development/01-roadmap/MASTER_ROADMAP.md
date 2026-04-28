@@ -1,6 +1,6 @@
 # Master Roadmap (HLD Section 5 Aligned)
 
-Last updated: 2026-04-26
+Last updated: 2026-04-28
 
 ## Status legend
 
@@ -35,9 +35,9 @@ Last updated: 2026-04-26
 
 ## Recommended next implementation sequence
 
-1. Feature platform bootstrap (contract-first)
-2. Inference gateway service logic with schema validation
-3. RAG/LLM advisory path with strict boundaries
+1. Adapter-network resilience hardening for execution broker routes
+2. Portfolio engine baseline (positions/exposure/pnl state contract)
+3. Feature platform bootstrap (contract-first)
 
 ## Gate policy between modules
 

@@ -65,6 +65,11 @@ Last updated: 2026-04-28
   - persists lifecycle state to `execution_order_journal`,
   - persists cross-service trace events to `audit_event_log`,
   - preserves idempotent processing semantics via `processed_message_ledger`.
+- Completed `DEV-0021` broker-venue adapter baseline for execution-gateway:
+  - added live broker submit/amend/cancel adapter routes with deterministic dry-run fallback,
+  - added ack/fill ingest stream consumption (`broker.execution.ack.v1`) and order-command stream (`exec.order_command.v1`),
+  - persisted command decisions to `execution_command_log`,
+  - extended execution journal with `broker_order_id` and `state_version`.
 
 ### Current
 
@@ -73,13 +78,14 @@ Last updated: 2026-04-28
 - `DEV-0018` closed with deterministic structure runtime baseline in production compose path.
 - `DEV-0019` closed with deterministic risk runtime baseline in production compose path.
 - `DEV-0020` closed with deterministic execution runtime baseline and persisted audit/journal contract.
+- `DEV-0021` closed with broker adapter baseline and ack/fill ingest path.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Implement broker-venue adapter layer for execution-gateway.
-2. Open a focused adapter-network resilience ticket to reduce external DNS/connectivity failure impact.
-3. Add deterministic portfolio-state baseline and wire richer risk constraints.
+1. Open a focused adapter-network resilience ticket to reduce external DNS/connectivity failure impact.
+2. Add deterministic portfolio-state baseline and wire richer risk constraints.
+3. Expand reconciliation/runbook evidence capture for live adapter behavior.
 
 ### Risks/Blocks
 

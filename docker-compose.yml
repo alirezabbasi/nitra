@@ -218,6 +218,8 @@ services:
       DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
       KAFKA_BROKERS: kafka:9092
       EXECUTION_INPUT_TOPIC: ${EXECUTION_INPUT_TOPIC:-decision.risk_checked.v1}
+      EXECUTION_COMMAND_TOPIC: ${EXECUTION_COMMAND_TOPIC:-exec.order_command.v1}
+      EXECUTION_BROKER_ACK_TOPIC: ${EXECUTION_BROKER_ACK_TOPIC:-broker.execution.ack.v1}
       EXEC_ORDER_SUBMITTED_TOPIC: ${EXEC_ORDER_SUBMITTED_TOPIC:-exec.order_submitted.v1}
       EXEC_ORDER_UPDATED_TOPIC: ${EXEC_ORDER_UPDATED_TOPIC:-exec.order_updated.v1}
       EXEC_FILL_RECEIVED_TOPIC: ${EXEC_FILL_RECEIVED_TOPIC:-exec.fill_received.v1}
@@ -225,6 +227,10 @@ services:
       EXECUTION_GROUP_ID: ${EXECUTION_GROUP_ID:-nitra-execution-gateway-v1}
       EXEC_DRY_RUN: ${EXEC_DRY_RUN:-true}
       EXEC_ORDER_TTL_SECS: ${EXEC_ORDER_TTL_SECS:-30}
+      EXEC_BROKER_SUBMIT_URL: ${EXEC_BROKER_SUBMIT_URL:-http://broker-adapter:8080/orders/submit}
+      EXEC_BROKER_AMEND_URL: ${EXEC_BROKER_AMEND_URL:-http://broker-adapter:8080/orders/amend}
+      EXEC_BROKER_CANCEL_URL: ${EXEC_BROKER_CANCEL_URL:-http://broker-adapter:8080/orders/cancel}
+      EXEC_BROKER_TIMEOUT_SECS: ${EXEC_BROKER_TIMEOUT_SECS:-5}
     depends_on:
       timescaledb:
         condition: service_healthy

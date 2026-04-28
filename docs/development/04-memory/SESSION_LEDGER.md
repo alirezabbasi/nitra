@@ -535,3 +535,38 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - implement broker adapter layer for execution-gateway and extend reconciliation/audit for live venue acknowledgments.
+
+---
+
+## 2026-04-28 — Session Entry 023
+
+- Objective:
+  - implement broker-venue adapter layer for `execution-gateway` with live submit/amend/cancel and ack/fill ingestion.
+- Work completed:
+  - extended `execution-gateway` runtime to consume command + broker-ack streams:
+    - `exec.order_command.v1`
+    - `broker.execution.ack.v1`
+  - added broker adapter HTTP routing baseline:
+    - submit: `EXEC_BROKER_SUBMIT_URL`
+    - amend: `EXEC_BROKER_AMEND_URL`
+    - cancel: `EXEC_BROKER_CANCEL_URL`
+    - timeout: `EXEC_BROKER_TIMEOUT_SECS`
+  - implemented deterministic command handling and broker ack/fill journal updates.
+  - extended persistence contract:
+    - `execution_order_journal`: `broker_order_id`, `state_version`
+    - `execution_command_log`
+    - migration `infra/timescaledb/init/010_execution_broker_adapter.sql`
+  - updated compose/kafka contracts for new topics and adapter env vars.
+  - added ticket + test pack:
+    - `docs/development/tickets/DEV-0021-execution-gateway-broker-venue-adapter-layer.md`
+    - `tests/dev-0021/run.sh`
+    - `make test-dev-0021`.
+- Verification:
+  - `cargo fmt --manifest-path services/execution-gateway/Cargo.toml` passes.
+  - `CARGO_TARGET_DIR=/tmp/nitra-execution-gateway-target cargo check --offline --manifest-path services/execution-gateway/Cargo.toml` passes.
+  - `CARGO_TARGET_DIR=/tmp/nitra-execution-gateway-target cargo test --offline --manifest-path services/execution-gateway/Cargo.toml` passes.
+  - `tests/dev-0021/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - add adapter-network resilience hardening ticket (retry/backoff policy + DNS/connectivity degraded-mode strategy).

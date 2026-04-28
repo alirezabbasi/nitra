@@ -234,6 +234,8 @@ Notes:
 
 - `KAFKA_BROKERS` default `kafka:9092`
 - `EXECUTION_INPUT_TOPIC` default `decision.risk_checked.v1`
+- `EXECUTION_COMMAND_TOPIC` default `exec.order_command.v1`
+- `EXECUTION_BROKER_ACK_TOPIC` default `broker.execution.ack.v1`
 - `EXEC_ORDER_SUBMITTED_TOPIC` default `exec.order_submitted.v1`
 - `EXEC_ORDER_UPDATED_TOPIC` default `exec.order_updated.v1`
 - `EXEC_FILL_RECEIVED_TOPIC` default `exec.fill_received.v1`
@@ -241,9 +243,13 @@ Notes:
 - `EXECUTION_GROUP_ID` default `nitra-execution-gateway-v1`
 - `EXEC_DRY_RUN` default `true`
 - `EXEC_ORDER_TTL_SECS` default `30`
+- `EXEC_BROKER_SUBMIT_URL` default `http://broker-adapter:8080/orders/submit`
+- `EXEC_BROKER_AMEND_URL` default `http://broker-adapter:8080/orders/amend`
+- `EXEC_BROKER_CANCEL_URL` default `http://broker-adapter:8080/orders/cancel`
+- `EXEC_BROKER_TIMEOUT_SECS` default `5`
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 Notes:
-- Baseline execution flow is deterministic and journaled (`execution_order_journal` + `audit_event_log`).
+- Baseline execution flow is deterministic and journaled (`execution_order_journal` + `audit_event_log` + `execution_command_log`).
 - `processed_message_ledger` idempotency is enforced to avoid duplicate execution transitions under replay/restart.
-- Current baseline is an internal deterministic OMS simulation path; broker adapters will be added in later slices.
+- Broker adapter routing baseline supports submit/amend/cancel calls and broker ack/fill ingestion.

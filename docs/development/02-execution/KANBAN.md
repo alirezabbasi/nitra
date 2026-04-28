@@ -4,7 +4,7 @@ Last updated: 2026-04-28
 
 ## Backlog
 
-- [ ] Implement broker-venue adapter layer for `execution-gateway` (live submit/amend/cancel and ack/fill ingest).
+- [ ] Add adapter-network resilience hardening (retry/backoff/DNS outage strategy) for execution broker routes.
 
 ## In Progress
 
@@ -35,6 +35,7 @@ Last updated: 2026-04-28
 - [x] `DEV-0018` deterministic `structure-engine` runtime baseline (Rust service + Kafka contracts + persisted structure state).
 - [x] `DEV-0019` deterministic `risk-engine` runtime baseline (Rust service + deterministic policy checks + persisted risk state/audit).
 - [x] `DEV-0020` deterministic `execution-gateway` baseline and audit/journal persistence contract.
+- [x] `DEV-0021` broker-venue adapter layer for `execution-gateway` (submit/amend/cancel + ack/fill ingest).
 
 ## Blocked
 

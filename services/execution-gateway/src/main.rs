@@ -5,6 +5,7 @@ use rdkafka::message::BorrowedMessage;
 use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::ClientConfig;
 use rdkafka::Message;
+use reqwest::Client as HttpClient;
 use serde_json::{json, Value};
 use std::env;
 use std::time::Duration;
@@ -23,9 +24,38 @@ struct ExecIntent {
 }
 
 #[derive(Clone, Debug)]
+struct ExecOrderCommand {
+    order_id: Uuid,
+    action: String,
+    new_notional: Option<f64>,
+    event_ts: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug)]
+struct BrokerAck {
+    order_id: Uuid,
+    broker_order_id: Option<String>,
+    status: String,
+    filled_notional: Option<f64>,
+    reason: Option<String>,
+    event_ts: DateTime<Utc>,
+}
+
+#[derive(Clone, Debug)]
+struct AdapterResponse {
+    status: String,
+    broker_order_id: Option<String>,
+    reason: Option<String>,
+}
+
+#[derive(Clone, Debug)]
 struct ExecConfig {
     default_order_ttl_secs: i64,
     dry_run: bool,
+    broker_submit_url: String,
+    broker_amend_url: String,
+    broker_cancel_url: String,
+    broker_timeout_secs: u64,
 }
 
 fn env_or(name: &str, default: &str) -> String {
@@ -48,6 +78,13 @@ fn env_i64_or(name: &str, default: i64) -> i64 {
     env::var(name)
         .ok()
         .and_then(|v| v.parse::<i64>().ok())
+        .unwrap_or(default)
+}
+
+fn env_u64_or(name: &str, default: u64) -> u64 {
+    env::var(name)
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(default)
 }
 
@@ -122,6 +159,68 @@ fn parse_exec_intent(payload: &Value) -> Option<ExecIntent> {
     })
 }
 
+fn parse_exec_command(payload: &Value) -> Option<ExecOrderCommand> {
+    let order_id = payload
+        .get("order_id")
+        .and_then(|v| v.as_str())
+        .and_then(|v| Uuid::parse_str(v).ok())?;
+
+    let action = payload
+        .get("action")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+
+    if action != "amend" && action != "cancel" {
+        return None;
+    }
+
+    let new_notional = payload.get("new_notional").and_then(|v| v.as_f64());
+    let event_ts =
+        parse_ts(payload.get("event_ts").and_then(|v| v.as_str())).unwrap_or_else(Utc::now);
+
+    Some(ExecOrderCommand {
+        order_id,
+        action,
+        new_notional,
+        event_ts,
+    })
+}
+
+fn parse_broker_ack(payload: &Value) -> Option<BrokerAck> {
+    let order_id = payload
+        .get("order_id")
+        .and_then(|v| v.as_str())
+        .and_then(|v| Uuid::parse_str(v).ok())?;
+    let status = payload
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_ascii_lowercase();
+
+    if status.is_empty() {
+        return None;
+    }
+
+    Some(BrokerAck {
+        order_id,
+        broker_order_id: payload
+            .get("broker_order_id")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string()),
+        status,
+        filled_notional: payload.get("filled_notional").and_then(|v| v.as_f64()),
+        reason: payload
+            .get("reason")
+            .and_then(|v| v.as_str())
+            .map(|v| v.to_string()),
+        event_ts: parse_ts(payload.get("event_ts").and_then(|v| v.as_str()))
+            .unwrap_or_else(Utc::now),
+    })
+}
+
 fn build_envelope(payload: Value) -> Value {
     json!({
         "message_id": Uuid::new_v4().to_string(),
@@ -157,8 +256,31 @@ async fn ensure_execution_tables(conn: &Client) -> Result<(), tokio_postgres::Er
           execution_metadata JSONB NOT NULL DEFAULT '{}'::jsonb
         );
 
+        ALTER TABLE execution_order_journal
+          ADD COLUMN IF NOT EXISTS broker_order_id TEXT;
+
+        ALTER TABLE execution_order_journal
+          ADD COLUMN IF NOT EXISTS state_version INT NOT NULL DEFAULT 0;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_execution_order_journal_broker_order_id
+          ON execution_order_journal (broker_order_id)
+          WHERE broker_order_id IS NOT NULL;
+
         CREATE INDEX IF NOT EXISTS idx_execution_order_journal_symbol_ts
           ON execution_order_journal (venue, canonical_symbol, updated_at DESC);
+
+        CREATE TABLE IF NOT EXISTS execution_command_log (
+          command_id UUID PRIMARY KEY,
+          order_id UUID NOT NULL,
+          action TEXT NOT NULL,
+          accepted BOOLEAN NOT NULL,
+          reason TEXT,
+          payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_execution_command_log_order_ts
+          ON execution_command_log (order_id, created_at DESC);
 
         CREATE TABLE IF NOT EXISTS audit_event_log (
           audit_id UUID PRIMARY KEY,
@@ -186,6 +308,7 @@ async fn persist_order_journal(
     status: &str,
     submitted_at: Option<DateTime<Utc>>,
     closed_at: Option<DateTime<Utc>>,
+    broker_order_id: Option<&str>,
     execution_metadata: Value,
 ) -> Result<(), tokio_postgres::Error> {
     conn.execute(
@@ -193,16 +316,18 @@ async fn persist_order_journal(
         INSERT INTO execution_order_journal (
           order_id, venue, canonical_symbol, timeframe, side,
           requested_notional, approved, status, decision_ts,
-          submitted_at, closed_at, execution_metadata
+          submitted_at, closed_at, broker_order_id, execution_metadata, state_version
         ) VALUES (
-          $1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb
+          $1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,1
         )
         ON CONFLICT (order_id)
         DO UPDATE SET
           status = EXCLUDED.status,
           submitted_at = COALESCE(EXCLUDED.submitted_at, execution_order_journal.submitted_at),
           closed_at = COALESCE(EXCLUDED.closed_at, execution_order_journal.closed_at),
+          broker_order_id = COALESCE(EXCLUDED.broker_order_id, execution_order_journal.broker_order_id),
           execution_metadata = execution_order_journal.execution_metadata || EXCLUDED.execution_metadata,
+          state_version = execution_order_journal.state_version + 1,
           updated_at = now()
         ",
         &[
@@ -217,9 +342,105 @@ async fn persist_order_journal(
             &intent.event_ts,
             &submitted_at,
             &closed_at,
+            &broker_order_id,
             &execution_metadata,
         ],
-    ).await?;
+    )
+    .await?;
+    Ok(())
+}
+
+async fn update_order_journal_from_ack(
+    conn: &Client,
+    ack: &BrokerAck,
+) -> Result<Option<(String, String, String)>, tokio_postgres::Error> {
+    let row = conn
+        .query_opt(
+            "
+            UPDATE execution_order_journal
+            SET
+              status = $2,
+              broker_order_id = COALESCE($3, broker_order_id),
+              closed_at = CASE WHEN $2 IN ('filled','rejected','cancelled') THEN COALESCE(closed_at, $4) ELSE closed_at END,
+              execution_metadata = execution_metadata || $5::jsonb,
+              state_version = state_version + 1,
+              updated_at = now()
+            WHERE order_id = $1::uuid
+            RETURNING venue, canonical_symbol, timeframe
+            ",
+            &[
+                &ack.order_id,
+                &ack.status,
+                &ack.broker_order_id,
+                &ack.event_ts,
+                &json!({
+                    "ack_status": ack.status,
+                    "ack_reason": ack.reason,
+                    "filled_notional": ack.filled_notional,
+                    "ack_event_ts": ack.event_ts.to_rfc3339(),
+                }),
+            ],
+        )
+        .await?;
+
+    Ok(row.map(|r| {
+        (
+            r.get::<_, String>(0),
+            r.get::<_, String>(1),
+            r.get::<_, String>(2),
+        )
+    }))
+}
+
+async fn load_order_intent(
+    conn: &Client,
+    order_id: Uuid,
+) -> Result<Option<ExecIntent>, tokio_postgres::Error> {
+    let row = conn
+        .query_opt(
+            "
+            SELECT venue, canonical_symbol, timeframe, approved, side, requested_notional, decision_ts
+            FROM execution_order_journal
+            WHERE order_id = $1::uuid
+            ",
+            &[&order_id],
+        )
+        .await?;
+
+    Ok(row.map(|r| ExecIntent {
+        venue: r.get::<_, String>(0),
+        canonical_symbol: r.get::<_, String>(1),
+        timeframe: r.get::<_, String>(2),
+        approved: r.get::<_, bool>(3),
+        side: r.get::<_, String>(4),
+        notional: r.get::<_, f64>(5),
+        event_ts: r.get::<_, DateTime<Utc>>(6),
+    }))
+}
+
+async fn insert_command_log(
+    conn: &Client,
+    command: &ExecOrderCommand,
+    accepted: bool,
+    reason: Option<&str>,
+    payload: Value,
+) -> Result<(), tokio_postgres::Error> {
+    conn.execute(
+        "
+        INSERT INTO execution_command_log (
+          command_id, order_id, action, accepted, reason, payload
+        ) VALUES ($1::uuid,$2::uuid,$3,$4,$5,$6::jsonb)
+        ",
+        &[
+            &Uuid::new_v4(),
+            &command.order_id,
+            &command.action,
+            &accepted,
+            &reason,
+            &payload,
+        ],
+    )
+    .await?;
     Ok(())
 }
 
@@ -317,12 +538,531 @@ async fn publish_event(
     Ok(())
 }
 
+async fn adapter_submit(
+    http: &HttpClient,
+    cfg: &ExecConfig,
+    order_id: Uuid,
+    intent: &ExecIntent,
+) -> AdapterResponse {
+    if cfg.dry_run {
+        return AdapterResponse {
+            status: "submitted".to_string(),
+            broker_order_id: Some(format!("dry-{}", order_id)),
+            reason: None,
+        };
+    }
+
+    let req = json!({
+        "order_id": order_id.to_string(),
+        "venue": intent.venue,
+        "symbol": intent.canonical_symbol,
+        "side": intent.side,
+        "notional": intent.notional,
+        "timeframe": intent.timeframe,
+    });
+
+    match http.post(&cfg.broker_submit_url).json(&req).send().await {
+        Ok(resp) if resp.status().is_success() => {
+            let parsed = resp.json::<Value>().await.unwrap_or_else(|_| json!({}));
+            AdapterResponse {
+                status: parsed
+                    .get("status")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("submitted")
+                    .to_ascii_lowercase(),
+                broker_order_id: parsed
+                    .get("broker_order_id")
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.to_string()),
+                reason: parsed
+                    .get("reason")
+                    .and_then(|v| v.as_str())
+                    .map(|v| v.to_string()),
+            }
+        }
+        Ok(resp) => AdapterResponse {
+            status: "rejected".to_string(),
+            broker_order_id: None,
+            reason: Some(format!("submit_http_status_{}", resp.status())),
+        },
+        Err(e) => AdapterResponse {
+            status: "rejected".to_string(),
+            broker_order_id: None,
+            reason: Some(format!("submit_error: {}", e)),
+        },
+    }
+}
+
+async fn adapter_amend(
+    http: &HttpClient,
+    cfg: &ExecConfig,
+    command: &ExecOrderCommand,
+) -> AdapterResponse {
+    if cfg.dry_run {
+        return AdapterResponse {
+            status: "amend_requested".to_string(),
+            broker_order_id: None,
+            reason: None,
+        };
+    }
+
+    let req = json!({
+        "order_id": command.order_id.to_string(),
+        "new_notional": command.new_notional,
+    });
+
+    match http.post(&cfg.broker_amend_url).json(&req).send().await {
+        Ok(resp) if resp.status().is_success() => AdapterResponse {
+            status: "amend_requested".to_string(),
+            broker_order_id: None,
+            reason: None,
+        },
+        Ok(resp) => AdapterResponse {
+            status: "amend_rejected".to_string(),
+            broker_order_id: None,
+            reason: Some(format!("amend_http_status_{}", resp.status())),
+        },
+        Err(e) => AdapterResponse {
+            status: "amend_rejected".to_string(),
+            broker_order_id: None,
+            reason: Some(format!("amend_error: {}", e)),
+        },
+    }
+}
+
+async fn adapter_cancel(
+    http: &HttpClient,
+    cfg: &ExecConfig,
+    command: &ExecOrderCommand,
+) -> AdapterResponse {
+    if cfg.dry_run {
+        return AdapterResponse {
+            status: "cancel_requested".to_string(),
+            broker_order_id: None,
+            reason: None,
+        };
+    }
+
+    let req = json!({
+        "order_id": command.order_id.to_string(),
+    });
+
+    match http.post(&cfg.broker_cancel_url).json(&req).send().await {
+        Ok(resp) if resp.status().is_success() => AdapterResponse {
+            status: "cancel_requested".to_string(),
+            broker_order_id: None,
+            reason: None,
+        },
+        Ok(resp) => AdapterResponse {
+            status: "cancel_rejected".to_string(),
+            broker_order_id: None,
+            reason: Some(format!("cancel_http_status_{}", resp.status())),
+        },
+        Err(e) => AdapterResponse {
+            status: "cancel_rejected".to_string(),
+            broker_order_id: None,
+            reason: Some(format!("cancel_error: {}", e)),
+        },
+    }
+}
+
+async fn handle_intent(
+    conn: &Client,
+    producer: &FutureProducer,
+    http: &HttpClient,
+    cfg: &ExecConfig,
+    service_name: &str,
+    order_submitted_topic: &str,
+    order_updated_topic: &str,
+    fill_received_topic: &str,
+    reconciliation_topic: &str,
+    intent: ExecIntent,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let order_id = Uuid::new_v4();
+    let event_key = format!(
+        "{}:{}:{}",
+        intent.venue, intent.canonical_symbol, intent.timeframe
+    );
+    let now = Utc::now();
+
+    if !intent.approved || intent.side == "hold" || intent.notional <= 0.0 {
+        persist_order_journal(
+            conn,
+            order_id,
+            &intent,
+            "rejected_by_risk",
+            None,
+            Some(now),
+            None,
+            json!({"path": "blocked"}),
+        )
+        .await?;
+
+        insert_audit_event(
+            conn,
+            service_name,
+            "execution",
+            "order_rejected",
+            Some(order_id),
+            Some(&intent.venue),
+            Some(&intent.canonical_symbol),
+            json!({"reason": "not_approved_or_hold", "notional": intent.notional}),
+        )
+        .await?;
+
+        publish_event(
+            producer,
+            order_updated_topic,
+            &event_key,
+            json!({
+                "order_id": order_id.to_string(),
+                "venue": intent.venue,
+                "canonical_symbol": intent.canonical_symbol,
+                "status": "rejected_by_risk",
+                "event_ts": now.to_rfc3339(),
+            }),
+        )
+        .await?;
+
+        return Ok(());
+    }
+
+    let submit_response = adapter_submit(http, cfg, order_id, &intent).await;
+    let submit_status = submit_response.status.clone();
+    let is_submitted = submit_status == "submitted" || submit_status == "accepted";
+
+    persist_order_journal(
+        conn,
+        order_id,
+        &intent,
+        if is_submitted {
+            "submitted"
+        } else {
+            "rejected_by_broker"
+        },
+        Some(now),
+        if is_submitted { None } else { Some(now) },
+        submit_response.broker_order_id.as_deref(),
+        json!({
+            "adapter_status": submit_status,
+            "adapter_reason": submit_response.reason,
+            "dry_run": cfg.dry_run,
+            "ttl_secs": cfg.default_order_ttl_secs,
+        }),
+    )
+    .await?;
+
+    publish_event(
+        producer,
+        order_submitted_topic,
+        &event_key,
+        json!({
+            "order_id": order_id.to_string(),
+            "venue": intent.venue,
+            "canonical_symbol": intent.canonical_symbol,
+            "side": intent.side,
+            "notional": intent.notional,
+            "status": if is_submitted { "submitted" } else { "rejected_by_broker" },
+            "broker_order_id": submit_response.broker_order_id,
+            "reason": submit_response.reason,
+            "event_ts": now.to_rfc3339(),
+        }),
+    )
+    .await?;
+
+    insert_audit_event(
+        conn,
+        service_name,
+        "execution",
+        if is_submitted {
+            "order_submitted"
+        } else {
+            "order_submit_rejected"
+        },
+        Some(order_id),
+        Some(&intent.venue),
+        Some(&intent.canonical_symbol),
+        json!({
+            "side": intent.side,
+            "notional": intent.notional,
+            "broker_order_id": submit_response.broker_order_id,
+            "reason": submit_response.reason,
+        }),
+    )
+    .await?;
+
+    if cfg.dry_run && is_submitted {
+        let fill_ts = now + chrono::Duration::seconds(1);
+        persist_order_journal(
+            conn,
+            order_id,
+            &intent,
+            "filled",
+            Some(now),
+            Some(fill_ts),
+            Some(&format!("dry-{}", order_id)),
+            json!({"filled_notional": intent.notional}),
+        )
+        .await?;
+
+        publish_event(
+            producer,
+            fill_received_topic,
+            &event_key,
+            json!({
+                "order_id": order_id.to_string(),
+                "venue": intent.venue,
+                "canonical_symbol": intent.canonical_symbol,
+                "filled_notional": intent.notional,
+                "status": "filled",
+                "event_ts": fill_ts.to_rfc3339(),
+            }),
+        )
+        .await?;
+
+        publish_event(
+            producer,
+            order_updated_topic,
+            &event_key,
+            json!({
+                "order_id": order_id.to_string(),
+                "venue": intent.venue,
+                "canonical_symbol": intent.canonical_symbol,
+                "status": "filled",
+                "event_ts": fill_ts.to_rfc3339(),
+            }),
+        )
+        .await?;
+
+        if intent.notional > 500_000.0 {
+            publish_event(
+                producer,
+                reconciliation_topic,
+                &event_key,
+                json!({
+                    "order_id": order_id.to_string(),
+                    "venue": intent.venue,
+                    "canonical_symbol": intent.canonical_symbol,
+                    "issue": "high_notional_reconciliation_required",
+                    "event_ts": fill_ts.to_rfc3339(),
+                }),
+            )
+            .await?;
+        }
+    }
+
+    Ok(())
+}
+
+async fn handle_order_command(
+    conn: &Client,
+    producer: &FutureProducer,
+    http: &HttpClient,
+    cfg: &ExecConfig,
+    service_name: &str,
+    order_updated_topic: &str,
+    command: ExecOrderCommand,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let Some(intent) = load_order_intent(conn, command.order_id).await? else {
+        insert_command_log(conn, &command, false, Some("unknown_order_id"), json!({})).await?;
+        return Ok(());
+    };
+
+    let response = if command.action == "amend" {
+        adapter_amend(http, cfg, &command).await
+    } else {
+        adapter_cancel(http, cfg, &command).await
+    };
+
+    let accepted = response.status.ends_with("requested") || response.status == "accepted";
+    insert_command_log(
+        conn,
+        &command,
+        accepted,
+        response.reason.as_deref(),
+        json!({
+            "action": command.action,
+            "new_notional": command.new_notional,
+            "status": response.status,
+        }),
+    )
+    .await?;
+
+    if accepted {
+        let journal_status = if command.action == "cancel" {
+            "cancel_requested"
+        } else {
+            "amend_requested"
+        };
+
+        persist_order_journal(
+            conn,
+            command.order_id,
+            &intent,
+            journal_status,
+            None,
+            None,
+            None,
+            json!({
+                "last_command_action": command.action,
+                "last_command_event_ts": command.event_ts.to_rfc3339(),
+                "command_new_notional": command.new_notional,
+            }),
+        )
+        .await?;
+    }
+
+    let event_key = format!(
+        "{}:{}:{}",
+        intent.venue, intent.canonical_symbol, intent.timeframe
+    );
+    publish_event(
+        producer,
+        order_updated_topic,
+        &event_key,
+        json!({
+            "order_id": command.order_id.to_string(),
+            "venue": intent.venue,
+            "canonical_symbol": intent.canonical_symbol,
+            "status": response.status,
+            "action": command.action,
+            "event_ts": command.event_ts.to_rfc3339(),
+            "reason": response.reason,
+        }),
+    )
+    .await?;
+
+    insert_audit_event(
+        conn,
+        service_name,
+        "execution",
+        "order_command",
+        Some(command.order_id),
+        Some(&intent.venue),
+        Some(&intent.canonical_symbol),
+        json!({
+            "action": command.action,
+            "accepted": accepted,
+            "reason": response.reason,
+            "new_notional": command.new_notional,
+        }),
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn handle_broker_ack(
+    conn: &Client,
+    producer: &FutureProducer,
+    service_name: &str,
+    order_updated_topic: &str,
+    fill_received_topic: &str,
+    reconciliation_topic: &str,
+    ack: BrokerAck,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let Some((venue, symbol, timeframe)) = update_order_journal_from_ack(conn, &ack).await? else {
+        insert_audit_event(
+            conn,
+            service_name,
+            "execution",
+            "orphan_broker_ack",
+            Some(ack.order_id),
+            None,
+            None,
+            json!({
+                "status": ack.status,
+                "broker_order_id": ack.broker_order_id,
+                "reason": ack.reason,
+            }),
+        )
+        .await?;
+        return Ok(());
+    };
+
+    let event_key = format!("{}:{}:{}", venue, symbol, timeframe);
+
+    publish_event(
+        producer,
+        order_updated_topic,
+        &event_key,
+        json!({
+            "order_id": ack.order_id.to_string(),
+            "venue": venue,
+            "canonical_symbol": symbol,
+            "status": ack.status,
+            "broker_order_id": ack.broker_order_id,
+            "reason": ack.reason,
+            "event_ts": ack.event_ts.to_rfc3339(),
+        }),
+    )
+    .await?;
+
+    if ack.status == "filled" {
+        publish_event(
+            producer,
+            fill_received_topic,
+            &event_key,
+            json!({
+                "order_id": ack.order_id.to_string(),
+                "venue": venue,
+                "canonical_symbol": symbol,
+                "status": "filled",
+                "filled_notional": ack.filled_notional,
+                "broker_order_id": ack.broker_order_id,
+                "event_ts": ack.event_ts.to_rfc3339(),
+            }),
+        )
+        .await?;
+    }
+
+    if ack.status == "rejected" || ack.status == "cancelled" {
+        publish_event(
+            producer,
+            reconciliation_topic,
+            &event_key,
+            json!({
+                "order_id": ack.order_id.to_string(),
+                "venue": venue,
+                "canonical_symbol": symbol,
+                "issue": "broker_terminal_status",
+                "status": ack.status,
+                "reason": ack.reason,
+                "event_ts": ack.event_ts.to_rfc3339(),
+            }),
+        )
+        .await?;
+    }
+
+    insert_audit_event(
+        conn,
+        service_name,
+        "execution",
+        "broker_ack",
+        Some(ack.order_id),
+        Some(&venue),
+        Some(&symbol),
+        json!({
+            "status": ack.status,
+            "broker_order_id": ack.broker_order_id,
+            "reason": ack.reason,
+            "filled_notional": ack.filled_notional,
+        }),
+    )
+    .await?;
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service_name = "execution_gateway";
 
     let brokers = env_or("KAFKA_BROKERS", "kafka:9092");
-    let input_topic = env_or("EXECUTION_INPUT_TOPIC", "decision.risk_checked.v1");
+    let intent_topic = env_or("EXECUTION_INPUT_TOPIC", "decision.risk_checked.v1");
+    let command_topic = env_or("EXECUTION_COMMAND_TOPIC", "exec.order_command.v1");
+    let broker_ack_topic = env_or("EXECUTION_BROKER_ACK_TOPIC", "broker.execution.ack.v1");
+
     let order_submitted_topic = env_or("EXEC_ORDER_SUBMITTED_TOPIC", "exec.order_submitted.v1");
     let order_updated_topic = env_or("EXEC_ORDER_UPDATED_TOPIC", "exec.order_updated.v1");
     let fill_received_topic = env_or("EXEC_FILL_RECEIVED_TOPIC", "exec.fill_received.v1");
@@ -339,7 +1079,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let exec_cfg = ExecConfig {
         default_order_ttl_secs: env_i64_or("EXEC_ORDER_TTL_SECS", 30),
         dry_run: env_bool_or("EXEC_DRY_RUN", true),
+        broker_submit_url: env_or(
+            "EXEC_BROKER_SUBMIT_URL",
+            "http://localhost:18080/orders/submit",
+        ),
+        broker_amend_url: env_or(
+            "EXEC_BROKER_AMEND_URL",
+            "http://localhost:18080/orders/amend",
+        ),
+        broker_cancel_url: env_or(
+            "EXEC_BROKER_CANCEL_URL",
+            "http://localhost:18080/orders/cancel",
+        ),
+        broker_timeout_secs: env_u64_or("EXEC_BROKER_TIMEOUT_SECS", 5),
     };
+
+    let http = HttpClient::builder()
+        .timeout(Duration::from_secs(exec_cfg.broker_timeout_secs.max(1)))
+        .build()?;
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
     tokio::spawn(async move {
@@ -356,7 +1113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .set("enable.auto.commit", "false")
         .set("auto.offset.reset", "earliest")
         .create()?;
-    consumer.subscribe(&[&input_topic])?;
+    consumer.subscribe(&[&intent_topic, &command_topic, &broker_ack_topic])?;
 
     let producer: FutureProducer = ClientConfig::new()
         .set("bootstrap.servers", &brokers)
@@ -392,221 +1149,62 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let payload = outer.get("payload").cloned().unwrap_or(Value::Null);
-        let Some(intent) = parse_exec_intent(&payload) else {
-            consumer.commit_message(&msg, CommitMode::Sync)?;
-            continue;
+
+        let result = if source_topic == intent_topic {
+            if let Some(intent) = parse_exec_intent(&payload) {
+                handle_intent(
+                    &conn,
+                    &producer,
+                    &http,
+                    &exec_cfg,
+                    service_name,
+                    &order_submitted_topic,
+                    &order_updated_topic,
+                    &fill_received_topic,
+                    &reconciliation_topic,
+                    intent,
+                )
+                .await
+            } else {
+                Ok(())
+            }
+        } else if source_topic == command_topic {
+            if let Some(command) = parse_exec_command(&payload) {
+                handle_order_command(
+                    &conn,
+                    &producer,
+                    &http,
+                    &exec_cfg,
+                    service_name,
+                    &order_updated_topic,
+                    command,
+                )
+                .await
+            } else {
+                Ok(())
+            }
+        } else if source_topic == broker_ack_topic {
+            if let Some(ack) = parse_broker_ack(&payload) {
+                handle_broker_ack(
+                    &conn,
+                    &producer,
+                    service_name,
+                    &order_updated_topic,
+                    &fill_received_topic,
+                    &reconciliation_topic,
+                    ack,
+                )
+                .await
+            } else {
+                Ok(())
+            }
+        } else {
+            Ok(())
         };
 
-        let order_id = Uuid::new_v4();
-        let event_key = format!(
-            "{}:{}:{}",
-            intent.venue, intent.canonical_symbol, intent.timeframe
-        );
-
-        let now = Utc::now();
-
-        if !intent.approved || intent.side == "hold" || intent.notional <= 0.0 {
-            let metadata = json!({
-                "path": "blocked",
-                "approved": intent.approved,
-                "side": intent.side,
-                "requested_notional": intent.notional,
-            });
-
-            persist_order_journal(
-                &conn,
-                order_id,
-                &intent,
-                "rejected_by_risk",
-                None,
-                Some(now),
-                metadata.clone(),
-            )
-            .await?;
-
-            insert_audit_event(
-                &conn,
-                service_name,
-                "execution",
-                "order_rejected",
-                Some(order_id),
-                Some(&intent.venue),
-                Some(&intent.canonical_symbol),
-                json!({
-                    "timeframe": intent.timeframe,
-                    "side": intent.side,
-                    "requested_notional": intent.notional,
-                    "approved": intent.approved,
-                }),
-            )
-            .await?;
-
-            publish_event(
-                &producer,
-                &order_updated_topic,
-                &event_key,
-                json!({
-                    "order_id": order_id.to_string(),
-                    "venue": intent.venue,
-                    "canonical_symbol": intent.canonical_symbol,
-                    "status": "rejected_by_risk",
-                    "reason": "not_approved_or_hold",
-                    "event_ts": now.to_rfc3339(),
-                }),
-            )
-            .await?;
-
-            record_message_processed(
-                &conn,
-                service_name,
-                message_id,
-                &source_topic,
-                source_partition,
-                source_offset,
-            )
-            .await?;
-
-            consumer.commit_message(&msg, CommitMode::Sync)?;
-            continue;
+        if let Err(e) = result {
+            eprintln!("execution message handling error on topic {source_topic}: {e}");
         }
-
-        let submit_ts = now;
-        persist_order_journal(
-            &conn,
-            order_id,
-            &intent,
-            "submitted",
-            Some(submit_ts),
-            None,
-            json!({
-                "dry_run": exec_cfg.dry_run,
-                "ttl_secs": exec_cfg.default_order_ttl_secs,
-            }),
-        )
-        .await?;
-
-        publish_event(
-            &producer,
-            &order_submitted_topic,
-            &event_key,
-            json!({
-                "order_id": order_id.to_string(),
-                "venue": intent.venue,
-                "canonical_symbol": intent.canonical_symbol,
-                "side": intent.side,
-                "notional": intent.notional,
-                "status": "submitted",
-                "event_ts": submit_ts.to_rfc3339(),
-                "dry_run": exec_cfg.dry_run,
-            }),
-        )
-        .await?;
-
-        insert_audit_event(
-            &conn,
-            service_name,
-            "execution",
-            "order_submitted",
-            Some(order_id),
-            Some(&intent.venue),
-            Some(&intent.canonical_symbol),
-            json!({
-                "side": intent.side,
-                "notional": intent.notional,
-                "dry_run": exec_cfg.dry_run,
-            }),
-        )
-        .await?;
-
-        let fill_ts = submit_ts + chrono::Duration::seconds(1);
-        persist_order_journal(
-            &conn,
-            order_id,
-            &intent,
-            "filled",
-            Some(submit_ts),
-            Some(fill_ts),
-            json!({
-                "fill_price_proxy": "market",
-                "filled_notional": intent.notional,
-            }),
-        )
-        .await?;
-
-        publish_event(
-            &producer,
-            &fill_received_topic,
-            &event_key,
-            json!({
-                "order_id": order_id.to_string(),
-                "venue": intent.venue,
-                "canonical_symbol": intent.canonical_symbol,
-                "filled_notional": intent.notional,
-                "status": "filled",
-                "event_ts": fill_ts.to_rfc3339(),
-            }),
-        )
-        .await?;
-
-        publish_event(
-            &producer,
-            &order_updated_topic,
-            &event_key,
-            json!({
-                "order_id": order_id.to_string(),
-                "venue": intent.venue,
-                "canonical_symbol": intent.canonical_symbol,
-                "status": "filled",
-                "event_ts": fill_ts.to_rfc3339(),
-            }),
-        )
-        .await?;
-
-        if intent.notional > 500_000.0 {
-            publish_event(
-                &producer,
-                &reconciliation_topic,
-                &event_key,
-                json!({
-                    "order_id": order_id.to_string(),
-                    "venue": intent.venue,
-                    "canonical_symbol": intent.canonical_symbol,
-                    "issue": "high_notional_reconciliation_required",
-                    "event_ts": fill_ts.to_rfc3339(),
-                }),
-            )
-            .await?;
-
-            insert_audit_event(
-                &conn,
-                service_name,
-                "execution",
-                "reconciliation_issue",
-                Some(order_id),
-                Some(&intent.venue),
-                Some(&intent.canonical_symbol),
-                json!({
-                    "issue": "high_notional_reconciliation_required",
-                    "notional": intent.notional,
-                }),
-            )
-            .await?;
-        }
-
-        insert_audit_event(
-            &conn,
-            service_name,
-            "execution",
-            "order_filled",
-            Some(order_id),
-            Some(&intent.venue),
-            Some(&intent.canonical_symbol),
-            json!({
-                "side": intent.side,
-                "filled_notional": intent.notional,
-            }),
-        )
-        .await?;
 
         record_message_processed(
             &conn,
@@ -658,8 +1256,23 @@ mod tests {
     }
 
     #[test]
-    fn side_normalization_fallback() {
-        assert_eq!(parse_side("BUY"), "buy");
-        assert_eq!(parse_side("unknown"), "hold");
+    fn parse_command_and_ack() {
+        let cmd = parse_exec_command(&json!({
+            "order_id": Uuid::nil().to_string(),
+            "action": "amend",
+            "new_notional": 1234.0,
+            "event_ts": "2026-04-28T00:00:00Z"
+        }))
+        .expect("cmd");
+        assert_eq!(cmd.action, "amend");
+
+        let ack = parse_broker_ack(&json!({
+            "order_id": Uuid::nil().to_string(),
+            "status": "filled",
+            "filled_notional": 1234.0,
+            "event_ts": "2026-04-28T00:00:01Z"
+        }))
+        .expect("ack");
+        assert_eq!(ack.status, "filled");
     }
 }
