@@ -90,6 +90,11 @@ Last updated: 2026-04-29
   - added ingestion operations API `/api/v1/control-panel/ingestion` (connector matrix, coverage/gap, backfill and replay status views),
   - added guarded recovery action `/api/v1/control-panel/ingestion/backfill-window` (operator+ role, justification required, 7-day safety cap),
   - added dedicated ingestion workspace in control-panel UI with live tables and safe-recovery workflow.
+- Completed `DEV-00028` control panel strategy/risk/portfolio center baseline:
+  - added `/api/v1/control-panel/risk-portfolio` for strategy health rollups, symbol exposure snapshots, violation forensics, and portfolio headroom,
+  - added `/api/v1/control-panel/risk-limits` with bounded validation and `risk_manager+` role gate,
+  - added `/api/v1/control-panel/risk/kill-switch` for global/market kill-switch control with audited mutation flow,
+  - added risk/portfolio workspace UI section with limits editor, kill-switch controls, and live posture tables.
 
 ### Current
 
@@ -102,12 +107,13 @@ Last updated: 2026-04-29
 - `DEV-00022` opened and moved to active execution track for adapter-network resilience (DNS/connectivity/runtime robustness).
 - `DEV-00023` closed with deterministic portfolio-state baseline and richer portfolio-aware risk controls.
 - `DEV-00027` closed with ingestion/data-quality operations center baseline in control panel.
+- `DEV-00028` closed with strategy/risk/portfolio control center baseline in control panel.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
 1. Deliver `DEV-00022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
-2. Execute `DEV-00028..DEV-00030` remaining core control-panel operations modules (risk/portfolio, execution OMS, charting workbench integration).
+2. Execute `DEV-00029..DEV-00030` remaining core control-panel operations modules (execution OMS, charting workbench integration).
 3. Expand control-panel governance modules (`DEV-00031..DEV-00034`) after operational modules are stable.
 
 ### Risks/Blocks

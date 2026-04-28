@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -33,3 +33,4 @@ Deliver live control surfaces for strategy state, risk limits, and portfolio exp
 
 - API and UI integration tests for constraint updates.
 - Audit trail validation for all risk/portfolio config mutations.
+- `tests/dev-00028/run.sh`

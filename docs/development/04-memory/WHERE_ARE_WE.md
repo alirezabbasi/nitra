@@ -36,6 +36,7 @@ Last updated: 2026-04-29
 - `DEV-00025` completed: control-panel foundation shell baseline implemented in FastAPI charting service with professional black-and-white sidebar layout and overview metrics endpoint.
 - `DEV-00026` completed: control-panel auth/RBAC baseline implemented with token-backed operator sessions, role-aware route guards, and privileged-action audit trail.
 - `DEV-00027` completed: control-panel ingestion/data-quality operations baseline implemented with connector/coverage/replay visibility and guarded backfill-window recovery action.
+- `DEV-00028` completed: control-panel strategy/risk/portfolio center baseline implemented with live posture views, risk-limit editor, and kill-switch controls under RBAC + audit flow.
 
 ## Current
 
@@ -49,11 +50,12 @@ Last updated: 2026-04-29
 - `DEV-00022` is now open and in progress for execution adapter network resilience (DNS/connectivity/runtime robustness).
 - `DEV-00023` is closed with deterministic portfolio-state baseline and richer risk constraints.
 - `DEV-00027` is closed with ingestion/data-quality operations center baseline in control panel.
+- `DEV-00028` is closed with strategy/risk/portfolio control center baseline in control panel.
 
 ## Next
 
 1. Deliver `DEV-00022` implementation for timeout/name-resolution handling and bounded retry/backoff tuning.
-2. Sequence `DEV-00028..DEV-00030` for remaining core operations modules (risk/portfolio, execution OMS, charting workbench).
+2. Sequence `DEV-00029..DEV-00030` for remaining core operations modules (execution OMS, charting workbench).
 3. Continue `DEV-00031..DEV-00034` governance, enterprise polish, and release-hardening modules.
 
 ## Risks/Blocks

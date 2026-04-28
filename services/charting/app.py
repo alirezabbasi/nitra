@@ -540,6 +540,361 @@ def control_panel_ingestion_backfill_window(
     return {"status": "accepted", "session": session, "result": result}
 
 
+def ensure_control_panel_risk_limits_table(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_risk_limits (
+              limits_id UUID PRIMARY KEY,
+              updated_by TEXT NOT NULL,
+              min_confidence DOUBLE PRECISION NOT NULL,
+              max_notional DOUBLE PRECISION NOT NULL,
+              max_drawdown_pct DOUBLE PRECISION NOT NULL,
+              max_symbol_exposure_notional DOUBLE PRECISION NOT NULL,
+              max_portfolio_gross_exposure_notional DOUBLE PRECISION NOT NULL,
+              min_available_equity DOUBLE PRECISION NOT NULL,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_control_panel_risk_limits_created_at
+              ON control_panel_risk_limits (created_at DESC)
+            """
+        )
+
+
+def load_current_risk_limits(conn: psycopg.Connection) -> dict:
+    ensure_control_panel_risk_limits_table(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              min_confidence,
+              max_notional,
+              max_drawdown_pct,
+              max_symbol_exposure_notional,
+              max_portfolio_gross_exposure_notional,
+              min_available_equity,
+              updated_by,
+              created_at
+            FROM control_panel_risk_limits
+            ORDER BY created_at DESC
+            LIMIT 1
+            """
+        )
+        row = cur.fetchone()
+    if row:
+        return {
+            "min_confidence": float(row[0]),
+            "max_notional": float(row[1]),
+            "max_drawdown_pct": float(row[2]),
+            "max_symbol_exposure_notional": float(row[3]),
+            "max_portfolio_gross_exposure_notional": float(row[4]),
+            "min_available_equity": float(row[5]),
+            "updated_by": str(row[6]),
+            "updated_at": row[7].isoformat() if row[7] else None,
+            "source": "control_panel",
+        }
+    return {
+        "min_confidence": env_f64_or("RISK_MIN_CONFIDENCE", 0.55),
+        "max_notional": env_f64_or("RISK_MAX_NOTIONAL", 100000.0),
+        "max_drawdown_pct": env_f64_or("RISK_MAX_DRAWDOWN_PCT", 5.0),
+        "max_symbol_exposure_notional": env_f64_or("RISK_MAX_SYMBOL_EXPOSURE_NOTIONAL", 250000.0),
+        "max_portfolio_gross_exposure_notional": env_f64_or(
+            "RISK_MAX_PORTFOLIO_GROSS_EXPOSURE_NOTIONAL", 500000.0
+        ),
+        "min_available_equity": env_f64_or("RISK_MIN_AVAILABLE_EQUITY", 10000.0),
+        "updated_by": "env_default",
+        "updated_at": None,
+        "source": "env_default",
+    }
+
+
+@app.get("/api/v1/control-panel/risk-portfolio")
+def control_panel_risk_portfolio(
+    x_control_panel_token: str | None = Header(default=None),
+    row_limit: int = Query(default=25, ge=1, le=200),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    metrics = {
+        "policy_violations_24h": 0,
+        "risk_decisions_24h": 0,
+        "kill_switch_on_symbols": 0,
+        "portfolio_gross_exposure": 0.0,
+        "portfolio_net_exposure": 0.0,
+        "available_equity_headroom": 0.0,
+    }
+    strategy_rows: list[dict] = []
+    symbol_exposure_rows: list[dict] = []
+    recent_violations: list[dict] = []
+    limits: dict = {}
+    mode = "online"
+
+    try:
+        with psycopg.connect(db_url()) as conn:
+            limits = load_current_risk_limits(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                      COUNT(*) FILTER (WHERE approved = FALSE AND jsonb_array_length(violations) > 0) AS violations_24h,
+                      COUNT(*) AS decisions_24h
+                    FROM risk_decision_log
+                    WHERE created_at >= now() - interval '24 hours'
+                    """
+                )
+                row = cur.fetchone()
+                metrics["policy_violations_24h"] = int(row[0] or 0)
+                metrics["risk_decisions_24h"] = int(row[1] or 0)
+
+                cur.execute(
+                    "SELECT COUNT(*) FROM risk_state WHERE kill_switch_enabled = TRUE"
+                )
+                metrics["kill_switch_on_symbols"] = int(cur.fetchone()[0] or 0)
+
+                cur.execute(
+                    """
+                    SELECT COALESCE(gross_exposure_notional, 0), COALESCE(net_exposure_notional, 0), COALESCE(equity, 0)
+                    FROM portfolio_account_state
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """
+                )
+                row = cur.fetchone()
+                if row:
+                    gross = float(row[0] or 0.0)
+                    net = float(row[1] or 0.0)
+                    equity = float(row[2] or 0.0)
+                    metrics["portfolio_gross_exposure"] = gross
+                    metrics["portfolio_net_exposure"] = net
+                    metrics["available_equity_headroom"] = max(0.0, equity - gross)
+
+                cur.execute(
+                    """
+                    SELECT venue, canonical_symbol, timeframe, current_exposure_notional, drawdown_pct, kill_switch_enabled, updated_at
+                    FROM risk_state
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for r in cur.fetchall():
+                    symbol_exposure_rows.append(
+                        {
+                            "venue": str(r[0]),
+                            "symbol": str(r[1]),
+                            "timeframe": str(r[2]),
+                            "exposure_notional": float(r[3] or 0.0),
+                            "drawdown_pct": float(r[4] or 0.0),
+                            "kill_switch_enabled": bool(r[5]),
+                            "updated_at": r[6].isoformat() if r[6] else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT
+                      venue,
+                      canonical_symbol,
+                      COUNT(*) AS decisions_24h,
+                      AVG(confidence) AS avg_confidence,
+                      COUNT(*) FILTER (WHERE approved = FALSE AND jsonb_array_length(violations) > 0) AS violations_24h
+                    FROM risk_decision_log
+                    WHERE created_at >= now() - interval '24 hours'
+                    GROUP BY venue, canonical_symbol
+                    ORDER BY decisions_24h DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for r in cur.fetchall():
+                    strategy_rows.append(
+                        {
+                            "venue": str(r[0]),
+                            "symbol": str(r[1]),
+                            "decisions_24h": int(r[2] or 0),
+                            "avg_confidence": float(r[3] or 0.0),
+                            "violations_24h": int(r[4] or 0),
+                            "status": "degraded" if int(r[4] or 0) > 0 else "healthy",
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT venue, canonical_symbol, reason, violations, created_at
+                    FROM risk_decision_log
+                    WHERE approved = FALSE
+                      AND jsonb_array_length(violations) > 0
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for r in cur.fetchall():
+                    recent_violations.append(
+                        {
+                            "venue": str(r[0]),
+                            "symbol": str(r[1]),
+                            "reason": str(r[2]),
+                            "violations": r[3] if isinstance(r[3], list) else [],
+                            "created_at": r[4].isoformat() if r[4] else None,
+                        }
+                    )
+    except Exception:
+        mode = "degraded"
+
+    return {
+        "service": "control-panel",
+        "module": "risk-portfolio",
+        "mode": mode,
+        "session": session,
+        "metrics": metrics,
+        "limits": limits,
+        "strategy_rows": strategy_rows,
+        "symbol_exposure_rows": symbol_exposure_rows,
+        "recent_violations": recent_violations,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.post("/api/v1/control-panel/risk-limits")
+def control_panel_risk_limits_update(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "risk_manager")
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+
+    min_confidence = float(payload.get("min_confidence", env_f64_or("RISK_MIN_CONFIDENCE", 0.55)))
+    max_notional = float(payload.get("max_notional", env_f64_or("RISK_MAX_NOTIONAL", 100000.0)))
+    max_drawdown_pct = float(payload.get("max_drawdown_pct", env_f64_or("RISK_MAX_DRAWDOWN_PCT", 5.0)))
+    max_symbol_exposure_notional = float(
+        payload.get("max_symbol_exposure_notional", env_f64_or("RISK_MAX_SYMBOL_EXPOSURE_NOTIONAL", 250000.0))
+    )
+    max_portfolio_gross_exposure_notional = float(
+        payload.get(
+            "max_portfolio_gross_exposure_notional",
+            env_f64_or("RISK_MAX_PORTFOLIO_GROSS_EXPOSURE_NOTIONAL", 500000.0),
+        )
+    )
+    min_available_equity = float(payload.get("min_available_equity", env_f64_or("RISK_MIN_AVAILABLE_EQUITY", 10000.0)))
+
+    if not (0.0 <= min_confidence <= 1.0):
+        raise HTTPException(status_code=400, detail="min_confidence must be between 0 and 1")
+    if max_notional <= 0 or max_symbol_exposure_notional <= 0 or max_portfolio_gross_exposure_notional <= 0:
+        raise HTTPException(status_code=400, detail="notional limits must be positive")
+    if max_drawdown_pct < 0 or min_available_equity < 0:
+        raise HTTPException(status_code=400, detail="drawdown/equity limits must be non-negative")
+
+    limits = {
+        "min_confidence": min_confidence,
+        "max_notional": max_notional,
+        "max_drawdown_pct": max_drawdown_pct,
+        "max_symbol_exposure_notional": max_symbol_exposure_notional,
+        "max_portfolio_gross_exposure_notional": max_portfolio_gross_exposure_notional,
+        "min_available_equity": min_available_equity,
+    }
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_risk_limits_table(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_risk_limits (
+                  limits_id, updated_by, min_confidence, max_notional, max_drawdown_pct,
+                  max_symbol_exposure_notional, max_portfolio_gross_exposure_notional, min_available_equity
+                ) VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    session["user_id"],
+                    min_confidence,
+                    max_notional,
+                    max_drawdown_pct,
+                    max_symbol_exposure_notional,
+                    max_portfolio_gross_exposure_notional,
+                    min_available_equity,
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="risk.update_limits",
+            section="risk",
+            target="global",
+            status="approved",
+            reason=None,
+            metadata={"justification": justification, **limits},
+        )
+        conn.commit()
+
+    return {"status": "updated", "limits": limits, "updated_by": session["user_id"]}
+
+
+@app.post("/api/v1/control-panel/risk/kill-switch")
+def control_panel_risk_kill_switch(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "risk_manager")
+    enabled = bool(payload.get("enabled", False))
+    scope = str(payload.get("scope", "global")).strip().lower()
+    venue = str(payload.get("venue", "")).strip().lower()
+    symbol = str(payload.get("symbol", "")).strip().upper()
+    timeframe = str(payload.get("timeframe", "1m")).strip()
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if scope not in {"global", "market"}:
+        raise HTTPException(status_code=400, detail="scope must be global or market")
+    if scope == "market" and (not venue or not symbol):
+        raise HTTPException(status_code=400, detail="venue and symbol required for market scope")
+
+    affected_rows = 0
+    with psycopg.connect(db_url()) as conn:
+        with conn.cursor() as cur:
+            if scope == "global":
+                cur.execute(
+                    """
+                    UPDATE risk_state
+                    SET kill_switch_enabled = %s, updated_at = now()
+                    """,
+                    (enabled,),
+                )
+                affected_rows = int(cur.rowcount or 0)
+            else:
+                cur.execute(
+                    """
+                    UPDATE risk_state
+                    SET kill_switch_enabled = %s, updated_at = now()
+                    WHERE venue = %s AND canonical_symbol = %s AND timeframe = %s
+                    """,
+                    (enabled, venue, symbol, timeframe),
+                )
+                affected_rows = int(cur.rowcount or 0)
+
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="risk.kill_switch",
+            section="risk",
+            target=f"{scope}:{venue}:{symbol}:{timeframe}",
+            status="approved",
+            reason=None,
+            metadata={"enabled": enabled, "scope": scope, "justification": justification, "affected_rows": affected_rows},
+        )
+        conn.commit()
+
+    return {"status": "updated", "enabled": enabled, "scope": scope, "affected_rows": affected_rows}
+
+
 @app.post("/api/v1/control-panel/actions/privileged")
 def control_panel_privileged_action(
     payload: dict = Body(...),

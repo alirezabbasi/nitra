@@ -6,7 +6,6 @@ Last updated: 2026-04-29
 
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
 - [ ] `DEV-00024` control panel program epic (professional admin console, black-and-white shadcn design language).
-- [ ] `DEV-00028` control panel strategy/risk/portfolio control center.
 - [ ] `DEV-00029` control panel execution OMS and broker operations center.
 - [ ] `DEV-00030` control panel charting workbench integration (`Full Chart` from instrument profile).
 - [ ] `DEV-00031` control panel alerting, incidents, and runbooks center.
@@ -48,6 +47,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00025` control panel foundation shell and design system (FastAPI route + professional black/white sidebar admin shell baseline).
 - [x] `DEV-00026` control panel authentication, RBAC, and operator identity baseline (token auth, role guards, privileged-action audit trail).
 - [x] `DEV-00027` control panel market ingestion and data quality operations center (connector matrix, coverage/recovery visibility, guarded backfill action).
+- [x] `DEV-00028` control panel strategy/risk/portfolio control center (live posture views, risk-limit editor, kill-switch controls, audited mutations).
 
 ## Blocked
 

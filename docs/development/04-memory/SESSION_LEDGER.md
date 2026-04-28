@@ -732,3 +732,45 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - implement `DEV-00028` strategy/risk/portfolio control center module.
+
+---
+
+## 2026-04-29 — Session Entry 029
+
+- Objective:
+  - implement `DEV-00028` strategy/risk/portfolio control center module in control panel.
+- Work completed:
+  - added risk/portfolio module APIs in `services/charting/app.py`:
+    - `GET /api/v1/control-panel/risk-portfolio`
+      - strategy health rollups from `risk_decision_log`,
+      - symbol exposure snapshots from `risk_state`,
+      - portfolio gross/net/headroom from `portfolio_account_state`,
+      - recent policy-violation forensics.
+    - `POST /api/v1/control-panel/risk-limits`
+      - bounded risk-limit validation,
+      - `risk_manager+` role gate,
+      - persisted change history in `control_panel_risk_limits`,
+      - audited mutations.
+    - `POST /api/v1/control-panel/risk/kill-switch`
+      - global/market scope support,
+      - `risk_manager+` role gate,
+      - audited mutation flow.
+  - expanded control-panel UI (`services/charting/static/control-panel.html`) with `Risk & Portfolio` workspace:
+    - risk/portfolio KPI cards,
+    - strategy state board,
+    - symbol exposure table,
+    - violation forensics table,
+    - risk-limits editor and kill-switch action forms.
+  - added test pack and make target:
+    - `tests/dev-00028/run.sh`,
+    - `make test-dev-00028`.
+  - synchronized ticket/kanban/active-focus/memory docs to mark `DEV-00028` done and move next module focus to `DEV-00029`.
+- Verification:
+  - `tests/dev-00027/run.sh` passes.
+  - `tests/dev-00028/run.sh` passes.
+  - `make test-dev-00027` passes.
+  - `make test-dev-00028` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - implement `DEV-00029` execution OMS and broker operations center module.

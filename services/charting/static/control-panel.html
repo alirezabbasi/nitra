@@ -247,6 +247,65 @@
             </article>
           </article>
         </section>
+
+        <section class="workspace hidden" id="workspace-risk">
+          <article class="card">
+            <div><strong>Risk & Portfolio Live State</strong></div>
+            <div class="muted">Policy pressure, exposure posture, and violation forensics</div>
+            <section class="grid" id="riskMetrics" style="margin-top:10px"></section>
+            <table class="table" id="strategyTable">
+              <thead><tr><th>Market</th><th>Decisions (24h)</th><th>Avg Confidence</th><th>Violations</th><th>Status</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Risk Limits Editor</strong></div>
+              <div class="small">Requires `risk_manager` or `admin`, justification required</div>
+              <div class="form-row">
+                <input id="rlMinConfidence" placeholder="min_confidence" />
+                <input id="rlMaxNotional" placeholder="max_notional" />
+                <input id="rlMaxDrawdown" placeholder="max_drawdown_pct" />
+                <input id="rlMaxSymbolExposure" placeholder="max_symbol_exposure_notional" />
+              </div>
+              <div class="form-row">
+                <input id="rlMaxPortfolioGross" placeholder="max_portfolio_gross_exposure_notional" />
+                <input id="rlMinAvailableEquity" placeholder="min_available_equity" />
+                <input id="rlJustification" placeholder="justification" />
+                <button class="btn" id="riskLimitsBtn">Apply Limits</button>
+              </div>
+              <div class="small" id="riskLimitsResult" style="margin-top:8px">No update submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Kill Switch Control</strong></div>
+              <div class="form-row">
+                <input id="ksScope" value="global" placeholder="scope: global|market" />
+                <input id="ksVenue" placeholder="venue (market scope)" />
+                <input id="ksSymbol" placeholder="symbol (market scope)" />
+                <input id="ksEnabled" value="true" placeholder="enabled true|false" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="ksJustification" placeholder="justification" />
+                <button class="btn" id="killSwitchBtn">Set Kill Switch</button>
+              </div>
+              <div class="small" id="killSwitchResult" style="margin-top:8px">No action submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Symbol Exposure Snapshot</strong></div>
+              <table class="table" id="exposureTable">
+                <thead><tr><th>Market</th><th>Exposure</th><th>Drawdown%</th><th>Kill Switch</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Recent Violations</strong></div>
+              <table class="table" id="violationsTable">
+                <thead><tr><th>Market</th><th>Reason</th><th>Violations</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
       </main>
     </div>
 
@@ -301,6 +360,7 @@
         });
         document.getElementById("workspace-overview").classList.toggle("hidden", section !== "overview");
         document.getElementById("workspace-ingestion").classList.toggle("hidden", section !== "ingestion");
+        document.getElementById("workspace-risk").classList.toggle("hidden", section !== "risk");
       }
 
       function fmt(value) {
@@ -418,21 +478,139 @@
         await loadIngestion();
       }
 
+      function renderRiskPortfolio(data) {
+        const metricMap = [
+          ["policy_violations_24h", "Policy Violations (24h)"],
+          ["risk_decisions_24h", "Risk Decisions (24h)"],
+          ["kill_switch_on_symbols", "Kill Switch Symbols"],
+          ["portfolio_gross_exposure", "Portfolio Gross Exposure"],
+          ["portfolio_net_exposure", "Portfolio Net Exposure"],
+          ["available_equity_headroom", "Available Equity Headroom"],
+        ];
+        const m = document.getElementById("riskMetrics");
+        m.innerHTML = "";
+        for (const [key, label] of metricMap) {
+          const card = document.createElement("article");
+          card.className = "card";
+          card.innerHTML = `<div class="muted">${label}</div><div class="metric">${fmt(data.metrics[key])}</div>`;
+          m.appendChild(card);
+        }
+
+        const strategyBody = document.querySelector("#strategyTable tbody");
+        strategyBody.innerHTML = "";
+        for (const row of data.strategy_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.venue}:${row.symbol}</td><td>${row.decisions_24h}</td><td>${fmt(row.avg_confidence)}</td><td>${row.violations_24h}</td><td><span class="status ${row.status === "healthy" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td>`;
+          strategyBody.appendChild(tr);
+        }
+
+        const expBody = document.querySelector("#exposureTable tbody");
+        expBody.innerHTML = "";
+        for (const row of data.symbol_exposure_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.venue}:${row.symbol}:${row.timeframe}</td><td>${fmt(row.exposure_notional)}</td><td>${fmt(row.drawdown_pct)}</td><td>${row.kill_switch_enabled ? "ON" : "OFF"}</td>`;
+          expBody.appendChild(tr);
+        }
+
+        const vioBody = document.querySelector("#violationsTable tbody");
+        vioBody.innerHTML = "";
+        for (const row of data.recent_violations || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.venue}:${row.symbol}</td><td>${row.reason}</td><td>${(row.violations || []).join(", ")}</td>`;
+          vioBody.appendChild(tr);
+        }
+
+        const limits = data.limits || {};
+        document.getElementById("rlMinConfidence").value = limits.min_confidence ?? "";
+        document.getElementById("rlMaxNotional").value = limits.max_notional ?? "";
+        document.getElementById("rlMaxDrawdown").value = limits.max_drawdown_pct ?? "";
+        document.getElementById("rlMaxSymbolExposure").value = limits.max_symbol_exposure_notional ?? "";
+        document.getElementById("rlMaxPortfolioGross").value = limits.max_portfolio_gross_exposure_notional ?? "";
+        document.getElementById("rlMinAvailableEquity").value = limits.min_available_equity ?? "";
+      }
+
+      async function loadRiskPortfolio() {
+        const res = await authedFetch("/api/v1/control-panel/risk-portfolio?row_limit=20");
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          throw new Error("unauthorized");
+        }
+        const data = await res.json();
+        applyRoleVisibility(data.session || {});
+        renderRiskPortfolio(data);
+      }
+
+      async function submitRiskLimits() {
+        const payload = {
+          min_confidence: Number(document.getElementById("rlMinConfidence").value),
+          max_notional: Number(document.getElementById("rlMaxNotional").value),
+          max_drawdown_pct: Number(document.getElementById("rlMaxDrawdown").value),
+          max_symbol_exposure_notional: Number(document.getElementById("rlMaxSymbolExposure").value),
+          max_portfolio_gross_exposure_notional: Number(document.getElementById("rlMaxPortfolioGross").value),
+          min_available_equity: Number(document.getElementById("rlMinAvailableEquity").value),
+          justification: document.getElementById("rlJustification").value.trim(),
+        };
+        const out = document.getElementById("riskLimitsResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/risk-limits", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Updated by ${data.updated_by}`;
+        await loadRiskPortfolio();
+      }
+
+      async function submitKillSwitch() {
+        const payload = {
+          scope: document.getElementById("ksScope").value.trim(),
+          venue: document.getElementById("ksVenue").value.trim(),
+          symbol: document.getElementById("ksSymbol").value.trim(),
+          enabled: document.getElementById("ksEnabled").value.trim().toLowerCase() === "true",
+          justification: document.getElementById("ksJustification").value.trim(),
+        };
+        const out = document.getElementById("killSwitchResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/risk/kill-switch", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Updated (${data.scope}) affected_rows=${data.affected_rows}`;
+        await loadRiskPortfolio();
+      }
+
       document.querySelectorAll(".nav-item[data-section]").forEach((el) => {
         el.addEventListener("click", async () => {
           const section = el.dataset.section || "overview";
           switchSection(section);
           if (section === "ingestion") {
             await loadIngestion();
+          } else if (section === "risk") {
+            await loadRiskPortfolio();
           } else {
             await loadOverview();
           }
         });
       });
       document.getElementById("backfillBtn").addEventListener("click", () => submitBackfillWindow().catch(console.error));
+      document.getElementById("riskLimitsBtn").addEventListener("click", () => submitRiskLimits().catch(console.error));
+      document.getElementById("killSwitchBtn").addEventListener("click", () => submitKillSwitch().catch(console.error));
       document.getElementById('refreshBtn').addEventListener('click', () => {
         if (currentSection === "ingestion") {
           loadIngestion().catch(console.error);
+        } else if (currentSection === "risk") {
+          loadRiskPortfolio().catch(console.error);
         } else {
           loadOverview().catch(console.error);
         }
