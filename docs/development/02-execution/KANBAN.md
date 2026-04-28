@@ -1,12 +1,11 @@
 # NITRA Project Kanban
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 
 ## Backlog
 
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
 - [ ] `DEV-00024` control panel program epic (professional admin console, black-and-white shadcn design language).
-- [ ] `DEV-00026` control panel authentication, RBAC, and operator identity.
 - [ ] `DEV-00027` control panel market ingestion and data quality operations center.
 - [ ] `DEV-00028` control panel strategy/risk/portfolio control center.
 - [ ] `DEV-00029` control panel execution OMS and broker operations center.
@@ -48,6 +47,7 @@ Last updated: 2026-04-28
 - [x] `DEV-00021` broker-venue adapter layer for `execution-gateway` (submit/amend/cancel + ack/fill ingest).
 - [x] `DEV-00023` deterministic portfolio-state baseline and richer risk constraints (`portfolio-engine` + portfolio-aware risk caps).
 - [x] `DEV-00025` control panel foundation shell and design system (FastAPI route + professional black/white sidebar admin shell baseline).
+- [x] `DEV-00026` control panel authentication, RBAC, and operator identity baseline (token auth, role guards, privileged-action audit trail).
 
 ## Blocked
 

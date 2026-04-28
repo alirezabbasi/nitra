@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -31,3 +31,4 @@ Add enterprise-grade access control, role-based navigation permissions, and secu
 
 - RBAC integration tests.
 - Audit trail entries for privileged action attempts.
+- `tests/dev-00026/run.sh`

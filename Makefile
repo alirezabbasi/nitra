@@ -60,6 +60,9 @@ test-dev-00009:
 test-dev-00025:
 	tests/dev-00025/run.sh
 
+test-dev-00026:
+	tests/dev-00026/run.sh
+
 test-dev-0010:
 	tests/dev-0010/run.sh
 

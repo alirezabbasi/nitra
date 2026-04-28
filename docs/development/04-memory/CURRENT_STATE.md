@@ -1,6 +1,6 @@
 # Current State Snapshot
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 
 ## Where Are We Snapshot
 
@@ -82,6 +82,10 @@ Last updated: 2026-04-28
   - added FastAPI route `/control-panel` and overview API `/api/v1/control-panel/overview`,
   - added professional black-and-white sidebar admin shell (`services/charting/static/control-panel.html`),
   - integrated module health and core operational metric cards for first-pass operator overview.
+- Completed `DEV-00026` control panel authentication/RBAC baseline:
+  - added token-authenticated control-panel session contract with roles (`viewer`, `operator`, `risk_manager`, `admin`),
+  - enforced route guards for control-panel endpoints and role-based sidebar visibility hooks,
+  - added privileged-action endpoint with justification requirement and `control_panel_audit_log` persistence.
 
 ### Current
 
@@ -98,7 +102,7 @@ Last updated: 2026-04-28
 ### Next
 
 1. Deliver `DEV-00022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
-2. Execute `DEV-00026..DEV-00030` core control-panel operations modules (RBAC, ingestion ops, risk/portfolio, execution OMS, charting workbench integration).
+2. Execute `DEV-00027..DEV-00030` core control-panel operations modules (ingestion ops, risk/portfolio, execution OMS, charting workbench integration).
 3. Expand control-panel governance modules (`DEV-00031..DEV-00034`) after operational modules are stable.
 
 ### Risks/Blocks

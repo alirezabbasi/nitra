@@ -1,5 +1,7 @@
 import os
 import json
+import secrets
+import uuid
 import urllib.parse
 import urllib.request
 import urllib.error
@@ -11,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 
 import psycopg
 import uvicorn
-from fastapi import Body, FastAPI, HTTPException, Path as ApiPath, Query
+from fastapi import Body, FastAPI, Header, HTTPException, Path as ApiPath, Query
 from fastapi.responses import PlainTextResponse
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -71,6 +73,24 @@ CRYPTO_BASES = {
 }
 VALID_ASSET_CLASSES = {"fx", "crypto", "other"}
 VALID_VENUES = {"oanda", "capital", "coinbase"}
+ROLE_RANK = {"viewer": 0, "operator": 1, "risk_manager": 2, "admin": 3}
+ROLE_DEFAULT_SECTIONS = {
+    "viewer": ["overview", "ingestion", "risk", "portfolio", "execution", "charting", "ops"],
+    "operator": ["overview", "ingestion", "risk", "portfolio", "execution", "charting", "ops"],
+    "risk_manager": ["overview", "risk", "portfolio", "execution", "charting", "ops", "governance"],
+    "admin": [
+        "overview",
+        "ingestion",
+        "risk",
+        "portfolio",
+        "execution",
+        "charting",
+        "ops",
+        "governance",
+        "research",
+        "config",
+    ],
+}
 
 _CAPITAL_SESSION_LOCK = threading.Lock()
 _CAPITAL_SESSION_HEADERS: dict[str, str] = {}
@@ -82,13 +102,110 @@ app = FastAPI(title="nitra-charting")
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
+def role_from_token(token: str | None) -> tuple[str, str]:
+    if not token:
+        raise HTTPException(status_code=401, detail="missing control-panel token")
+
+    expected = {
+        env("CONTROL_PANEL_VIEWER_TOKEN", "viewer-token"): "viewer",
+        env("CONTROL_PANEL_OPERATOR_TOKEN", "operator-token"): "operator",
+        env("CONTROL_PANEL_RISK_MANAGER_TOKEN", "risk-manager-token"): "risk_manager",
+        env("CONTROL_PANEL_ADMIN_TOKEN", "admin-token"): "admin",
+    }
+    role = None
+    for candidate, candidate_role in expected.items():
+        if secrets.compare_digest(token, candidate):
+            role = candidate_role
+            break
+    if not role:
+        raise HTTPException(status_code=401, detail="invalid control-panel token")
+    return role, f"{role}@local"
+
+
+def require_min_role(role: str, min_role: str) -> None:
+    if ROLE_RANK.get(role, -1) < ROLE_RANK.get(min_role, 99):
+        raise HTTPException(status_code=403, detail=f"requires role >= {min_role}")
+
+
+def get_operator_session(x_control_panel_token: str | None = Header(default=None)) -> dict:
+    role, user_id = role_from_token(x_control_panel_token)
+    return {
+        "user_id": user_id,
+        "role": role,
+        "sections": ROLE_DEFAULT_SECTIONS.get(role, []),
+        "issued_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def ensure_control_panel_audit_table(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_audit_log (
+              audit_id UUID PRIMARY KEY,
+              user_id TEXT NOT NULL,
+              role TEXT NOT NULL,
+              action TEXT NOT NULL,
+              section TEXT NOT NULL,
+              target TEXT,
+              status TEXT NOT NULL,
+              reason TEXT,
+              metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_control_panel_audit_log_created_at
+              ON control_panel_audit_log (created_at DESC)
+            """
+        )
+
+
+def audit_control_panel_action(
+    conn: psycopg.Connection,
+    *,
+    user_id: str,
+    role: str,
+    action: str,
+    section: str,
+    target: str | None,
+    status: str,
+    reason: str | None,
+    metadata: dict,
+) -> None:
+    ensure_control_panel_audit_table(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO control_panel_audit_log (
+              audit_id, user_id, role, action, section, target, status, reason, metadata
+            )
+            VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+            """,
+            (
+                str(uuid.uuid4()),
+                user_id,
+                role,
+                action,
+                section,
+                target,
+                status,
+                reason,
+                json.dumps(metadata),
+            ),
+        )
+
+
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(str(STATIC_DIR / "index.html"))
 
 
 @app.get("/control-panel")
-def control_panel() -> FileResponse:
+def control_panel(x_control_panel_token: str | None = Header(default=None)) -> FileResponse:
+    get_operator_session(x_control_panel_token)
     return FileResponse(str(STATIC_DIR / "control-panel.html"))
 
 
@@ -115,7 +232,8 @@ def fetch_scalar(cur: psycopg.Cursor, query: str, params: tuple = ()) -> float:
 
 
 @app.get("/api/v1/control-panel/overview")
-def control_panel_overview() -> dict:
+def control_panel_overview(x_control_panel_token: str | None = Header(default=None)) -> dict:
+    session = get_operator_session(x_control_panel_token)
     metrics = {
         "venues_enabled": 0,
         "active_markets": 0,
@@ -213,9 +331,75 @@ def control_panel_overview() -> dict:
     return {
         "service": "control-panel",
         "theme": "bw-professional",
+        "session": session,
         "metrics": metrics,
         "modules": modules,
         "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/api/v1/control-panel/session")
+def control_panel_session(x_control_panel_token: str | None = Header(default=None)) -> dict:
+    return {"session": get_operator_session(x_control_panel_token)}
+
+
+@app.post("/api/v1/control-panel/actions/privileged")
+def control_panel_privileged_action(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    action = str(payload.get("action", "")).strip()
+    section = str(payload.get("section", "")).strip() or "general"
+    target = payload.get("target")
+    justification = str(payload.get("justification", "")).strip()
+    min_role = str(payload.get("min_role", "admin")).strip() or "admin"
+
+    if min_role not in ROLE_RANK:
+        raise HTTPException(status_code=400, detail="invalid min_role")
+    if not action:
+        raise HTTPException(status_code=400, detail="action is required")
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+
+    status = "approved"
+    reason = None
+    try:
+        require_min_role(session["role"], min_role)
+    except HTTPException:
+        status = "denied"
+        reason = f"insufficient_role:{session['role']}"
+
+    try:
+        with psycopg.connect(db_url()) as conn:
+            audit_control_panel_action(
+                conn,
+                user_id=session["user_id"],
+                role=session["role"],
+                action=action,
+                section=section,
+                target=str(target) if target is not None else None,
+                status=status,
+                reason=reason,
+                metadata={
+                    "justification": justification,
+                    "min_role": min_role,
+                },
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+    if status == "denied":
+        raise HTTPException(status_code=403, detail=f"action denied: {reason}")
+
+    return {
+        "status": status,
+        "action": action,
+        "section": section,
+        "target": target,
+        "approved_by": session["user_id"],
+        "approved_at": datetime.now(timezone.utc).isoformat(),
     }
 
 

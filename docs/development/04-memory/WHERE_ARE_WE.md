@@ -1,6 +1,6 @@
 # Where Are We
 
-Last updated: 2026-04-28
+Last updated: 2026-04-29
 
 ## Completed
 
@@ -34,6 +34,7 @@ Last updated: 2026-04-28
 - `DEV-00023` completed: deterministic `portfolio-engine` baseline added with persisted position/account/fill state and `portfolio.snapshot.v1` emission; `risk-engine` upgraded with portfolio-aware exposure/equity constraints.
 - Control-panel program ticket set opened (`DEV-00024..DEV-00034`) for phased enterprise admin console delivery with shadcn black-and-white UI direction and charting sub-module integration.
 - `DEV-00025` completed: control-panel foundation shell baseline implemented in FastAPI charting service with professional black-and-white sidebar layout and overview metrics endpoint.
+- `DEV-00026` completed: control-panel auth/RBAC baseline implemented with token-backed operator sessions, role-aware route guards, and privileged-action audit trail.
 
 ## Current
 
@@ -50,7 +51,7 @@ Last updated: 2026-04-28
 ## Next
 
 1. Deliver `DEV-00022` implementation for timeout/name-resolution handling and bounded retry/backoff tuning.
-2. Sequence `DEV-00026..DEV-00030` for RBAC and core operations modules (ingestion, risk/portfolio, execution OMS, charting workbench).
+2. Sequence `DEV-00027..DEV-00030` for core operations modules (ingestion, risk/portfolio, execution OMS, charting workbench).
 3. Continue `DEV-00031..DEV-00034` governance, enterprise polish, and release-hardening modules.
 
 ## Risks/Blocks

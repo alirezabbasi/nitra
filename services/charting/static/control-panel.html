@@ -69,6 +69,16 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 16px;
+        gap: 12px;
+      }
+      .topbar-right { display: flex; align-items: center; gap: 8px; }
+      .session-pill {
+        border: 1px solid var(--border);
+        background: #0f0f0f;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        color: var(--muted);
       }
       .title { font-size: 28px; font-weight: 700; margin: 0; }
       .subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
@@ -135,15 +145,15 @@
       <aside class="sidebar">
         <div class="brand">NITRA <span>CONTROL</span></div>
         <div class="section-label">Core Operations</div>
-        <button class="nav-item active">Overview</button>
-        <button class="nav-item">Ingestion & Data</button>
-        <button class="nav-item">Risk & Portfolio</button>
-        <button class="nav-item">Execution OMS</button>
-        <button class="nav-item">Charting Workbench</button>
+        <button class="nav-item active" data-section="overview">Overview</button>
+        <button class="nav-item" data-section="ingestion">Ingestion & Data</button>
+        <button class="nav-item" data-section="risk">Risk & Portfolio</button>
+        <button class="nav-item" data-section="execution">Execution OMS</button>
+        <button class="nav-item" data-section="charting">Charting Workbench</button>
         <div class="section-label">Governance</div>
-        <button class="nav-item">Alerts & Incidents</button>
-        <button class="nav-item">Research & Models</button>
-        <button class="nav-item">Config Registry</button>
+        <button class="nav-item" data-section="ops">Alerts & Incidents</button>
+        <button class="nav-item" data-section="research">Research & Models</button>
+        <button class="nav-item" data-section="config">Config Registry</button>
       </aside>
 
       <main class="main">
@@ -152,7 +162,10 @@
             <h1 class="title">Operations Overview</h1>
             <div class="subtitle">Professional black-and-white admin shell baseline (DEV-00025)</div>
           </div>
-          <button class="btn" id="refreshBtn">Refresh</button>
+          <div class="topbar-right">
+            <div class="session-pill" id="sessionPill">Unauthenticated</div>
+            <button class="btn" id="refreshBtn">Refresh</button>
+          </div>
         </div>
 
         <section class="grid" id="metricsGrid"></section>
@@ -196,6 +209,34 @@
         ["portfolio_gross_exposure", "Portfolio Gross Exposure"],
         ["portfolio_net_exposure", "Portfolio Net Exposure"],
       ];
+      const TOKEN_KEY = "nitra.control_panel.token";
+
+      function getToken() {
+        let token = localStorage.getItem(TOKEN_KEY);
+        if (!token) {
+          token = prompt("Enter control-panel token (viewer/operator/risk-manager/admin):", "admin-token") || "";
+          token = token.trim();
+          if (token) localStorage.setItem(TOKEN_KEY, token);
+        }
+        return token;
+      }
+
+      async function authedFetch(url, init = {}) {
+        const token = getToken();
+        const headers = new Headers(init.headers || {});
+        headers.set("X-Control-Panel-Token", token);
+        return fetch(url, { ...init, headers });
+      }
+
+      function applyRoleVisibility(session) {
+        const sections = new Set((session?.sections || []).map(String));
+        document.querySelectorAll(".nav-item[data-section]").forEach((el) => {
+          const section = el.dataset.section || "";
+          el.style.display = sections.has(section) ? "block" : "none";
+        });
+        const label = document.getElementById("sessionPill");
+        label.textContent = `${session?.user_id || "unknown"} · ${session?.role || "none"}`;
+      }
 
       function fmt(value) {
         if (typeof value === "number" && Math.abs(value) >= 1000) {
@@ -224,8 +265,13 @@
       }
 
       async function loadOverview() {
-        const res = await fetch('/api/v1/control-panel/overview');
+        const res = await authedFetch('/api/v1/control-panel/overview');
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          throw new Error("unauthorized");
+        }
         const data = await res.json();
+        applyRoleVisibility(data.session || {});
         renderOverview(data);
       }
 

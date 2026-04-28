@@ -657,3 +657,40 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - implement `DEV-00026` authentication/RBAC and route-level action guards for control-panel modules.
+
+---
+
+## 2026-04-29 — Session Entry 027
+
+- Objective:
+  - implement `DEV-00026` control-panel authentication, RBAC, and operator identity baseline.
+- Work completed:
+  - added token-authenticated operator session model in `services/charting/app.py`:
+    - roles: `viewer`, `operator`, `risk_manager`, `admin`
+    - route guard helpers and minimum-role enforcement.
+  - secured control-panel routes:
+    - `GET /control-panel` now requires valid control-panel token.
+    - `GET /api/v1/control-panel/overview` now requires valid control-panel token and returns session metadata.
+    - added `GET /api/v1/control-panel/session` for explicit operator context retrieval.
+  - added privileged action endpoint with approval gate + justification requirement:
+    - `POST /api/v1/control-panel/actions/privileged`
+    - role threshold enforcement (`min_role`), deny/approve flow, audited attempts.
+  - added control-panel audit persistence contract baseline:
+    - `control_panel_audit_log` table (runtime `CREATE TABLE IF NOT EXISTS`) and index.
+  - updated control-panel frontend (`services/charting/static/control-panel.html`) to:
+    - send `X-Control-Panel-Token` header,
+    - show operator session pill,
+    - apply role-based sidebar section visibility.
+  - added test pack + make target:
+    - `tests/dev-00026/run.sh`
+    - `make test-dev-00026`.
+  - synchronized ticket/kanban/active-focus/memory state to close `DEV-00026` and advance next slice.
+- Verification:
+  - `tests/dev-00025/run.sh` passes.
+  - `tests/dev-00026/run.sh` passes.
+  - `make test-dev-00025` passes.
+  - `make test-dev-00026` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - implement `DEV-00027` market ingestion and data quality operations center module on top of secured control-panel routes.
