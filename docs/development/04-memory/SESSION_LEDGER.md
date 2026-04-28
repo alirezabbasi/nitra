@@ -694,3 +694,41 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - implement `DEV-00027` market ingestion and data quality operations center module on top of secured control-panel routes.
+
+---
+
+## 2026-04-29 — Session Entry 028
+
+- Objective:
+  - implement `DEV-00027` control-panel market ingestion and data quality operations center.
+- Work completed:
+  - added ingestion operations API endpoints in `services/charting/app.py`:
+    - `GET /api/v1/control-panel/ingestion`
+      - connector health matrix from `venue_market`,
+      - coverage and gap summary integration,
+      - backfill/replay recent status views,
+      - failure counters and continuity metrics.
+    - `POST /api/v1/control-panel/ingestion/backfill-window`
+      - operator-role minimum guard,
+      - mandatory justification,
+      - 7-day safety cap,
+      - audited recovery action via `control_panel_audit_log`.
+  - expanded control-panel UI (`services/charting/static/control-panel.html`) with ingestion workspace:
+    - section switching (`overview` / `ingestion`),
+    - ingestion KPI cards,
+    - connector matrix table,
+    - recent backfill/replay tables,
+    - safe recovery form to trigger guarded backfill windows.
+  - added verification pack and make target:
+    - `tests/dev-00027/run.sh`,
+    - `make test-dev-00027`.
+  - synchronized ticket/kanban/active-focus/memory artifacts to mark `DEV-00027` done and move next slice to `DEV-00028`.
+- Verification:
+  - `tests/dev-00026/run.sh` passes.
+  - `tests/dev-00027/run.sh` passes.
+  - `make test-dev-00026` passes.
+  - `make test-dev-00027` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - implement `DEV-00028` strategy/risk/portfolio control center module.

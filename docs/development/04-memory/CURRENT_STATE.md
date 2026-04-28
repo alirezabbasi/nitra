@@ -86,6 +86,10 @@ Last updated: 2026-04-29
   - added token-authenticated control-panel session contract with roles (`viewer`, `operator`, `risk_manager`, `admin`),
   - enforced route guards for control-panel endpoints and role-based sidebar visibility hooks,
   - added privileged-action endpoint with justification requirement and `control_panel_audit_log` persistence.
+- Completed `DEV-00027` control panel market ingestion/data-quality operations baseline:
+  - added ingestion operations API `/api/v1/control-panel/ingestion` (connector matrix, coverage/gap, backfill and replay status views),
+  - added guarded recovery action `/api/v1/control-panel/ingestion/backfill-window` (operator+ role, justification required, 7-day safety cap),
+  - added dedicated ingestion workspace in control-panel UI with live tables and safe-recovery workflow.
 
 ### Current
 
@@ -97,12 +101,13 @@ Last updated: 2026-04-29
 - `DEV-00021` closed with broker adapter baseline and ack/fill ingest path.
 - `DEV-00022` opened and moved to active execution track for adapter-network resilience (DNS/connectivity/runtime robustness).
 - `DEV-00023` closed with deterministic portfolio-state baseline and richer portfolio-aware risk controls.
+- `DEV-00027` closed with ingestion/data-quality operations center baseline in control panel.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
 1. Deliver `DEV-00022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
-2. Execute `DEV-00027..DEV-00030` core control-panel operations modules (ingestion ops, risk/portfolio, execution OMS, charting workbench integration).
+2. Execute `DEV-00028..DEV-00030` remaining core control-panel operations modules (risk/portfolio, execution OMS, charting workbench integration).
 3. Expand control-panel governance modules (`DEV-00031..DEV-00034`) after operational modules are stable.
 
 ### Risks/Blocks

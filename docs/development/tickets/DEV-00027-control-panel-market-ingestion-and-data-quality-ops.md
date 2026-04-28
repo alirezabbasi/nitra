@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -31,3 +31,4 @@ Create operator surfaces for connector health, ingestion continuity, backfill or
 
 - API contract tests for health/coverage/backfill views.
 - End-to-end operator workflow test for gap-to-recovery path.
+- `tests/dev-00027/run.sh`

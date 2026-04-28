@@ -110,6 +110,8 @@
         grid-template-columns: 1.6fr 1fr;
         gap: 12px;
       }
+      .workspace.hidden { display: none; }
+      .stack { display: grid; gap: 12px; }
       .table {
         width: 100%;
         border-collapse: collapse;
@@ -132,11 +134,21 @@
       .status.degraded { color: #ffd5d5; border-color: #6f4747; }
       .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
       .quick-actions .btn { text-align: left; }
+      .form-row { display: grid; grid-template-columns: repeat(4, minmax(100px, 1fr)); gap: 8px; margin-top: 8px; }
+      .form-row input {
+        background: #0f0f0f;
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px;
+      }
+      .small { font-size: 11px; color: var(--muted); }
       @media (max-width: 1100px) {
         .layout { grid-template-columns: 1fr; }
         .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
         .grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
         .workspace { grid-template-columns: 1fr; }
+        .form-row { grid-template-columns: 1fr 1fr; }
       }
     </style>
   </head>
@@ -170,7 +182,7 @@
 
         <section class="grid" id="metricsGrid"></section>
 
-        <section class="workspace">
+        <section class="workspace" id="workspace-overview">
           <article class="card">
             <div><strong>Module Health</strong></div>
             <div class="muted">Live service posture surfaced for control-panel modules</div>
@@ -192,6 +204,49 @@
             </div>
           </article>
         </section>
+
+        <section class="workspace hidden" id="workspace-ingestion">
+          <article class="card">
+            <div><strong>Ingestion Continuity</strong></div>
+            <div class="muted">Connector health, coverage status, and recovery queues</div>
+            <section class="grid" id="ingestionMetrics" style="margin-top:10px"></section>
+            <table class="table" id="connectorTable">
+              <thead><tr><th>Venue</th><th>Symbol</th><th>Status</th><th>Updated</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Safe Recovery</strong></div>
+              <div class="small">Controlled backfill window (max 7 days, operator role required)</div>
+              <div class="form-row">
+                <input id="bfVenue" value="coinbase" placeholder="venue" />
+                <input id="bfSymbol" value="BTCUSD" placeholder="symbol" />
+                <input id="bfFrom" placeholder="from_ts ISO" />
+                <input id="bfTo" placeholder="to_ts ISO" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto; margin-top:8px">
+                <input id="bfJustification" placeholder="justification (required)" />
+                <button class="btn" id="backfillBtn">Submit Window</button>
+              </div>
+              <div class="small" id="bfResult" style="margin-top:8px">No action submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Backfill Queue (Recent)</strong></div>
+              <table class="table" id="backfillTable">
+                <thead><tr><th>Status</th><th>Market</th><th>Attempts</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Replay Audit (Recent)</strong></div>
+              <table class="table" id="replayTable">
+                <thead><tr><th>Status</th><th>Market</th><th>Started</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
       </main>
     </div>
 
@@ -210,6 +265,7 @@
         ["portfolio_net_exposure", "Portfolio Net Exposure"],
       ];
       const TOKEN_KEY = "nitra.control_panel.token";
+      let currentSection = "overview";
 
       function getToken() {
         let token = localStorage.getItem(TOKEN_KEY);
@@ -236,6 +292,15 @@
         });
         const label = document.getElementById("sessionPill");
         label.textContent = `${session?.user_id || "unknown"} · ${session?.role || "none"}`;
+      }
+
+      function switchSection(section) {
+        currentSection = section;
+        document.querySelectorAll(".nav-item[data-section]").forEach((el) => {
+          el.classList.toggle("active", (el.dataset.section || "") === section);
+        });
+        document.getElementById("workspace-overview").classList.toggle("hidden", section !== "overview");
+        document.getElementById("workspace-ingestion").classList.toggle("hidden", section !== "ingestion");
       }
 
       function fmt(value) {
@@ -275,7 +340,104 @@
         renderOverview(data);
       }
 
-      document.getElementById('refreshBtn').addEventListener('click', loadOverview);
+      function renderIngestion(data) {
+        const metricMap = [
+          ["open_gaps", "Open Gaps"],
+          ["queued_backfills", "Queued Backfills"],
+          ["failed_backfills_24h", "Failed Backfills (24h)"],
+          ["replay_failed_24h", "Replay Failed (24h)"],
+          ["coverage_ratio_avg", "Coverage Ratio Avg"],
+          ["symbols_with_open_gaps", "Symbols With Open Gaps"],
+        ];
+        const m = document.getElementById("ingestionMetrics");
+        m.innerHTML = "";
+        for (const [key, label] of metricMap) {
+          const card = document.createElement("article");
+          card.className = "card";
+          card.innerHTML = `<div class="muted">${label}</div><div class="metric">${fmt(data.metrics[key])}</div>`;
+          m.appendChild(card);
+        }
+
+        const connectorBody = document.querySelector("#connectorTable tbody");
+        connectorBody.innerHTML = "";
+        for (const row of data.connector_health || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.venue}</td><td>${row.symbol}</td><td><span class="status ${row.status === "online" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td><td>${row.updated_at || "-"}</td>`;
+          connectorBody.appendChild(tr);
+        }
+
+        const backfillBody = document.querySelector("#backfillTable tbody");
+        backfillBody.innerHTML = "";
+        for (const row of data.backfill_recent || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.status}</td><td>${row.venue}:${row.symbol}</td><td>${row.attempt_count}</td>`;
+          backfillBody.appendChild(tr);
+        }
+
+        const replayBody = document.querySelector("#replayTable tbody");
+        replayBody.innerHTML = "";
+        for (const row of data.replay_recent || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.status}</td><td>${row.venue}:${row.symbol}</td><td>${row.started_at || "-"}</td>`;
+          replayBody.appendChild(tr);
+        }
+      }
+
+      async function loadIngestion() {
+        const res = await authedFetch('/api/v1/control-panel/ingestion?status_lookback_hours=24&coverage_window_hours=24&row_limit=20');
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          throw new Error("unauthorized");
+        }
+        const data = await res.json();
+        applyRoleVisibility(data.session || {});
+        renderIngestion(data);
+      }
+
+      async function submitBackfillWindow() {
+        const payload = {
+          venue: document.getElementById("bfVenue").value.trim(),
+          symbol: document.getElementById("bfSymbol").value.trim(),
+          from_ts: document.getElementById("bfFrom").value.trim(),
+          to_ts: document.getElementById("bfTo").value.trim(),
+          justification: document.getElementById("bfJustification").value.trim(),
+        };
+        const out = document.getElementById("bfResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/backfill-window", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Accepted: ${data.result?.status || "ok"} | missing_after=${data.result?.missing_after_fetch_count ?? "-"}`;
+        await loadIngestion();
+      }
+
+      document.querySelectorAll(".nav-item[data-section]").forEach((el) => {
+        el.addEventListener("click", async () => {
+          const section = el.dataset.section || "overview";
+          switchSection(section);
+          if (section === "ingestion") {
+            await loadIngestion();
+          } else {
+            await loadOverview();
+          }
+        });
+      });
+      document.getElementById("backfillBtn").addEventListener("click", () => submitBackfillWindow().catch(console.error));
+      document.getElementById('refreshBtn').addEventListener('click', () => {
+        if (currentSection === "ingestion") {
+          loadIngestion().catch(console.error);
+        } else {
+          loadOverview().catch(console.error);
+        }
+      });
+      switchSection("overview");
       loadOverview().catch(console.error);
     </script>
   </body>

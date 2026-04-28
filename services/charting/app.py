@@ -343,6 +343,203 @@ def control_panel_session(x_control_panel_token: str | None = Header(default=Non
     return {"session": get_operator_session(x_control_panel_token)}
 
 
+@app.get("/api/v1/control-panel/ingestion")
+def control_panel_ingestion(
+    x_control_panel_token: str | None = Header(default=None),
+    status_lookback_hours: int = Query(default=24, ge=1, le=168),
+    coverage_window_hours: int = Query(default=24, ge=1, le=2160),
+    row_limit: int = Query(default=30, ge=1, le=200),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    metrics = {
+        "open_gaps": 0,
+        "queued_backfills": 0,
+        "failed_backfills_24h": 0,
+        "replay_failed_24h": 0,
+        "coverage_ratio_avg": 0.0,
+        "symbols_with_open_gaps": 0,
+    }
+    connector_health: list[dict] = []
+    backfill_recent: list[dict] = []
+    replay_recent: list[dict] = []
+    coverage_rows: list[dict] = []
+    mode = "online"
+
+    try:
+        coverage_payload = build_coverage_status_payload(
+            venue=None,
+            symbol=None,
+            window_hours=coverage_window_hours,
+            limit=row_limit,
+            status_lookback_hours=status_lookback_hours,
+        )
+        summary = coverage_payload.get("summary", {})
+        metrics["open_gaps"] = int(summary.get("symbols_with_open_gaps", 0))
+        metrics["queued_backfills"] = int(summary.get("backfill_jobs_by_status", {}).get("queued", 0))
+        metrics["coverage_ratio_avg"] = float(summary.get("coverage_ratio_avg", 0.0))
+        metrics["symbols_with_open_gaps"] = int(summary.get("symbols_with_open_gaps", 0))
+        coverage_rows = list(coverage_payload.get("rows", []))
+
+        with psycopg.connect(db_url()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT venue, symbol, enabled, ingest_enabled, updated_at
+                    FROM venue_market
+                    ORDER BY venue ASC, symbol ASC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for venue, symbol, enabled, ingest_enabled, updated_at in cur.fetchall():
+                    connector_health.append(
+                        {
+                            "venue": str(venue),
+                            "symbol": str(symbol),
+                            "enabled": bool(enabled),
+                            "ingest_enabled": bool(ingest_enabled),
+                            "status": "online" if enabled and ingest_enabled else "disabled",
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT status, venue, canonical_symbol, requested_from, requested_to, attempt_count, updated_at
+                    FROM backfill_jobs
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for status, venue, canonical_symbol, requested_from, requested_to, attempt_count, updated_at in cur.fetchall():
+                    backfill_recent.append(
+                        {
+                            "status": str(status),
+                            "venue": str(venue),
+                            "symbol": str(canonical_symbol),
+                            "requested_from": requested_from.isoformat() if requested_from else None,
+                            "requested_to": requested_to.isoformat() if requested_to else None,
+                            "attempt_count": int(attempt_count or 0),
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT status, venue, canonical_symbol, started_at, completed_at
+                    FROM replay_audit
+                    ORDER BY started_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for status, venue, canonical_symbol, started_at, completed_at in cur.fetchall():
+                    replay_recent.append(
+                        {
+                            "status": str(status),
+                            "venue": str(venue),
+                            "symbol": str(canonical_symbol),
+                            "started_at": started_at.isoformat() if started_at else None,
+                            "completed_at": completed_at.isoformat() if completed_at else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM backfill_jobs
+                    WHERE status LIKE 'failed%%'
+                      AND updated_at >= now() - interval '24 hours'
+                    """
+                )
+                metrics["failed_backfills_24h"] = int(cur.fetchone()[0] or 0)
+
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM replay_audit
+                    WHERE status LIKE 'failed%%'
+                      AND started_at >= now() - interval '24 hours'
+                    """
+                )
+                metrics["replay_failed_24h"] = int(cur.fetchone()[0] or 0)
+    except Exception:
+        mode = "degraded"
+
+    return {
+        "service": "control-panel",
+        "module": "ingestion",
+        "mode": mode,
+        "session": session,
+        "metrics": metrics,
+        "connector_health": connector_health,
+        "coverage_rows": coverage_rows,
+        "backfill_recent": backfill_recent,
+        "replay_recent": replay_recent,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.post("/api/v1/control-panel/ingestion/backfill-window")
+def control_panel_ingestion_backfill_window(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    venue = str(payload.get("venue", "")).strip().lower()
+    symbol = str(payload.get("symbol", "")).strip().upper()
+    from_ts = str(payload.get("from_ts", "")).strip()
+    to_ts = str(payload.get("to_ts", "")).strip()
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if not venue or not symbol:
+        raise HTTPException(status_code=400, detail="venue and symbol are required")
+
+    start_dt = parse_window_ts(from_ts)
+    end_dt = parse_window_ts(to_ts)
+    if end_dt < start_dt:
+        raise HTTPException(status_code=400, detail="invalid window")
+    if (end_dt - start_dt) > timedelta(days=7):
+        raise HTTPException(status_code=400, detail="window exceeds 7 days safety cap")
+
+    result = run_backfill_window(
+        venue=venue,
+        symbol=symbol,
+        start_dt=start_dt,
+        end_dt=end_dt,
+        trigger="control_panel_window",
+        wait_for_lock=True,
+        max_ranges=200,
+    )
+    try:
+        with psycopg.connect(db_url()) as conn:
+            audit_control_panel_action(
+                conn,
+                user_id=session["user_id"],
+                role=session["role"],
+                action="ingestion.backfill_window",
+                section="ingestion",
+                target=f"{venue}:{symbol}",
+                status="approved",
+                reason=None,
+                metadata={
+                    "from_ts": from_ts,
+                    "to_ts": to_ts,
+                    "justification": justification,
+                    "result_status": result.get("status"),
+                },
+            )
+            conn.commit()
+    except Exception:
+        pass
+
+    return {"status": "accepted", "session": session, "result": result}
+
+
 @app.post("/api/v1/control-panel/actions/privileged")
 def control_panel_privileged_action(
     payload: dict = Body(...),
