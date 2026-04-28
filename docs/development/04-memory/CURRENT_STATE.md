@@ -74,6 +74,10 @@ Last updated: 2026-04-28
   - added runnable Rust `portfolio-engine` with fill-driven state updates and `portfolio.snapshot.v1` emission,
   - added portfolio persistence contracts: `portfolio_position_state`, `portfolio_account_state`, `portfolio_fill_log`,
   - wired risk-engine portfolio-aware limits (`max_symbol_exposure`, `max_portfolio_gross_exposure`, `min_available_equity`).
+- Opened control-panel program planning set (`DEV-0024..DEV-0034`) with phased enterprise admin panel delivery:
+  - shadcn-based black-and-white design system direction,
+  - sidebar-first multi-module information architecture,
+  - charting integration as control-panel sub-module (`Full Chart` from instrument profile).
 
 ### Current
 
@@ -90,8 +94,8 @@ Last updated: 2026-04-28
 ### Next
 
 1. Deliver `DEV-0022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
-2. Expand reconciliation/runbook evidence capture for live adapter behavior.
-3. Add execution adapter chaos-test coverage and operator recovery playbooks.
+2. Start `DEV-0025` control panel foundation shell and design-system implementation.
+3. Execute `DEV-0026..DEV-0030` core control-panel operations modules (RBAC, ingestion ops, risk/portfolio, execution OMS, charting workbench integration).
 
 ### Risks/Blocks
 

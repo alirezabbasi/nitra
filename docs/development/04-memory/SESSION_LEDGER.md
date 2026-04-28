@@ -604,3 +604,30 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - continue `DEV-0022` execution adapter network resilience hardening and attach live degraded-network evidence.
+
+---
+
+## 2026-04-28 — Session Entry 025
+
+- Objective:
+  - define a full-featured professional control-panel program and decompose into implementation-ready tickets.
+- Work completed:
+  - created control-panel epic ticket `DEV-0024` defining product direction, IA goals, and phased rollout.
+  - created ten topic-based child tickets `DEV-0025..DEV-0034` covering:
+    - foundation shell/design system,
+    - auth/RBAC,
+    - ingestion/data quality ops,
+    - strategy/risk/portfolio center,
+    - execution OMS/broker ops,
+    - charting workbench integration,
+    - alerts/incidents/runbooks,
+    - research/backtesting/model-ops,
+    - config/change governance,
+    - enterprise polish/performance/accessibility.
+  - updated active execution tracking (`KANBAN`, `ACTIVE_FOCUS`) and memory snapshots to include control-panel program scope.
+  - aligned UI direction explicitly to shadcn component system and black-and-white professional visual language.
+- Verification:
+  - documentation-only planning slice; no runtime code changes.
+  - session memory and status artifacts synchronized for future "where are we?" continuity.
+- Next recommended action:
+  - implement `DEV-0025` control-panel shell and design-system baseline while `DEV-0022` continues in parallel.
