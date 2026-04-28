@@ -87,6 +87,11 @@ def index() -> FileResponse:
     return FileResponse(str(STATIC_DIR / "index.html"))
 
 
+@app.get("/control-panel")
+def control_panel() -> FileResponse:
+    return FileResponse(str(STATIC_DIR / "control-panel.html"))
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "service": "charting"}
@@ -98,6 +103,119 @@ def charting_config() -> dict:
         "default_timeframe": DEFAULT_TIMEFRAME,
         "default_limit": DEFAULT_LIMIT,
         "default_refresh_secs": DEFAULT_REFRESH_SECS,
+    }
+
+
+def fetch_scalar(cur: psycopg.Cursor, query: str, params: tuple = ()) -> float:
+    cur.execute(query, params)
+    row = cur.fetchone()
+    if not row or row[0] is None:
+        return 0.0
+    return float(row[0])
+
+
+@app.get("/api/v1/control-panel/overview")
+def control_panel_overview() -> dict:
+    metrics = {
+        "venues_enabled": 0,
+        "active_markets": 0,
+        "open_gaps": 0,
+        "queued_backfills": 0,
+        "replay_queued": 0,
+        "risk_decisions_24h": 0,
+        "policy_violations_24h": 0,
+        "orders_24h": 0,
+        "fills_24h": 0,
+        "portfolio_gross_exposure": 0.0,
+        "portfolio_net_exposure": 0.0,
+    }
+    modules = [
+        {"id": "overview", "name": "Overview", "status": "online"},
+        {"id": "ingestion", "name": "Ingestion", "status": "online"},
+        {"id": "risk", "name": "Risk", "status": "online"},
+        {"id": "portfolio", "name": "Portfolio", "status": "online"},
+        {"id": "execution", "name": "Execution", "status": "online"},
+        {"id": "charting", "name": "Charting", "status": "online"},
+        {"id": "ops", "name": "Ops", "status": "online"},
+    ]
+
+    try:
+        with psycopg.connect(db_url()) as conn:
+            with conn.cursor() as cur:
+                metrics["venues_enabled"] = int(
+                    fetch_scalar(
+                        cur,
+                        "SELECT COUNT(DISTINCT venue) FROM venue_market WHERE enabled = TRUE AND ingest_enabled = TRUE",
+                    )
+                )
+                metrics["active_markets"] = int(
+                    fetch_scalar(
+                        cur,
+                        "SELECT COUNT(*) FROM venue_market WHERE enabled = TRUE AND ingest_enabled = TRUE",
+                    )
+                )
+                metrics["open_gaps"] = int(
+                    fetch_scalar(cur, "SELECT COUNT(*) FROM gap_log WHERE status = 'open'")
+                )
+                metrics["queued_backfills"] = int(
+                    fetch_scalar(cur, "SELECT COUNT(*) FROM backfill_jobs WHERE status = 'queued'")
+                )
+                metrics["replay_queued"] = int(
+                    fetch_scalar(cur, "SELECT COUNT(*) FROM replay_audit WHERE status = 'queued'")
+                )
+                metrics["risk_decisions_24h"] = int(
+                    fetch_scalar(
+                        cur,
+                        "SELECT COUNT(*) FROM risk_decision_log WHERE created_at >= now() - interval '24 hours'",
+                    )
+                )
+                metrics["policy_violations_24h"] = int(
+                    fetch_scalar(
+                        cur,
+                        """
+                        SELECT COUNT(*)
+                        FROM risk_decision_log
+                        WHERE created_at >= now() - interval '24 hours'
+                          AND approved = FALSE
+                          AND jsonb_array_length(violations) > 0
+                        """,
+                    )
+                )
+                metrics["orders_24h"] = int(
+                    fetch_scalar(
+                        cur,
+                        "SELECT COUNT(*) FROM execution_order_journal WHERE updated_at >= now() - interval '24 hours'",
+                    )
+                )
+                metrics["fills_24h"] = int(
+                    fetch_scalar(
+                        cur,
+                        "SELECT COUNT(*) FROM portfolio_fill_log WHERE created_at >= now() - interval '24 hours'",
+                    )
+                )
+                cur.execute(
+                    """
+                    SELECT
+                      COALESCE(gross_exposure_notional, 0),
+                      COALESCE(net_exposure_notional, 0)
+                    FROM portfolio_account_state
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                    """
+                )
+                row = cur.fetchone()
+                if row:
+                    metrics["portfolio_gross_exposure"] = float(row[0] or 0.0)
+                    metrics["portfolio_net_exposure"] = float(row[1] or 0.0)
+    except Exception:
+        modules = [{**module, "status": "degraded"} for module in modules]
+
+    return {
+        "service": "control-panel",
+        "theme": "bw-professional",
+        "metrics": metrics,
+        "modules": modules,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
 

@@ -612,8 +612,8 @@ Append one entry at the end of each substantial session.
 - Objective:
   - define a full-featured professional control-panel program and decompose into implementation-ready tickets.
 - Work completed:
-  - created control-panel epic ticket `DEV-0024` defining product direction, IA goals, and phased rollout.
-  - created ten topic-based child tickets `DEV-0025..DEV-0034` covering:
+  - created control-panel epic ticket `DEV-00024` defining product direction, IA goals, and phased rollout.
+  - created ten topic-based child tickets `DEV-00025..DEV-00034` covering:
     - foundation shell/design system,
     - auth/RBAC,
     - ingestion/data quality ops,
@@ -630,4 +630,30 @@ Append one entry at the end of each substantial session.
   - documentation-only planning slice; no runtime code changes.
   - session memory and status artifacts synchronized for future "where are we?" continuity.
 - Next recommended action:
-  - implement `DEV-0025` control-panel shell and design-system baseline while `DEV-0022` continues in parallel.
+  - implement `DEV-00025` control-panel shell and design-system baseline while `DEV-0022` continues in parallel.
+
+---
+
+## 2026-04-29 — Session Entry 026
+
+- Objective:
+  - normalize control-panel ticket numbering to five-digit IDs and start `DEV-00025` implementation.
+- Work completed:
+  - renamed control-panel planning tickets to five-digit format:
+    - `DEV-00024..DEV-00034` (file names and cross-document references).
+  - implemented `DEV-00025` control-panel foundation baseline in FastAPI charting service:
+    - added `/control-panel` route serving new admin shell page,
+    - added `/api/v1/control-panel/overview` summary endpoint with cross-domain operational KPIs,
+    - added professional black-and-white sidebar shell and workspace cards in `services/charting/static/control-panel.html`,
+    - added instrument profile `Full Chart` transition into charting module.
+  - added test pack and make target:
+    - `tests/dev-00025/run.sh`,
+    - `make test-dev-00025`.
+  - synchronized execution/memory tracking to mark `DEV-00025` done and advance next control-panel slices.
+- Verification:
+  - `tests/dev-00025/run.sh` passes.
+  - `make test-dev-00025` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - implement `DEV-00026` authentication/RBAC and route-level action guards for control-panel modules.

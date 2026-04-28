@@ -1,4 +1,4 @@
-# DEV-0026: Control Panel Authentication, RBAC, and Operator Identity
+# DEV-00026: Control Panel Authentication, RBAC, and Operator Identity
 
 ## Status
 

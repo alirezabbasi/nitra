@@ -32,7 +32,8 @@ Last updated: 2026-04-28
 - `DEV-0020` completed: deterministic `execution-gateway` baseline implemented in Rust with persisted `execution_order_journal` and project-wide `audit_event_log` contract.
 - `DEV-0021` completed: broker-venue adapter baseline added to `execution-gateway` for live submit/amend/cancel and broker ack/fill ingest (`exec.order_command.v1`, `broker.execution.ack.v1`) with `execution_command_log` persistence.
 - `DEV-0023` completed: deterministic `portfolio-engine` baseline added with persisted position/account/fill state and `portfolio.snapshot.v1` emission; `risk-engine` upgraded with portfolio-aware exposure/equity constraints.
-- Control-panel program ticket set opened (`DEV-0024..DEV-0034`) for phased enterprise admin console delivery with shadcn black-and-white UI direction and charting sub-module integration.
+- Control-panel program ticket set opened (`DEV-00024..DEV-00034`) for phased enterprise admin console delivery with shadcn black-and-white UI direction and charting sub-module integration.
+- `DEV-00025` completed: control-panel foundation shell baseline implemented in FastAPI charting service with professional black-and-white sidebar layout and overview metrics endpoint.
 
 ## Current
 
@@ -49,8 +50,8 @@ Last updated: 2026-04-28
 ## Next
 
 1. Deliver `DEV-0022` implementation for timeout/name-resolution handling and bounded retry/backoff tuning.
-2. Start `DEV-0025` control panel foundation shell and black-and-white design-system implementation.
-3. Sequence `DEV-0026..DEV-0030` for RBAC and core operations modules (ingestion, risk/portfolio, execution OMS, charting workbench).
+2. Sequence `DEV-00026..DEV-00030` for RBAC and core operations modules (ingestion, risk/portfolio, execution OMS, charting workbench).
+3. Continue `DEV-00031..DEV-00034` governance, enterprise polish, and release-hardening modules.
 
 ## Risks/Blocks
 

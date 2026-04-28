@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NITRA Control Panel</title>
+    <style>
+      :root {
+        --bg: #0a0a0a;
+        --panel: #111111;
+        --panel-2: #151515;
+        --border: #2a2a2a;
+        --text: #f5f5f5;
+        --muted: #b2b2b2;
+        --accent: #ffffff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at 10% 10%, #181818, var(--bg));
+      }
+      .layout {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        min-height: 100vh;
+      }
+      .sidebar {
+        border-right: 1px solid var(--border);
+        background: linear-gradient(180deg, #101010, #0b0b0b);
+        padding: 24px 16px;
+      }
+      .brand {
+        font-size: 18px;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+        margin-bottom: 20px;
+      }
+      .brand span { color: var(--muted); font-weight: 500; }
+      .section-label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: #8b8b8b;
+        margin: 20px 10px 8px;
+      }
+      .nav-item {
+        width: 100%;
+        text-align: left;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text);
+        padding: 10px 12px;
+        border-radius: 8px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .nav-item:hover, .nav-item.active {
+        background: var(--panel-2);
+        border-color: var(--border);
+      }
+      .main {
+        padding: 20px;
+      }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .title { font-size: 28px; font-weight: 700; margin: 0; }
+      .subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
+      .btn {
+        border: 1px solid var(--border);
+        background: #121212;
+        color: var(--text);
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      .btn:hover { border-color: #444; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(160px, 1fr));
+        gap: 12px;
+      }
+      .card {
+        background: rgba(20, 20, 20, 0.9);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 14px;
+      }
+      .metric { font-size: 26px; font-weight: 700; margin-top: 8px; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .workspace {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: 1.6fr 1fr;
+        gap: 12px;
+      }
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+      }
+      .table th, .table td {
+        border-bottom: 1px solid var(--border);
+        padding: 10px 8px;
+        text-align: left;
+        font-size: 13px;
+      }
+      .status {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid #3a3a3a;
+        font-size: 11px;
+      }
+      .status.online { color: #eaeaea; }
+      .status.degraded { color: #ffd5d5; border-color: #6f4747; }
+      .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+      .quick-actions .btn { text-align: left; }
+      @media (max-width: 1100px) {
+        .layout { grid-template-columns: 1fr; }
+        .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
+        .grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); }
+        .workspace { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="layout">
+      <aside class="sidebar">
+        <div class="brand">NITRA <span>CONTROL</span></div>
+        <div class="section-label">Core Operations</div>
+        <button class="nav-item active">Overview</button>
+        <button class="nav-item">Ingestion & Data</button>
+        <button class="nav-item">Risk & Portfolio</button>
+        <button class="nav-item">Execution OMS</button>
+        <button class="nav-item">Charting Workbench</button>
+        <div class="section-label">Governance</div>
+        <button class="nav-item">Alerts & Incidents</button>
+        <button class="nav-item">Research & Models</button>
+        <button class="nav-item">Config Registry</button>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div>
+            <h1 class="title">Operations Overview</h1>
+            <div class="subtitle">Professional black-and-white admin shell baseline (DEV-00025)</div>
+          </div>
+          <button class="btn" id="refreshBtn">Refresh</button>
+        </div>
+
+        <section class="grid" id="metricsGrid"></section>
+
+        <section class="workspace">
+          <article class="card">
+            <div><strong>Module Health</strong></div>
+            <div class="muted">Live service posture surfaced for control-panel modules</div>
+            <table class="table" id="moduleTable">
+              <thead><tr><th>Module</th><th>Status</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+
+          <article class="card">
+            <div><strong>Instrument Profile</strong></div>
+            <div class="muted">Charting is integrated as a control-panel sub-module</div>
+            <p style="margin: 10px 0 6px"><strong>BTCUSD / Coinbase</strong></p>
+            <div class="quick-actions">
+              <button class="btn" onclick="window.location.href='/?venue=coinbase&symbol=BTCUSD&timeframe=1m'">Full Chart</button>
+              <button class="btn">Open Order Blotter</button>
+              <button class="btn">Risk Snapshot</button>
+              <button class="btn">Backfill Window</button>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const metricOrder = [
+        ["venues_enabled", "Venues Enabled"],
+        ["active_markets", "Active Markets"],
+        ["open_gaps", "Open Gaps"],
+        ["queued_backfills", "Queued Backfills"],
+        ["replay_queued", "Replay Queued"],
+        ["risk_decisions_24h", "Risk Decisions (24h)"],
+        ["policy_violations_24h", "Policy Violations (24h)"],
+        ["orders_24h", "Orders (24h)"],
+        ["fills_24h", "Fills (24h)"],
+        ["portfolio_gross_exposure", "Portfolio Gross Exposure"],
+        ["portfolio_net_exposure", "Portfolio Net Exposure"],
+      ];
+
+      function fmt(value) {
+        if (typeof value === "number" && Math.abs(value) >= 1000) {
+          return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+        return String(value ?? "-");
+      }
+
+      function renderOverview(data) {
+        const grid = document.getElementById("metricsGrid");
+        grid.innerHTML = "";
+        for (const [key, label] of metricOrder) {
+          const card = document.createElement("article");
+          card.className = "card";
+          card.innerHTML = `<div class="muted">${label}</div><div class="metric">${fmt(data.metrics[key])}</div>`;
+          grid.appendChild(card);
+        }
+
+        const tbody = document.querySelector("#moduleTable tbody");
+        tbody.innerHTML = "";
+        for (const module of data.modules) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${module.name}</td><td><span class="status ${module.status}">${module.status.toUpperCase()}</span></td>`;
+          tbody.appendChild(tr);
+        }
+      }
+
+      async function loadOverview() {
+        const res = await fetch('/api/v1/control-panel/overview');
+        const data = await res.json();
+        renderOverview(data);
+      }
+
+      document.getElementById('refreshBtn').addEventListener('click', loadOverview);
+      loadOverview().catch(console.error);
+    </script>
+  </body>
+</html>

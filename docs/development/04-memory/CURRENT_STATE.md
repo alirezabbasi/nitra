@@ -74,10 +74,14 @@ Last updated: 2026-04-28
   - added runnable Rust `portfolio-engine` with fill-driven state updates and `portfolio.snapshot.v1` emission,
   - added portfolio persistence contracts: `portfolio_position_state`, `portfolio_account_state`, `portfolio_fill_log`,
   - wired risk-engine portfolio-aware limits (`max_symbol_exposure`, `max_portfolio_gross_exposure`, `min_available_equity`).
-- Opened control-panel program planning set (`DEV-0024..DEV-0034`) with phased enterprise admin panel delivery:
+- Opened control-panel program planning set (`DEV-00024..DEV-00034`) with phased enterprise admin panel delivery:
   - shadcn-based black-and-white design system direction,
   - sidebar-first multi-module information architecture,
   - charting integration as control-panel sub-module (`Full Chart` from instrument profile).
+- Completed `DEV-00025` control panel foundation shell baseline:
+  - added FastAPI route `/control-panel` and overview API `/api/v1/control-panel/overview`,
+  - added professional black-and-white sidebar admin shell (`services/charting/static/control-panel.html`),
+  - integrated module health and core operational metric cards for first-pass operator overview.
 
 ### Current
 
@@ -94,8 +98,8 @@ Last updated: 2026-04-28
 ### Next
 
 1. Deliver `DEV-0022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
-2. Start `DEV-0025` control panel foundation shell and design-system implementation.
-3. Execute `DEV-0026..DEV-0030` core control-panel operations modules (RBAC, ingestion ops, risk/portfolio, execution OMS, charting workbench integration).
+2. Execute `DEV-00026..DEV-00030` core control-panel operations modules (RBAC, ingestion ops, risk/portfolio, execution OMS, charting workbench integration).
+3. Expand control-panel governance modules (`DEV-00031..DEV-00034`) after operational modules are stable.
 
 ### Risks/Blocks
 

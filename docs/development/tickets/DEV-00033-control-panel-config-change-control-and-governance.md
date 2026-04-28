@@ -1,4 +1,4 @@
-# DEV-0033: Control Panel Config Registry, Change Control, and Governance
+# DEV-00033: Control Panel Config Registry, Change Control, and Governance
 
 ## Status
 

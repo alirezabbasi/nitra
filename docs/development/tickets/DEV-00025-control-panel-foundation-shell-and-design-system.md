@@ -1,8 +1,8 @@
-# DEV-0025: Control Panel Foundation, Shell, and Design System
+# DEV-00025: Control Panel Foundation, Shell, and Design System
 
 ## Status
 
-Open
+Done (2026-04-28)
 
 ## Summary
 
@@ -34,3 +34,4 @@ Build the control panel app shell, route framework, role-aware sidebar navigatio
 
 - UI smoke route tests.
 - Visual consistency checks for core templates.
+- `tests/dev-00025/run.sh`

@@ -1,4 +1,4 @@
-# DEV-0024: Control Panel Program Epic (Professional Admin Console)
+# DEV-00024: Control Panel Program Epic (Professional Admin Console)
 
 ## Status
 
@@ -30,16 +30,16 @@ Establish a full-featured, professional control panel for NITRA where all core c
 
 ## Decomposed Tickets
 
-1. `DEV-0025` foundation, shell, and design system.
-2. `DEV-0026` authentication/RBAC and operator identity controls.
-3. `DEV-0027` market ingestion and data-quality operations center.
-4. `DEV-0028` strategy/risk/portfolio control center.
-5. `DEV-0029` execution OMS and broker operations center.
-6. `DEV-0030` charting workbench integration module.
-7. `DEV-0031` alerting/incidents/runbooks center.
-8. `DEV-0032` research/backtesting/model-ops center.
-9. `DEV-0033` config registry, change control, and governance.
-10. `DEV-0034` performance hardening, accessibility, and enterprise polish.
+1. `DEV-00025` foundation, shell, and design system.
+2. `DEV-00026` authentication/RBAC and operator identity controls.
+3. `DEV-00027` market ingestion and data-quality operations center.
+4. `DEV-00028` strategy/risk/portfolio control center.
+5. `DEV-00029` execution OMS and broker operations center.
+6. `DEV-00030` charting workbench integration module.
+7. `DEV-00031` alerting/incidents/runbooks center.
+8. `DEV-00032` research/backtesting/model-ops center.
+9. `DEV-00033` config registry, change control, and governance.
+10. `DEV-00034` performance hardening, accessibility, and enterprise polish.
 
 ## Acceptance Criteria
 
