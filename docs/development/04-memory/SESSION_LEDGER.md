@@ -497,3 +497,41 @@ Append one entry at the end of each substantial session.
   - `make enforce-section-5-1` passes.
 - Next recommended action:
   - implement deterministic `execution-gateway` baseline and wire risk-approved decision handoff contracts.
+
+---
+
+## 2026-04-28 — Session Entry 022
+
+- Objective:
+  - implement deterministic `execution-gateway` baseline and project-wide audit/journal persistence contract.
+- Work completed:
+  - replaced `services/execution-gateway` scaffold with runnable Rust runtime (`Cargo.toml`, `src/main.rs`).
+  - implemented deterministic baseline execution lifecycle over risk-approved intents:
+    - reject (not approved/hold/zero-notional),
+    - submitted,
+    - filled,
+    - reconciliation issue (high-notional marker).
+  - added execution topic emissions:
+    - `exec.order_submitted.v1`
+    - `exec.order_updated.v1`
+    - `exec.fill_received.v1`
+    - `exec.reconciliation_issue.v1`
+  - added audit/journal persistence contract baseline:
+    - `execution_order_journal`
+    - `audit_event_log`
+    - migration `infra/timescaledb/init/009_execution_audit_journal.sql`.
+  - updated compose contracts (`EXEC_*` envs) and removed execution scaffold runtime command.
+  - added ticket + test pack:
+    - `docs/development/tickets/DEV-0020-execution-gateway-baseline-and-audit-journal-contract.md`
+    - `tests/dev-0020/run.sh`
+    - `make test-dev-0020`.
+  - synchronized LLD/devdocs/roadmap/kanban/memory artifacts to close execution+audit baseline scope.
+- Verification:
+  - `CARGO_TARGET_DIR=/tmp/nitra-execution-gateway-target cargo check --offline --manifest-path services/execution-gateway/Cargo.toml` passes.
+  - `CARGO_TARGET_DIR=/tmp/nitra-execution-gateway-target cargo test --offline --manifest-path services/execution-gateway/Cargo.toml` passes.
+  - `tests/dev-0020/run.sh` passes.
+  - `make test-dev-0020` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - implement broker adapter layer for execution-gateway and extend reconciliation/audit for live venue acknowledgments.

@@ -1,6 +1,6 @@
 # Where Are We
 
-Last updated: 2026-04-26
+Last updated: 2026-04-28
 
 ## Completed
 
@@ -29,6 +29,7 @@ Last updated: 2026-04-26
 - Captured live runtime evidence for `DEV-00013`/`DEV-00014` on 2026-04-26 (`backfill_jobs`, `replay_audit`, `gap_log`, coverage metrics, adapter-check diagnostics) and closed both tickets.
 - `DEV-0018` completed: deterministic `structure-engine` baseline implemented in Rust (`bar.1m` consumer, structure topics, persisted `structure_state`, idempotent ledger semantics).
 - `DEV-0019` completed: deterministic `risk-engine` baseline implemented in Rust (policy checks, `decision.risk_checked.v1`, `ops.policy_violation.v1`, persisted `risk_state` and `risk_decision_log`).
+- `DEV-0020` completed: deterministic `execution-gateway` baseline implemented in Rust with persisted `execution_order_journal` and project-wide `audit_event_log` contract.
 
 ## Current
 
@@ -37,12 +38,13 @@ Last updated: 2026-04-26
 - `DEV-00014` is closed with live runtime adapter-check and coverage evidence.
 - `DEV-0018` is closed with deterministic runtime baseline, compose wiring, topic contracts, and test pack (`dev-0018`).
 - `DEV-0019` is closed with deterministic runtime baseline, compose wiring, topic/schema contracts, and test pack (`dev-0019`).
+- `DEV-0020` is closed with deterministic runtime baseline, execution topics, and audit/journal persistence contract in runtime + schema.
 
 ## Next
 
-1. Implement deterministic execution runtime baseline.
-2. Add project-wide audit/journal event persistence contract.
-3. Add follow-up operability ticket for adapter-network resilience (timeouts/name-resolution handling and retry/backoff tuning).
+1. Implement broker-venue adapter layer for execution-gateway.
+2. Add follow-up operability ticket for adapter-network resilience (timeouts/name-resolution handling and retry/backoff tuning).
+3. Add portfolio-state baseline to deepen risk/execution constraints.
 
 ## Risks/Blocks
 

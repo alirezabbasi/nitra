@@ -13,4 +13,8 @@ structure.major_confirmed.v1,6,1,delete,-1,nitra-feature-service-v1
 decision.signal_scored.v1,6,1,delete,-1,nitra-risk-engine-v1
 decision.risk_checked.v1,6,1,delete,-1,nitra-execution-gateway-v1
 ops.policy_violation.v1,3,1,delete,604800000,nitra-ops-monitor-v1
+exec.order_submitted.v1,6,1,delete,-1,nitra-execution-readmodels-v1
+exec.order_updated.v1,6,1,delete,-1,nitra-execution-readmodels-v1
+exec.fill_received.v1,6,1,delete,-1,nitra-execution-readmodels-v1
+exec.reconciliation_issue.v1,3,1,delete,604800000,nitra-ops-monitor-v1
 connector.health,3,1,delete,604800000,nitra-ops-monitor-v1

@@ -1,6 +1,6 @@
 # Current State Snapshot
 
-Last updated: 2026-04-26
+Last updated: 2026-04-28
 
 ## Where Are We Snapshot
 
@@ -59,6 +59,12 @@ Last updated: 2026-04-26
   - consumes configurable input stream (baseline `structure.snapshot.v1`) and enforces deterministic policy checks,
   - emits `decision.risk_checked.v1` and `ops.policy_violation.v1`,
   - persists `risk_state` and `risk_decision_log` with idempotent processing semantics.
+- Completed `DEV-0020` deterministic execution-gateway baseline + audit/journal persistence contract:
+  - replaced `execution-gateway` scaffold with runnable Rust runtime,
+  - consumes `decision.risk_checked.v1` and emits `exec.order_submitted.v1` / `exec.order_updated.v1` / `exec.fill_received.v1` / `exec.reconciliation_issue.v1`,
+  - persists lifecycle state to `execution_order_journal`,
+  - persists cross-service trace events to `audit_event_log`,
+  - preserves idempotent processing semantics via `processed_message_ledger`.
 
 ### Current
 
@@ -66,13 +72,14 @@ Last updated: 2026-04-26
 - `DEV-00014` closed with live adapter-check and coverage evidence.
 - `DEV-0018` closed with deterministic structure runtime baseline in production compose path.
 - `DEV-0019` closed with deterministic risk runtime baseline in production compose path.
+- `DEV-0020` closed with deterministic execution runtime baseline and persisted audit/journal contract.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Implement deterministic execution-gateway runtime baseline.
-2. Add project-wide audit/journal event persistence contract.
-3. Open a focused adapter-network resilience ticket to reduce external DNS/connectivity failure impact.
+1. Implement broker-venue adapter layer for execution-gateway.
+2. Open a focused adapter-network resilience ticket to reduce external DNS/connectivity failure impact.
+3. Add deterministic portfolio-state baseline and wire richer risk constraints.
 
 ### Risks/Blocks
 
@@ -91,8 +98,8 @@ Last updated: 2026-04-26
 ## Architecture coverage (HLD Section 5)
 
 - Implemented: ingestion connectors, Kafka backbone, Timescale baseline schema.
-- Partial: normalization/replay path, structure-engine baseline, risk-engine baseline, raw data lake archival, MLflow/research infra, observability basics.
-- Scaffold only: execution gateway, llm-analyst.
+- Partial: normalization/replay path, structure-engine baseline, risk-engine baseline, execution-gateway baseline, audit/journal contract baseline, raw data lake archival, MLflow/research infra, observability basics.
+- Scaffold only: llm-analyst.
 - Not started: feature platform (Feast), portfolio engine, full online inference layer (Ray Serve).
 
 ## Section 5.1 Compliance Snapshot

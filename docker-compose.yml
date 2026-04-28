@@ -217,16 +217,20 @@ services:
       RUST_LOG: info
       DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
       KAFKA_BROKERS: kafka:9092
+      EXECUTION_INPUT_TOPIC: ${EXECUTION_INPUT_TOPIC:-decision.risk_checked.v1}
+      EXEC_ORDER_SUBMITTED_TOPIC: ${EXEC_ORDER_SUBMITTED_TOPIC:-exec.order_submitted.v1}
+      EXEC_ORDER_UPDATED_TOPIC: ${EXEC_ORDER_UPDATED_TOPIC:-exec.order_updated.v1}
+      EXEC_FILL_RECEIVED_TOPIC: ${EXEC_FILL_RECEIVED_TOPIC:-exec.fill_received.v1}
+      EXEC_RECONCILIATION_ISSUE_TOPIC: ${EXEC_RECONCILIATION_ISSUE_TOPIC:-exec.reconciliation_issue.v1}
+      EXECUTION_GROUP_ID: ${EXECUTION_GROUP_ID:-nitra-execution-gateway-v1}
+      EXEC_DRY_RUN: ${EXEC_DRY_RUN:-true}
+      EXEC_ORDER_TTL_SECS: ${EXEC_ORDER_TTL_SECS:-30}
     depends_on:
       timescaledb:
         condition: service_healthy
       kafka:
         condition: service_healthy
-    volumes:
-      - ./services/execution-gateway:/app
-      - cargo_cache:/usr/local/cargo/registry
-      - target_exec:/app/target
-    command: ["sleep", "infinity"]
+    restart: unless-stopped
 
   inference-gateway:
     build:
@@ -492,4 +496,3 @@ services:
 
 volumes:
   cargo_cache:
-  target_exec:

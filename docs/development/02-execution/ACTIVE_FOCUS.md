@@ -12,6 +12,6 @@ Transition from ingestion-only completion into full-platform, HLD-aligned increm
 
 ## Immediate next slices
 
-1. Implement deterministic `execution-gateway` runtime baseline.
-2. Add audit/journal event persistence contract for decision/risk/execution traceability.
-3. Align risk->execution handoff contracts for order-state machine gating.
+1. Implement broker-venue adapter layer for `execution-gateway` (submit/amend/cancel + ack/fill mapping).
+2. Add deterministic portfolio-state baseline to support richer risk/execution constraints.
+3. Expand audit/reconciliation workflows for post-trade forensics and operator runbooks.

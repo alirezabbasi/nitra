@@ -722,3 +722,17 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-26 16:06:58 +0330 | `rm -f services/risk-engine/Cargo.lock` | Remove auto-generated per-service lockfile to match existing repository convention. | Success |
 | 2026-04-26 16:07:30 +0330 | `cargo fmt --manifest-path services/risk-engine/Cargo.toml` | Format risk-engine source after implementation edits. | Success |
 | 2026-04-26 16:07:30 +0330 | `tests/dev-0019/run.sh` | Re-run risk baseline verification after formatting. | Success |
+| 2026-04-28 23:22:22 +0330 | `sed -n '1,220p' docs/ruleset.md` + `sed -n '1,220p' docs/design/ingestion/ruleset.md` | Reload global/domain rules before implementing execution+audit baseline. | Success |
+| 2026-04-28 23:22:22 +0330 | `ls -la services/execution-gateway` + `rg -n ...` over LLD/HLD/compose/topics/state docs | Inspect scaffold/runtime contracts and current roadmap state for execution slice. | Success |
+| 2026-04-28 23:22:22 +0330 | `apply_patch` on `services/execution-gateway/Dockerfile` | Convert execution-gateway image from scaffold sleep mode to compiled Rust runtime. | Success |
+| 2026-04-28 23:22:22 +0330 | `cat > services/execution-gateway/Cargo.toml` and `cat > services/execution-gateway/src/main.rs` | Implement deterministic execution runtime baseline with lifecycle events and persistence hooks. | Success |
+| 2026-04-28 23:22:22 +0330 | `apply_patch` on `docker-compose.yml` + `infra/kafka/topics.csv` | Wire execution env/topic contracts and register execution event topics. | Success |
+| 2026-04-28 23:22:22 +0330 | `cat > infra/timescaledb/init/009_execution_audit_journal.sql` | Add execution journal and audit-event persistence schema contract. | Success |
+| 2026-04-28 23:22:22 +0330 | `cat > tests/dev-0020/run.sh` + `apply_patch` on `Makefile` | Add DEV-0020 verification pack and make target. | Success |
+| 2026-04-28 23:22:22 +0330 | `CARGO_TARGET_DIR=/tmp/nitra-execution-gateway-target cargo check --offline --manifest-path services/execution-gateway/Cargo.toml` | Validate execution-gateway compile in offline mode. | Success |
+| 2026-04-28 23:22:22 +0330 | `CARGO_TARGET_DIR=/tmp/nitra-execution-gateway-target cargo test --offline --manifest-path services/execution-gateway/Cargo.toml` | Validate deterministic execution unit tests. | Success |
+| 2026-04-28 23:22:22 +0330 | `tests/dev-0020/run.sh` + `make test-dev-0020` | Verify runtime/topic/schema contract presence for DEV-0020. | Success |
+| 2026-04-28 23:22:22 +0330 | `make enforce-section-5-1` | Re-run policy hard gates after execution/audit baseline changes. | Success |
+| 2026-04-28 23:22:22 +0330 | `cargo fmt --manifest-path services/execution-gateway/Cargo.toml` | Format execution-gateway Rust source. | Success |
+| 2026-04-28 23:22:22 +0330 | `apply_patch`/`cat >>` on LLD/devdocs/roadmap/kanban/current-state/where-are-we/session-ledger | Synchronize architecture + execution + memory docs for closure state. | Success |
+| 2026-04-28 23:22:22 +0330 | `make session-bootstrap` | Validate memory drift/freshness after updates. | Success |

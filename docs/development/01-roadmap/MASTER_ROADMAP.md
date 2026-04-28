@@ -29,17 +29,15 @@ Last updated: 2026-04-26
 | 10 | Risk Engine | `partial` | `compliant` |
 | 11 | Portfolio Engine | `not_started` | `blocked` |
 | 12 | RAG + LLM Analyst Layer | `scaffold` | `compliant` |
-| 13 | Execution Gateway | `scaffold` | `compliant` |
+| 13 | Execution Gateway | `partial` | `compliant` |
 | 14 | Audit/Journaling/Monitoring | `partial` | `compliant` |
 | 15 | Bar Aggregation + Gap Detection + Backfill Controller | `implemented` | `compliant` |
 
 ## Recommended next implementation sequence
 
-1. Execution gateway order-state machine baseline
-2. Audit/journal events for deterministic decision path
-3. Feature platform bootstrap (contract-first)
-4. Inference gateway service logic with schema validation
-5. RAG/LLM advisory path with strict boundaries
+1. Feature platform bootstrap (contract-first)
+2. Inference gateway service logic with schema validation
+3. RAG/LLM advisory path with strict boundaries
 
 ## Gate policy between modules
 

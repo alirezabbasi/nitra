@@ -1,11 +1,10 @@
 # NITRA Project Kanban
 
-Last updated: 2026-04-26
+Last updated: 2026-04-28
 
 ## Backlog
 
-- [ ] Implement `execution-gateway` runtime baseline with order-state machine.
-- [ ] Implement project-wide audit/journal event persistence contract.
+- [ ] Implement broker-venue adapter layer for `execution-gateway` (live submit/amend/cancel and ack/fill ingest).
 
 ## In Progress
 
@@ -35,6 +34,7 @@ Last updated: 2026-04-26
 - [x] `DEV-00015` chart interaction UX parity upgrade (15 interaction features).
 - [x] `DEV-0018` deterministic `structure-engine` runtime baseline (Rust service + Kafka contracts + persisted structure state).
 - [x] `DEV-0019` deterministic `risk-engine` runtime baseline (Rust service + deterministic policy checks + persisted risk state/audit).
+- [x] `DEV-0020` deterministic `execution-gateway` baseline and audit/journal persistence contract.
 
 ## Blocked
 

@@ -391,6 +391,12 @@ Enforcement command:
 **Hard rule**
 - this is the only service allowed to place/modify/cancel orders
 
+**Baseline status (2026-04-28)**
+- deterministic Rust runtime baseline implemented
+- idempotent processing via `processed_message_ledger`
+- baseline order lifecycle persisted in `execution_order_journal`
+- execution audit trail persisted in `audit_event_log`
+
 ---
 
 ## 13. RAG Indexer
@@ -436,6 +442,10 @@ Enforcement command:
 - end-to-end traces
 - metrics/log collection
 - decision/risk/execution audit trail persistence
+
+**Baseline status (2026-04-28)**
+- persistence contract baseline implemented with `audit_event_log`
+- execution journal linkage baseline implemented with `execution_order_journal`
 
 **Technology (mandatory)**
 - OpenTelemetry
