@@ -441,6 +441,62 @@
             </article>
           </article>
         </section>
+        <section class="workspace hidden" id="workspace-research">
+          <article class="card">
+            <div><strong>Dataset Registry & Lineage</strong></div>
+            <div class="muted">Traceable research datasets sourced from deterministic market history</div>
+            <section class="grid" id="researchMetrics" style="margin-top:10px"></section>
+            <table class="table" id="datasetTable">
+              <thead><tr><th>Dataset</th><th>Market</th><th>Rows</th><th>Status</th><th>Lineage</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Backtest Launcher</strong></div>
+              <div class="small">Operator role required, launch events are auditable</div>
+              <div class="form-row">
+                <input id="btDatasetId" placeholder="dataset_id uuid" />
+                <input id="btStrategyCode" value="STRAT-MOMO-01" placeholder="strategy_code" />
+                <input id="btModelVersion" value="v1.0.0" placeholder="model_version" />
+                <input id="btJustification" placeholder="justification" />
+              </div>
+              <div class="small" id="btResult" style="margin-top:8px">No backtest submitted.</div>
+              <button class="btn" id="backtestBtn" style="margin-top:8px">Launch Backtest</button>
+            </article>
+            <article class="card">
+              <div><strong>Backtest History</strong></div>
+              <table class="table" id="backtestTable">
+                <thead><tr><th>Run</th><th>Strategy</th><th>Status</th><th>PnL</th><th>Sharpe</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Model Promotion Gate</strong></div>
+              <div class="small">Risk-manager role required for stage/gate mutation</div>
+              <div class="form-row">
+                <input id="mpModelName" value="alpha-ensemble" placeholder="model_name" />
+                <input id="mpModelVersion" value="v1.0.0" placeholder="model_version" />
+                <input id="mpStage" value="staging" placeholder="stage" />
+                <input id="mpGateStatus" value="ready" placeholder="gate_status" />
+              </div>
+              <div class="form-row">
+                <input id="mpReadinessScore" value="0.82" placeholder="readiness_score 0..1" />
+                <input id="mpExperimentRef" value="mlflow://exp/42/run/abc" placeholder="experiment_ref" />
+                <input id="mpJustification" placeholder="justification" />
+                <button class="btn" id="promoteBtn">Update Model Gate</button>
+              </div>
+              <div class="small" id="promoteResult" style="margin-top:8px">No model promotion action submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Model Registry</strong></div>
+              <table class="table" id="modelTable">
+                <thead><tr><th>Model</th><th>Version</th><th>Stage</th><th>Gate</th><th>Readiness</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
       </main>
     </div>
 
@@ -499,6 +555,7 @@
         document.getElementById("workspace-execution").classList.toggle("hidden", section !== "execution");
         document.getElementById("workspace-charting").classList.toggle("hidden", section !== "charting");
         document.getElementById("workspace-ops").classList.toggle("hidden", section !== "ops");
+        document.getElementById("workspace-research").classList.toggle("hidden", section !== "research");
       }
 
       function fmt(value) {
@@ -986,6 +1043,113 @@
         await loadOps();
       }
 
+      function renderResearch(data) {
+        const metricMap = [
+          ["datasets_ready", "Datasets Ready"],
+          ["backtests_24h", "Backtests (24h)"],
+          ["models_registered", "Models Registered"],
+          ["promotion_ready_models", "Promotion Ready"],
+          ["avg_readiness_score", "Avg Readiness"],
+          ["best_sharpe_30d", "Best Sharpe (30d)"],
+        ];
+        const m = document.getElementById("researchMetrics");
+        m.innerHTML = "";
+        for (const [key, label] of metricMap) {
+          const card = document.createElement("article");
+          card.className = "card";
+          card.innerHTML = `<div class="muted">${label}</div><div class="metric">${fmt(data.metrics[key])}</div>`;
+          m.appendChild(card);
+        }
+
+        const datasetBody = document.querySelector("#datasetTable tbody");
+        datasetBody.innerHTML = "";
+        for (const row of data.dataset_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.dataset_code}</td><td>${row.venue}:${row.symbol}:${row.timeframe}</td><td>${fmt(row.row_count)}</td><td>${row.status}</td><td>${row.lineage_ref || "-"}</td>`;
+          datasetBody.appendChild(tr);
+        }
+
+        const backtestBody = document.querySelector("#backtestTable tbody");
+        backtestBody.innerHTML = "";
+        for (const row of data.backtest_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.run_id}</td><td>${row.strategy_code}</td><td>${row.status}</td><td>${fmt(row.pnl)}</td><td>${fmt(row.sharpe)}</td>`;
+          backtestBody.appendChild(tr);
+        }
+
+        const modelBody = document.querySelector("#modelTable tbody");
+        modelBody.innerHTML = "";
+        for (const row of data.model_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.model_name}</td><td>${row.model_version}</td><td>${row.stage}</td><td>${row.gate_status}</td><td>${fmt(row.readiness_score)}</td>`;
+          modelBody.appendChild(tr);
+        }
+
+        if ((data.dataset_rows || []).length > 0) {
+          document.getElementById("btDatasetId").value = data.dataset_rows[0].dataset_id;
+        }
+      }
+
+      async function loadResearch() {
+        const res = await authedFetch("/api/v1/control-panel/research?row_limit=25");
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          throw new Error("unauthorized");
+        }
+        const data = await res.json();
+        applyRoleVisibility(data.session || {});
+        renderResearch(data);
+      }
+
+      async function submitBacktest() {
+        const payload = {
+          dataset_id: document.getElementById("btDatasetId").value.trim(),
+          strategy_code: document.getElementById("btStrategyCode").value.trim(),
+          model_version: document.getElementById("btModelVersion").value.trim(),
+          justification: document.getElementById("btJustification").value.trim(),
+        };
+        const out = document.getElementById("btResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/research/backtest", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Backtest accepted: ${data.run_id}`;
+        await loadResearch();
+      }
+
+      async function submitModelPromotion() {
+        const payload = {
+          model_name: document.getElementById("mpModelName").value.trim(),
+          model_version: document.getElementById("mpModelVersion").value.trim(),
+          stage: document.getElementById("mpStage").value.trim(),
+          gate_status: document.getElementById("mpGateStatus").value.trim(),
+          readiness_score: Number(document.getElementById("mpReadinessScore").value.trim()),
+          experiment_ref: document.getElementById("mpExperimentRef").value.trim(),
+          justification: document.getElementById("mpJustification").value.trim(),
+        };
+        const out = document.getElementById("promoteResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/research/model/promote", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Model gate updated: ${data.model_name}:${data.model_version} (${data.stage}/${data.gate_status})`;
+        await loadResearch();
+      }
+
       function openChartWorkbench(venue, symbol, timeframe = "1m") {
         switchSection("charting");
         loadChartingWorkbench(venue, symbol, timeframe).catch(console.error);
@@ -1005,6 +1169,8 @@
             await loadChartingWorkbench();
           } else if (section === "ops") {
             await loadOps();
+          } else if (section === "research") {
+            await loadResearch();
           } else {
             await loadOverview();
           }
@@ -1017,6 +1183,8 @@
       document.getElementById("cwLoadBtn").addEventListener("click", () => loadChartingWorkbench().catch(console.error));
       document.getElementById("runbookBtn").addEventListener("click", () => submitRunbook().catch(console.error));
       document.getElementById("opsAlertBtn").addEventListener("click", () => submitOpsAlert().catch(console.error));
+      document.getElementById("backtestBtn").addEventListener("click", () => submitBacktest().catch(console.error));
+      document.getElementById("promoteBtn").addEventListener("click", () => submitModelPromotion().catch(console.error));
       document.getElementById('refreshBtn').addEventListener('click', () => {
         if (currentSection === "ingestion") {
           loadIngestion().catch(console.error);
@@ -1028,6 +1196,8 @@
           loadChartingWorkbench().catch(console.error);
         } else if (currentSection === "ops") {
           loadOps().catch(console.error);
+        } else if (currentSection === "research") {
+          loadResearch().catch(console.error);
         } else {
           loadOverview().catch(console.error);
         }

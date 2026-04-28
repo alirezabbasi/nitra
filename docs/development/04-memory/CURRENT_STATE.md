@@ -108,6 +108,11 @@ Last updated: 2026-04-29
   - added `/api/v1/control-panel/ops/alerts/ingest` + `/api/v1/control-panel/ops/alerts/action` for lifecycle ownership/suppression/incident creation flows,
   - added `/api/v1/control-panel/ops/runbook/execute` with auditable runbook execution persistence,
   - added ops workspace UI section with alert queue, incident table, and runbook launcher/history.
+- Completed `DEV-00032` control panel research/backtesting/model-ops center baseline:
+  - added `/api/v1/control-panel/research` for dataset registry, backtest history, and model registry visibility,
+  - added `/api/v1/control-panel/research/backtest` for role-gated backtest launch workflow,
+  - added `/api/v1/control-panel/research/model/promote` for readiness/stage gate updates with audit trail,
+  - added research workspace UI section with dataset lineage table, backtest launcher/history, and model promotion gate controls.
 
 ### Current
 
@@ -124,12 +129,13 @@ Last updated: 2026-04-29
 - `DEV-00029` closed with execution OMS and broker-operations center baseline in control panel.
 - `DEV-00030` closed with charting workbench integration baseline in control panel.
 - `DEV-00031` closed with alerting/incidents/runbooks center baseline in control panel.
+- `DEV-00032` closed with research/backtesting/model-ops center baseline in control panel.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
 1. Deliver `DEV-00022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
-2. Execute control-panel governance modules (`DEV-00032..DEV-00034`) now that operations alerting baseline is in place.
+2. Execute control-panel governance modules (`DEV-00033..DEV-00034`) now that research/model-ops baseline is in place.
 3. Continue `DEV-00022` resilience hardening in parallel and attach live degraded-network evidence.
 
 ### Risks/Blocks

@@ -635,6 +635,80 @@ def ensure_control_panel_ops_tables(conn: psycopg.Connection) -> None:
         )
 
 
+def ensure_control_panel_research_tables(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_dataset_registry (
+              dataset_id UUID PRIMARY KEY,
+              dataset_code TEXT NOT NULL UNIQUE,
+              venue TEXT NOT NULL,
+              symbol TEXT NOT NULL,
+              timeframe TEXT NOT NULL,
+              row_count BIGINT NOT NULL DEFAULT 0,
+              start_ts TIMESTAMPTZ,
+              end_ts TIMESTAMPTZ,
+              lineage_ref TEXT,
+              status TEXT NOT NULL DEFAULT 'ready',
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_backtest_run (
+              run_id UUID PRIMARY KEY,
+              dataset_id UUID REFERENCES control_panel_dataset_registry(dataset_id) ON DELETE SET NULL,
+              strategy_code TEXT NOT NULL,
+              model_version TEXT,
+              status TEXT NOT NULL,
+              pnl DOUBLE PRECISION NOT NULL DEFAULT 0,
+              sharpe DOUBLE PRECISION NOT NULL DEFAULT 0,
+              max_drawdown_pct DOUBLE PRECISION NOT NULL DEFAULT 0,
+              params JSONB NOT NULL DEFAULT '{}'::jsonb,
+              triggered_by TEXT NOT NULL,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              completed_at TIMESTAMPTZ
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_model_registry (
+              model_id UUID PRIMARY KEY,
+              model_name TEXT NOT NULL,
+              model_version TEXT NOT NULL,
+              experiment_ref TEXT,
+              stage TEXT NOT NULL,
+              readiness_score DOUBLE PRECISION NOT NULL DEFAULT 0,
+              gate_status TEXT NOT NULL DEFAULT 'pending',
+              metrics JSONB NOT NULL DEFAULT '{}'::jsonb,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              UNIQUE (model_name, model_version)
+            )
+            """
+        )
+
+
+def ensure_research_seed_data(conn: psycopg.Connection) -> None:
+    ensure_control_panel_research_tables(conn)
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM control_panel_dataset_registry")
+        if int(cur.fetchone()[0] or 0) == 0:
+            cur.execute(
+                """
+                INSERT INTO control_panel_dataset_registry (
+                  dataset_id, dataset_code, venue, symbol, timeframe, row_count, start_ts, end_ts, lineage_ref, status
+                ) VALUES
+                (%s::uuid, 'DS-COINBASE-BTCUSD-1M-90D', 'coinbase', 'BTCUSD', '1m', 129600, now() - interval '90 days', now(), 'ohlcv_bar:coinbase:BTCUSD:1m', 'ready'),
+                (%s::uuid, 'DS-OANDA-EURUSD-1M-90D', 'oanda', 'EURUSD', '1m', 129600, now() - interval '90 days', now(), 'ohlcv_bar:oanda:EURUSD:1m', 'ready')
+                """,
+                (str(uuid.uuid4()), str(uuid.uuid4())),
+            )
+
+
 def load_current_risk_limits(conn: psycopg.Connection) -> dict:
     ensure_control_panel_risk_limits_table(conn)
     with conn.cursor() as cur:
@@ -1665,6 +1739,297 @@ def control_panel_ops_runbook_execute(
         "action": action,
         "triggered_by": session["user_id"],
     }
+
+
+@app.get("/api/v1/control-panel/research")
+def control_panel_research(
+    x_control_panel_token: str | None = Header(default=None),
+    row_limit: int = Query(default=30, ge=1, le=200),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    metrics = {
+        "datasets_ready": 0,
+        "backtests_24h": 0,
+        "models_registered": 0,
+        "promotion_ready_models": 0,
+        "avg_readiness_score": 0.0,
+        "best_sharpe_30d": 0.0,
+    }
+    dataset_rows: list[dict] = []
+    backtest_rows: list[dict] = []
+    model_rows: list[dict] = []
+    mode = "online"
+    try:
+        with psycopg.connect(db_url()) as conn:
+            ensure_research_seed_data(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                      COUNT(*) FILTER (WHERE status = 'ready'),
+                      COUNT(*)
+                    FROM control_panel_dataset_registry
+                    """
+                )
+                row = cur.fetchone()
+                metrics["datasets_ready"] = int(row[0] or 0)
+
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM control_panel_backtest_run
+                    WHERE created_at >= now() - interval '24 hours'
+                    """
+                )
+                metrics["backtests_24h"] = int(cur.fetchone()[0] or 0)
+
+                cur.execute(
+                    """
+                    SELECT
+                      COUNT(*),
+                      COUNT(*) FILTER (WHERE gate_status = 'ready'),
+                      COALESCE(AVG(readiness_score), 0.0)
+                    FROM control_panel_model_registry
+                    """
+                )
+                row = cur.fetchone()
+                metrics["models_registered"] = int(row[0] or 0)
+                metrics["promotion_ready_models"] = int(row[1] or 0)
+                metrics["avg_readiness_score"] = float(row[2] or 0.0)
+
+                cur.execute(
+                    """
+                    SELECT COALESCE(MAX(sharpe), 0.0)
+                    FROM control_panel_backtest_run
+                    WHERE created_at >= now() - interval '30 days'
+                    """
+                )
+                metrics["best_sharpe_30d"] = float(cur.fetchone()[0] or 0.0)
+
+                cur.execute(
+                    """
+                    SELECT dataset_id, dataset_code, venue, symbol, timeframe, row_count, start_ts, end_ts, status, lineage_ref, updated_at
+                    FROM control_panel_dataset_registry
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for row in cur.fetchall():
+                    dataset_rows.append(
+                        {
+                            "dataset_id": str(row[0]),
+                            "dataset_code": str(row[1]),
+                            "venue": str(row[2]),
+                            "symbol": str(row[3]),
+                            "timeframe": str(row[4]),
+                            "row_count": int(row[5] or 0),
+                            "start_ts": row[6].isoformat() if row[6] else None,
+                            "end_ts": row[7].isoformat() if row[7] else None,
+                            "status": str(row[8]),
+                            "lineage_ref": row[9],
+                            "updated_at": row[10].isoformat() if row[10] else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT run_id, dataset_id, strategy_code, model_version, status, pnl, sharpe, max_drawdown_pct, created_at, completed_at
+                    FROM control_panel_backtest_run
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for row in cur.fetchall():
+                    backtest_rows.append(
+                        {
+                            "run_id": str(row[0]),
+                            "dataset_id": str(row[1]) if row[1] else None,
+                            "strategy_code": str(row[2]),
+                            "model_version": row[3],
+                            "status": str(row[4]),
+                            "pnl": float(row[5] or 0.0),
+                            "sharpe": float(row[6] or 0.0),
+                            "max_drawdown_pct": float(row[7] or 0.0),
+                            "created_at": row[8].isoformat() if row[8] else None,
+                            "completed_at": row[9].isoformat() if row[9] else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT model_id, model_name, model_version, experiment_ref, stage, readiness_score, gate_status, updated_at
+                    FROM control_panel_model_registry
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for row in cur.fetchall():
+                    model_rows.append(
+                        {
+                            "model_id": str(row[0]),
+                            "model_name": str(row[1]),
+                            "model_version": str(row[2]),
+                            "experiment_ref": row[3],
+                            "stage": str(row[4]),
+                            "readiness_score": float(row[5] or 0.0),
+                            "gate_status": str(row[6]),
+                            "updated_at": row[7].isoformat() if row[7] else None,
+                        }
+                    )
+    except Exception:
+        mode = "degraded"
+
+    return {
+        "service": "control-panel",
+        "module": "research",
+        "mode": mode,
+        "session": session,
+        "metrics": metrics,
+        "dataset_rows": dataset_rows,
+        "backtest_rows": backtest_rows,
+        "model_rows": model_rows,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.post("/api/v1/control-panel/research/backtest")
+def control_panel_research_backtest(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+    dataset_id = str(payload.get("dataset_id", "")).strip()
+    strategy_code = str(payload.get("strategy_code", "")).strip().upper()
+    model_version = str(payload.get("model_version", "")).strip() or None
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if len(strategy_code) < 3:
+        raise HTTPException(status_code=400, detail="strategy_code required")
+    try:
+        parsed_dataset_id = str(uuid.UUID(dataset_id))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="invalid dataset_id uuid") from exc
+
+    run_id = str(uuid.uuid4())
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_research_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT 1 FROM control_panel_dataset_registry WHERE dataset_id = %s::uuid",
+                (parsed_dataset_id,),
+            )
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="dataset not found")
+            cur.execute(
+                """
+                INSERT INTO control_panel_backtest_run (
+                  run_id, dataset_id, strategy_code, model_version, status, pnl, sharpe, max_drawdown_pct, params, triggered_by, completed_at
+                ) VALUES (%s::uuid, %s::uuid, %s, %s, 'completed', 0, 0, 0, %s::jsonb, %s, now())
+                """,
+                (
+                    run_id,
+                    parsed_dataset_id,
+                    strategy_code,
+                    model_version,
+                    json.dumps({"mode": "baseline", "source": "control_panel"}),
+                    session["user_id"],
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="research.backtest.launch",
+            section="research",
+            target=run_id,
+            status="approved",
+            reason=None,
+            metadata={"dataset_id": parsed_dataset_id, "strategy_code": strategy_code, "model_version": model_version, "justification": justification},
+        )
+        conn.commit()
+    return {"status": "accepted", "run_id": run_id, "strategy_code": strategy_code, "dataset_id": parsed_dataset_id}
+
+
+@app.post("/api/v1/control-panel/research/model/promote")
+def control_panel_research_model_promote(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "risk_manager")
+    model_name = str(payload.get("model_name", "")).strip()
+    model_version = str(payload.get("model_version", "")).strip()
+    stage = str(payload.get("stage", "")).strip().lower() or "staging"
+    readiness_score = float(payload.get("readiness_score", 0.0))
+    gate_status = str(payload.get("gate_status", "")).strip().lower() or "pending"
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if not model_name or not model_version:
+        raise HTTPException(status_code=400, detail="model_name and model_version required")
+    if stage not in {"candidate", "staging", "production", "archived"}:
+        raise HTTPException(status_code=400, detail="invalid stage")
+    if gate_status not in {"pending", "ready", "rejected"}:
+        raise HTTPException(status_code=400, detail="invalid gate_status")
+    if readiness_score < 0.0 or readiness_score > 1.0:
+        raise HTTPException(status_code=400, detail="readiness_score must be in [0, 1]")
+
+    model_id = str(uuid.uuid4())
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_research_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_model_registry (
+                  model_id, model_name, model_version, experiment_ref, stage, readiness_score, gate_status, metrics, updated_at
+                )
+                VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s::jsonb, now())
+                ON CONFLICT (model_name, model_version)
+                DO UPDATE SET
+                  stage = EXCLUDED.stage,
+                  readiness_score = EXCLUDED.readiness_score,
+                  gate_status = EXCLUDED.gate_status,
+                  metrics = EXCLUDED.metrics,
+                  updated_at = now()
+                RETURNING model_id
+                """,
+                (
+                    model_id,
+                    model_name,
+                    model_version,
+                    str(payload.get("experiment_ref", "")).strip() or None,
+                    stage,
+                    readiness_score,
+                    gate_status,
+                    json.dumps(payload.get("metrics", {})),
+                ),
+            )
+            model_id = str(cur.fetchone()[0])
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="research.model.promote",
+            section="research",
+            target=model_id,
+            status="approved",
+            reason=None,
+            metadata={
+                "model_name": model_name,
+                "model_version": model_version,
+                "stage": stage,
+                "gate_status": gate_status,
+                "readiness_score": readiness_score,
+                "justification": justification,
+            },
+        )
+        conn.commit()
+    return {"status": "updated", "model_id": model_id, "model_name": model_name, "model_version": model_version, "stage": stage, "gate_status": gate_status}
 
 
 @app.get("/api/v1/control-panel/charting/profile")

@@ -838,3 +838,27 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - start `DEV-00032` (research/backtesting/model-ops center) on top of current control-panel module set.
+
+---
+
+## 2026-04-29 — Session Entry 023
+
+- Objective:
+  - deliver `DEV-00032` control-panel research, backtesting, and model-ops center baseline.
+- Work completed:
+  - added research persistence + API surface in `services/charting/app.py`:
+    - `GET /api/v1/control-panel/research`
+    - `POST /api/v1/control-panel/research/backtest`
+    - `POST /api/v1/control-panel/research/model/promote`
+  - added research data contracts (`control_panel_dataset_registry`, `control_panel_backtest_run`, `control_panel_model_registry`) and deterministic baseline seed data.
+  - wired `workspace-research` UI in `services/charting/static/control-panel.html` with dataset lineage table, backtest launcher/history, and model promotion gate form.
+  - added verification script `tests/dev-00032/run.sh` and Make target `test-dev-00032`.
+  - updated ticket/kanban/memory artifacts and moved next focus to `DEV-00033`.
+- Verification:
+  - `tests/dev-00031/run.sh` passes.
+  - `tests/dev-00032/run.sh` passes.
+  - `make test-dev-00032` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - implement `DEV-00033` config registry, change control, and governance center.

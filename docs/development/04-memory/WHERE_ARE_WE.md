@@ -40,6 +40,7 @@ Last updated: 2026-04-29
 - `DEV-00029` completed: control-panel execution OMS/broker-ops center baseline implemented with order lifecycle visibility, command workflows, reconciliation queue, and broker diagnostics.
 - `DEV-00030` completed: control-panel charting workbench integration baseline implemented with instrument profile API, split-view chart workspace, and one-click context handoff from ops modules.
 - `DEV-00031` completed: control-panel alerting/incidents/runbooks baseline implemented with alert lifecycle actions, incident workspace, and audited runbook execution contract.
+- `DEV-00032` completed: control-panel research/backtesting/model-ops baseline implemented with dataset lineage registry, backtest launcher/history, and model promotion gate controls.
 
 ## Current
 
@@ -57,11 +58,12 @@ Last updated: 2026-04-29
 - `DEV-00029` is closed with execution OMS and broker operations center baseline in control panel.
 - `DEV-00030` is closed with charting workbench integration baseline in control panel.
 - `DEV-00031` is closed with alerting, incidents, and runbooks center baseline in control panel.
+- `DEV-00032` is closed with research/backtesting/model-ops center baseline in control panel.
 
 ## Next
 
 1. Deliver `DEV-00022` implementation for timeout/name-resolution handling and bounded retry/backoff tuning.
-2. Continue `DEV-00032..DEV-00034` governance, enterprise polish, and release-hardening modules.
+2. Continue `DEV-00033..DEV-00034` governance, enterprise polish, and release-hardening modules.
 3. Run integrated control-panel UX hardening pass before governance modules close.
 
 ## Risks/Blocks

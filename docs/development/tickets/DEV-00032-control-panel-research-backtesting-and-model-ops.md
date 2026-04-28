@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -30,3 +30,4 @@ Create a governance-first workspace for dataset lineage, experiment tracking, ba
 
 - API contract tests for dataset/backtest/model views.
 - Promotion audit trail validation.
+- `tests/dev-00032/run.sh`
