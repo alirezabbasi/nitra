@@ -79,11 +79,12 @@ Last updated: 2026-04-28
 - `DEV-0019` closed with deterministic risk runtime baseline in production compose path.
 - `DEV-0020` closed with deterministic execution runtime baseline and persisted audit/journal contract.
 - `DEV-0021` closed with broker adapter baseline and ack/fill ingest path.
+- `DEV-0022` opened and moved to active execution track for adapter-network resilience (DNS/connectivity/runtime robustness).
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Open a focused adapter-network resilience ticket to reduce external DNS/connectivity failure impact.
+1. Deliver `DEV-0022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
 2. Add deterministic portfolio-state baseline and wire richer risk constraints.
 3. Expand reconciliation/runbook evidence capture for live adapter behavior.
 

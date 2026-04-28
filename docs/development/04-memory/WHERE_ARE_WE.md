@@ -41,10 +41,11 @@ Last updated: 2026-04-28
 - `DEV-0019` is closed with deterministic runtime baseline, compose wiring, topic/schema contracts, and test pack (`dev-0019`).
 - `DEV-0020` is closed with deterministic runtime baseline, execution topics, and audit/journal persistence contract in runtime + schema.
 - `DEV-0021` is closed with broker adapter baseline, command/ack topics, and extended execution journal/command persistence contract.
+- `DEV-0022` is now open and in progress for execution adapter network resilience (DNS/connectivity/runtime robustness).
 
 ## Next
 
-1. Add follow-up operability ticket for adapter-network resilience (timeouts/name-resolution handling and retry/backoff tuning).
+1. Deliver `DEV-0022` implementation for timeout/name-resolution handling and bounded retry/backoff tuning.
 2. Add portfolio-state baseline to deepen risk/execution constraints.
 3. Expand post-trade reconciliation runbooks and evidence captures for live broker venues.
 

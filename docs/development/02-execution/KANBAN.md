@@ -4,11 +4,12 @@ Last updated: 2026-04-28
 
 ## Backlog
 
-- [ ] Add adapter-network resilience hardening (retry/backoff/DNS outage strategy) for execution broker routes.
+- [ ] Add deterministic portfolio-state baseline and wire richer risk/execution constraints.
+- [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
 
 ## In Progress
 
-- [ ] (No in-progress items)
+- [ ] `DEV-0022` execution adapter network resilience (DNS/connectivity/runtime robustness).
 
 ## Done
 
