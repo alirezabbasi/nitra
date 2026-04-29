@@ -1132,3 +1132,21 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` (pass)
 - Next recommended action:
   - execute `DEV-00043` journal/audit evidence fabric and incident bundle export.
+
+## 2026-04-29 — Session Entry 012
+
+- Objective:
+  - execute `DEV-00043` journal evidence fabric and incident bundle export.
+- Work completed:
+  - added migration `017_incident_evidence_bundle.sql` with correlation/order export indexes.
+  - extended `execution-gateway` with taxonomy-versioned audit payloads (`EXEC_AUDIT_TAXONOMY_VERSION`).
+  - added lineage/correlation propagation from execution intents into audit trail records.
+  - added automatic incident bundle export for rejected/terminal execution outcomes.
+  - added verification pack `tests/dev-0043/run.sh` and `make test-dev-0043` target.
+  - synchronized ticket/kanban/memory/active-focus status docs.
+- Verification:
+  - `tests/dev-0043/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - start `DEV-00044` control-panel service refactor epic implementation stream.

@@ -182,6 +182,11 @@ Last updated: 2026-04-29
   - added persisted reconciliation evidence contract `portfolio_reconciliation_log` via migration `016_portfolio_reconciliation_log.sql`,
   - added drift issue emission contract (`portfolio_reconciliation_drift`) for actionable operator triage,
   - added verification pack (`tests/dev-0042/run.sh`, `make test-dev-0042`).
+- Completed `DEV-00043` journal evidence fabric and incident bundle export:
+  - added incident evidence bundle persistence contract `incident_evidence_bundle` via migration `017_incident_evidence_bundle.sql`,
+  - added audit taxonomy versioning control via `EXEC_AUDIT_TAXONOMY_VERSION`,
+  - added lineage/correlation propagation and bundle auto-export hooks on rejected/terminal execution outcomes,
+  - added verification pack (`tests/dev-0043/run.sh`, `make test-dev-0043`).
 
 ### Current
 
@@ -210,13 +215,14 @@ Last updated: 2026-04-29
 - `DEV-00040` is closed with deterministic policy-trace metadata and stress-tested fail-closed interactions.
 - `DEV-00041` is closed with lifecycle transition safety and reconciliation SLA triage context.
 - `DEV-00042` is closed with authoritative reconciliation invariants and drift evidence emission.
+- `DEV-00043` is closed with taxonomy-versioned audit payloads and incident bundle export contract.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00043` journal/audit evidence fabric and incident bundle export.
-2. Start control-panel refactor stream `DEV-00044` after second-chain closure.
-3. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
+1. Start control-panel refactor stream `DEV-00044`.
+2. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
+3. Execute `DEV-00046` control-panel backend modularization foundation and service rename.
 
 ### Risks/Blocks
 

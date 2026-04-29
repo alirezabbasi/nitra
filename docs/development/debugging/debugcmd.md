@@ -877,3 +877,8 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 14:27:53 +0330 | `apply_patch` on `services/portfolio-engine/src/main.rs` + `cat > infra/timescaledb/init/016_portfolio_reconciliation_log.sql` | Implement authoritative reconciliation logic, invariant drift taxonomy, evidence persistence, and migration. | Success |
 | 2026-04-29 14:27:53 +0330 | `cat > tests/dev-0042/run.sh` + `apply_patch` on `Makefile`/compose/env docs | Add DEV-0042 verification pack and runtime/env contract updates. | Success |
 | 2026-04-29 14:27:53 +0330 | `make test-dev-0042` + `make enforce-section-5-1` + `make session-bootstrap` | Execute DEV-00042 verification, policy gate, and context integrity checks. | Success |
+| 2026-04-29 14:34:13 +0330 | `sed -n '1,220p' docs/ruleset.md` | Reload global ruleset before DEV-00043 implementation. | Success |
+| 2026-04-29 14:34:13 +0330 | `sed -n '1,220p' docs/design/ingestion/ruleset.md` | Reload ingestion ruleset before DEV-00043 implementation. | Success |
+| 2026-04-29 14:34:13 +0330 | `tests/dev-0043/run.sh` | Execute DEV-00043 verification pack. | Success |
+| 2026-04-29 14:34:13 +0330 | `make enforce-section-5-1` | Validate Section 5.1 policy gates after runtime changes. | Success |
+| 2026-04-29 14:34:13 +0330 | `make session-bootstrap` | Validate session context integrity after docs/status updates. | Success |

@@ -13,6 +13,6 @@ Execute second-chain deterministic hardening (`structure -> feature -> signal ->
 
 ## Immediate next slices
 
-1. `DEV-00043` journal/audit evidence fabric and incident bundle export.
-2. Start control-panel refactor stream `DEV-00044` after second-chain closure.
-3. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
+1. Start control-panel refactor stream `DEV-00044`.
+2. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
+3. Execute `DEV-00046` control-panel backend modularization foundation and service rename.

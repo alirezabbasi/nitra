@@ -13,7 +13,7 @@ Last updated: 2026-04-29
 - [ ] `DEV-00050` control-panel refactor quality gates and CI readiness.
 - [ ] `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
-- [ ] `DEV-00043` journal/audit evidence fabric and incident bundle export.
+- [x] `DEV-00043` journal/audit evidence fabric and incident bundle export.
 
 ## In Progress
 
