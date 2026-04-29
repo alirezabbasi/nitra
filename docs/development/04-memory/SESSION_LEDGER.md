@@ -1331,3 +1331,21 @@ Append one entry at the end of each substantial session.
   - `make enforce-section-5-1` passes.
 - Next recommended action:
   - run the KPI page live against current stack and triage markets failing either coverage or tick-lag thresholds.
+
+## 2026-04-29 — Session Entry 023
+
+- Objective:
+  - add a selectable chart layer implementing liquidity-driven pullback/minor/major structure interpretation on any instrument.
+- Work completed:
+  - added chart topbar checkbox toggle `Liquidity Layer` in `services/charting/static/index.html`.
+  - implemented runtime structure model derivation (`buildLiquidityStructureModel`) and overlay payload build (`buildLiquidityLayerPayload`) from live chart bars.
+  - registered custom overlay `nitraLiquidityLayer` and rendered minor/major structure markers/segments.
+  - wired automatic layer sync on full reload, incremental updates, history loads, and realtime tick merges.
+  - persisted layer toggle state in chart UI preferences.
+  - added verification pack `tests/dev-0054/run.sh` and make target `test-dev-0054`.
+- Verification:
+  - `make test-dev-0054` passes.
+  - `make test-dev-0050` passes.
+  - `make enforce-section-5-1` passes.
+- Next recommended action:
+  - validate overlay semantics against known manual structure examples and calibrate algorithm thresholds if needed.

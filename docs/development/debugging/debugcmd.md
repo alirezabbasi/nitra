@@ -953,3 +953,7 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 19:30:11 +0330 | `apply_patch` on control-panel frontend source + `scripts/frontend/build_control_panel_frontend.sh` | Add KPI Monitor workspace/tab and JS loader/render wiring; sync frontend `src -> dist`. | Success |
 | 2026-04-29 19:30:11 +0330 | `cat > tests/dev-0053/run.sh` + Makefile patch + `make test-dev-0053` | Add and execute verification pack for KPI monitor scope. | Success |
 | 2026-04-29 19:30:11 +0330 | `make test-dev-0050` + `make enforce-section-5-1` | Run regression and policy gates after KPI feature integration. | Success |
+| 2026-04-29 19:39:10 +0330 | `sed/rg` on `services/charting/static/index.html` + rulesets | Locate chart runtime extension points and reload mandatory governance before implementing liquidity structure layer. | Success |
+| 2026-04-29 19:39:10 +0330 | `apply_patch` on `services/charting/static/index.html` | Add liquidity layer checkbox UI, persisted toggle state, structure-model computation, custom overlay registration, and live sync wiring across chart update paths. | Success |
+| 2026-04-29 19:39:10 +0330 | `cat > tests/dev-0054/run.sh` + `apply_patch` on `Makefile` | Add verification pack and make target for chart liquidity-structure layer coverage. | Success |
+| 2026-04-29 19:39:10 +0330 | `make test-dev-0054` + `make test-dev-0050` + `make enforce-section-5-1` | Execute feature verification, regression quality gate, and architecture policy gate. | Success |

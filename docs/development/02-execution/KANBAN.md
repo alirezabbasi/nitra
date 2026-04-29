@@ -67,6 +67,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure (native charting cutover + rollout/rollback runbook + deprecation report + `dev-0051` pack).
 - [x] `DEV-00052` reconciliation/runbook evidence capture expansion for live adapter behavior (runbook-linked adapter evidence snapshots + reconciliation evidence contract + `dev-0052` pack).
 - [x] `DEV-00053` control-panel ingestion KPI monitor (130k 1m-ohlcv target tracking + raw-tick realtime SLA monitor + `dev-0053` pack).
+- [x] `DEV-00054` chart liquidity-structure layer toggle (checkbox-enabled pullback/minor/major overlay model on any instrument + `dev-0054` pack).
 
 ## Blocked
 

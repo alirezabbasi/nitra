@@ -238,6 +238,21 @@
         font-size: 11px;
         white-space: nowrap;
       }
+      .inline-check {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: #c9d2e6;
+        font-size: 12px;
+        padding: 0 6px;
+        border: 1px solid #3a4660;
+        border-radius: 6px;
+        height: 28px;
+        background: #27324a;
+      }
+      .inline-check input {
+        accent-color: #25d2b8;
+      }
 
       .meta {
         margin-left: auto;
@@ -635,6 +650,10 @@
         <button class="tool-btn" id="realtime-btn" title="Back to current candle">Current</button>
         <button class="tool-btn" id="snapshot-btn">Snapshot</button>
         <button class="tool-btn" id="backfill-btn">Backfill</button>
+        <label class="inline-check" title="Toggle liquidity-driven structure layer">
+          <input id="liquidity-layer-toggle" type="checkbox" />
+          Liquidity Layer
+        </label>
         <button class="tool-btn" id="settings-btn" title="Venue and ingestion settings">⚙ Settings</button>
         <div id="status" class="meta">Loading...</div>
       </div>
@@ -860,6 +879,7 @@
       const realtimeBtn = document.getElementById("realtime-btn");
       const snapshotBtn = document.getElementById("snapshot-btn");
       const backfillBtn = document.getElementById("backfill-btn");
+      const liquidityLayerToggleEl = document.getElementById("liquidity-layer-toggle");
       const settingsBtn = document.getElementById("settings-btn");
       const settingsOverlayEl = document.getElementById("settings-overlay");
       const settingsCloseBtn = document.getElementById("settings-close-btn");
@@ -892,6 +912,7 @@
       const UI_PREFS_KEY = "nitra.chart.ui_prefs.v1";
       const LAYOUT_STATE_KEY = "nitra.chart.layout_state.v1";
       const DRAW_GROUP_ID = "nitra_drawing_tools";
+      const LIQ_LAYER_GROUP_ID = "nitra_liquidity_layer";
 
       const drawCursorBtn = document.getElementById("draw-cursor-btn");
       const drawLineBtn = document.getElementById("draw-line-btn");
@@ -1106,6 +1127,8 @@
         redoStack: [],
         layoutRestoreApplied: false,
         layoutSaveTimer: null,
+        liquidityLayerEnabled: false,
+        liquidityLayerOverlayId: null,
       };
 
       let chart = null;
@@ -1138,6 +1161,7 @@
             timezone: state.timezone,
             zoomAnchor: state.zoomAnchor,
             formatMode: state.formatMode,
+            liquidityLayerEnabled: state.liquidityLayerEnabled,
             market:
               state.selected && state.selected.venue && state.selected.symbol
                 ? { venue: state.selected.venue, symbol: state.selected.symbol }
@@ -1172,6 +1196,10 @@
         if (typeof prefs.formatMode === "string" && hasSelectOption(formatSelectEl, prefs.formatMode)) {
           state.formatMode = prefs.formatMode;
           formatSelectEl.value = prefs.formatMode;
+        }
+        if (typeof prefs.liquidityLayerEnabled === "boolean") {
+          state.liquidityLayerEnabled = prefs.liquidityLayerEnabled;
+          liquidityLayerToggleEl.checked = state.liquidityLayerEnabled;
         }
         if (prefs.market && typeof prefs.market.venue === "string" && typeof prefs.market.symbol === "string") {
           state.preferredMarket = {
@@ -1869,6 +1897,305 @@
 
         window.klinecharts.registerOverlay(createRiskOverlay("longPosition", true));
         window.klinecharts.registerOverlay(createRiskOverlay("shortPosition", false));
+
+        window.klinecharts.registerOverlay({
+          name: "nitraLiquidityLayer",
+          totalStep: 1,
+          needDefaultPointFigure: false,
+          needDefaultXAxisFigure: false,
+          needDefaultYAxisFigure: false,
+          createPointFigures: ({ overlay }) => {
+            if (!chart) return [];
+            const data = overlay.extendData || {};
+            const markers = Array.isArray(data.markers) ? data.markers : [];
+            const segments = Array.isArray(data.segments) ? data.segments : [];
+            const figures = [];
+
+            for (const seg of segments) {
+              if (!seg || !seg.start || !seg.end) continue;
+              const p1 = chart.convertToPixel(
+                { timestamp: seg.start.timestamp, value: seg.start.value },
+                { paneId: overlay.paneId }
+              );
+              const p2 = chart.convertToPixel(
+                { timestamp: seg.end.timestamp, value: seg.end.value },
+                { paneId: overlay.paneId }
+              );
+              if (!p1 || !p2) continue;
+              figures.push({
+                type: "line",
+                attrs: { coordinates: [p1, p2] },
+                styles: {
+                  style: seg.style === "dash" ? "dash" : "solid",
+                  color: seg.color || "#f7c744",
+                  size: seg.size || 1,
+                },
+              });
+            }
+
+            for (const marker of markers) {
+              if (!marker || marker.timestamp === undefined || marker.value === undefined) continue;
+              const px = chart.convertToPixel(
+                { timestamp: marker.timestamp, value: marker.value },
+                { paneId: overlay.paneId }
+              );
+              if (!px) continue;
+              figures.push({
+                type: "circle",
+                attrs: { x: px.x, y: px.y, r: marker.radius || 2.5 },
+                styles: { style: "fill", color: marker.color || "#f7c744" },
+              });
+              if (marker.label) {
+                figures.push({
+                  type: "text",
+                  attrs: {
+                    x: px.x + (marker.labelDx || 6),
+                    y: px.y + (marker.labelDy || -10),
+                    text: marker.label,
+                    align: "left",
+                    baseline: "middle",
+                  },
+                  styles: {
+                    color: marker.textColor || "#e6efff",
+                    backgroundColor: marker.bgColor || "rgba(15, 20, 31, 0.65)",
+                    paddingLeft: 3,
+                    paddingRight: 3,
+                  },
+                });
+              }
+            }
+            return figures;
+          },
+        });
+      }
+
+      function resolveLiquidityBias(bars) {
+        if (!Array.isArray(bars) || bars.length < 20) return "bearish";
+        const lookback = bars.slice(-80);
+        let high = Number.NEGATIVE_INFINITY;
+        let low = Number.POSITIVE_INFINITY;
+        for (const b of lookback) {
+          high = Math.max(high, Number(b.high));
+          low = Math.min(low, Number(b.low));
+        }
+        const last = lookback[lookback.length - 1];
+        if (!last || !Number.isFinite(high) || !Number.isFinite(low) || high <= low) return "bearish";
+        const pos = (Number(last.close) - low) / (high - low);
+        return pos > 0.55 ? "bullish" : "bearish";
+      }
+
+      function buildLiquidityStructureModel(inputBars) {
+        const bars = Array.isArray(inputBars) ? inputBars : [];
+        if (bars.length < 5) return { minorPairs: [], majorPairs: [], bias: "bearish" };
+
+        const bias = resolveLiquidityBias(bars);
+        const normalize = (bar) =>
+          bias === "bullish"
+            ? { high: -Number(bar.low), low: -Number(bar.high), timestamp: Number(bar.timestamp) }
+            : { high: Number(bar.high), low: Number(bar.low), timestamp: Number(bar.timestamp) };
+
+        const series = bars.map((b) => normalize(b));
+        const minorPairs = [];
+        const majorPairs = [];
+        const structuralHighArchive = [];
+        let refIdx = 0;
+        let active = null;
+
+        for (let i = 1; i < series.length; i += 1) {
+          const prev = series[i - 1];
+          const cur = series[i];
+
+          if (!active) {
+            const isInside = cur.high <= series[refIdx].high && cur.low >= series[refIdx].low;
+            if (isInside && cur.low === series[refIdx].low) {
+              refIdx = i;
+              continue;
+            }
+            if (cur.high > series[refIdx].high && cur.low >= series[refIdx].low) {
+              active = {
+                refIdx,
+                terminationRefIdx: refIdx,
+                maxHigh: cur.high,
+                maxHighIdx: i,
+                outsideBaseIdx: cur.low < series[refIdx].low ? i : null,
+                outsideResolved: false,
+              };
+            }
+            continue;
+          }
+
+          if (active.outsideBaseIdx !== null && !active.outsideResolved) {
+            if (cur.high > series[active.outsideBaseIdx].high) {
+              active.terminationRefIdx = active.outsideBaseIdx;
+            }
+            active.outsideResolved = true;
+          }
+
+          if (cur.high > active.maxHigh) {
+            active.maxHigh = cur.high;
+            active.maxHighIdx = i;
+          }
+
+          const terminated = cur.low < series[active.terminationRefIdx].low;
+          if (terminated) {
+            const minorLowIdx = active.refIdx;
+            const minorHighIdx = active.maxHighIdx;
+            const minorLow = series[minorLowIdx].low;
+            const minorHigh = series[minorHighIdx].high;
+            minorPairs.push({
+              lowIdx: minorLowIdx,
+              highIdx: minorHighIdx,
+              lowValue: minorLow,
+              highValue: minorHigh,
+            });
+
+            const brokePriorHigh = structuralHighArchive.some((h) => minorHigh > h);
+            structuralHighArchive.push(minorHigh);
+            if (brokePriorHigh) {
+              majorPairs.push({
+                lowIdx: minorLowIdx,
+                highIdx: minorHighIdx,
+                lowValue: minorLow,
+                highValue: minorHigh,
+              });
+            }
+
+            refIdx = i;
+            active = null;
+            continue;
+          }
+
+          if (cur.high > prev.high) {
+            continue;
+          }
+        }
+
+        if (bias === "bullish") {
+          return {
+            bias,
+            minorPairs: minorPairs.map((p) => ({
+              lowIdx: p.lowIdx,
+              highIdx: p.highIdx,
+              lowValue: -p.lowValue,
+              highValue: -p.highValue,
+            })),
+            majorPairs: majorPairs.map((p) => ({
+              lowIdx: p.lowIdx,
+              highIdx: p.highIdx,
+              lowValue: -p.lowValue,
+              highValue: -p.highValue,
+            })),
+          };
+        }
+        return { bias, minorPairs, majorPairs };
+      }
+
+      function buildLiquidityLayerPayload(bars) {
+        const model = buildLiquidityStructureModel(bars);
+        const segments = [];
+        const markers = [];
+
+        for (const pair of model.minorPairs) {
+          const lowBar = bars[pair.lowIdx];
+          const highBar = bars[pair.highIdx];
+          if (!lowBar || !highBar) continue;
+          segments.push({
+            start: { timestamp: lowBar.timestamp, value: pair.lowValue },
+            end: { timestamp: highBar.timestamp, value: pair.highValue },
+            color: "#f7c744",
+            size: 1,
+            style: "dash",
+          });
+          markers.push({
+            timestamp: lowBar.timestamp,
+            value: pair.lowValue,
+            label: model.bias === "bullish" ? "mH" : "mL",
+            color: "#f7c744",
+            labelDx: 5,
+            labelDy: 10,
+          });
+          markers.push({
+            timestamp: highBar.timestamp,
+            value: pair.highValue,
+            label: model.bias === "bullish" ? "mL" : "mH",
+            color: "#f7c744",
+            labelDx: 5,
+            labelDy: -10,
+          });
+        }
+
+        for (const pair of model.majorPairs) {
+          const lowBar = bars[pair.lowIdx];
+          const highBar = bars[pair.highIdx];
+          if (!lowBar || !highBar) continue;
+          segments.push({
+            start: { timestamp: lowBar.timestamp, value: pair.lowValue },
+            end: { timestamp: highBar.timestamp, value: pair.highValue },
+            color: "#25d2b8",
+            size: 2,
+            style: "solid",
+          });
+          markers.push({
+            timestamp: lowBar.timestamp,
+            value: pair.lowValue,
+            label: model.bias === "bullish" ? "MH" : "ML",
+            color: "#25d2b8",
+            labelDx: 6,
+            labelDy: 12,
+            radius: 3.5,
+          });
+          markers.push({
+            timestamp: highBar.timestamp,
+            value: pair.highValue,
+            label: model.bias === "bullish" ? "ML" : "MH",
+            color: "#25d2b8",
+            labelDx: 6,
+            labelDy: -12,
+            radius: 3.5,
+          });
+        }
+
+        return { model, overlayData: { segments, markers } };
+      }
+
+      function clearLiquidityLayer() {
+        if (!chart || typeof chart.removeOverlay !== "function") return;
+        if (state.liquidityLayerOverlayId) {
+          chart.removeOverlay({ id: state.liquidityLayerOverlayId });
+          state.liquidityLayerOverlayId = null;
+          return;
+        }
+        chart.removeOverlay({ groupId: LIQ_LAYER_GROUP_ID });
+      }
+
+      function syncLiquidityLayer() {
+        if (!chart || typeof chart.createOverlay !== "function") return;
+        if (!state.liquidityLayerEnabled || !state.liveBars.length) {
+          clearLiquidityLayer();
+          return;
+        }
+
+        const payload = buildLiquidityLayerPayload(state.liveBars);
+        if (state.liquidityLayerOverlayId && typeof chart.overrideOverlay === "function") {
+          chart.overrideOverlay({
+            id: state.liquidityLayerOverlayId,
+            extendData: payload.overlayData,
+            visible: true,
+          });
+          return;
+        }
+
+        clearLiquidityLayer();
+        const created = chart.createOverlay({
+          name: "nitraLiquidityLayer",
+          groupId: LIQ_LAYER_GROUP_ID,
+          lock: true,
+          visible: true,
+          zLevel: 40,
+          extendData: payload.overlayData,
+        });
+        const createdId = Array.isArray(created) ? created[0] : created;
+        state.liquidityLayerOverlayId = createdId || null;
       }
 
       function syncRealtimeButtonState() {
@@ -1990,10 +2317,12 @@
         if (!chart) return false;
         if (typeof chart.applyNewData === "function") {
           chart.applyNewData(bars);
+          syncLiquidityLayer();
           return true;
         }
         if (typeof chart.setData === "function") {
           chart.setData(bars);
+          syncLiquidityLayer();
           return true;
         }
         return false;
@@ -2045,6 +2374,7 @@
         for (const bar of updates) {
           chart.updateData(bar);
         }
+        syncLiquidityLayer();
         return true;
       }
 
@@ -2793,6 +3123,7 @@
           chart.removeOverlay({ groupId: DRAW_GROUP_ID });
           state.overlays = [];
         }
+        clearLiquidityLayer();
 
         state.autoFollowRealtime = true;
         syncRealtimeButtonState();
@@ -2839,6 +3170,7 @@
         state.redoStack = [];
         syncUndoRedoButtons();
         restoreOverlayList(getLayoutOverlaysForCurrentMarket());
+        syncLiquidityLayer();
         scheduleLayoutSave();
 
         if (derivedFromOneMinute) {
@@ -3150,6 +3482,13 @@
         }
       });
 
+      liquidityLayerToggleEl.addEventListener("change", () => {
+        state.liquidityLayerEnabled = liquidityLayerToggleEl.checked;
+        persistUiPrefs();
+        scheduleLayoutSave();
+        syncLiquidityLayer();
+      });
+
       settingsCloseBtn.addEventListener("click", () => {
         closeSettings();
       });
@@ -3354,6 +3693,7 @@
       window.addEventListener("resize", () => fitChart());
 
       applyUiPrefs();
+      liquidityLayerToggleEl.checked = state.liquidityLayerEnabled;
       applyLayoutPreferences(loadLayoutState(), { includeMarket: true });
       setActiveTimeframe(state.timeframe);
       syncDrawingToolSelectionUi();
