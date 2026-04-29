@@ -959,3 +959,18 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap`
 - Next recommended action:
   - execute integrated operator UAT across all control-panel modules and capture runtime evidence pack.
+
+---
+
+## 2026-04-29 — Session Entry 028
+
+- Objective:
+  - register strict second-chain strengthening ticket set.
+- Work completed:
+  - created program epic `DEV-00035` for second-chain hardening.
+  - created implementation tickets `DEV-00036..DEV-00043` covering contracts, structure, feature, signal, risk, execution, portfolio, and journal hardening.
+  - synchronized planning artifacts (`KANBAN`, `ACTIVE_FOCUS`, `CURRENT_STATE`, `WHERE_ARE_WE`) to prioritize second-chain execution.
+- Verification:
+  - `make session-bootstrap`
+- Next recommended action:
+  - begin implementation with `DEV-00035` kickoff and `DEV-00036` contract freeze.

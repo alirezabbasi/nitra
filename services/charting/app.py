@@ -14,7 +14,7 @@ from datetime import datetime, timezone, timedelta
 import psycopg
 import uvicorn
 from fastapi import Body, FastAPI, Header, HTTPException, Path as ApiPath, Query
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -204,9 +204,18 @@ def index() -> FileResponse:
 
 
 @app.get("/control-panel")
-def control_panel(x_control_panel_token: str | None = Header(default=None)) -> FileResponse:
-    get_operator_session(x_control_panel_token)
+def control_panel(
+    x_control_panel_token: str | None = Header(default=None),
+    token: str | None = Query(default=None),
+) -> FileResponse:
+    # Browser-friendly fallback: allow token via query for the HTML page load only.
+    get_operator_session(x_control_panel_token or token)
     return FileResponse(str(STATIC_DIR / "control-panel.html"))
+
+
+@app.get("/favicon.ico")
+def favicon() -> Response:
+    return Response(status_code=204)
 
 
 @app.get("/health")

@@ -45,6 +45,7 @@ Last updated: 2026-04-29
 - `DEV-00034` completed: control-panel enterprise polish baseline implemented with command palette search, persisted operator layout/density preferences, keyboard/focus accessibility hardening, and bounded render slices.
 - `DEV-00022` completed: execution adapter network resilience hardening implemented with deterministic bounded retry/backoff, failure classification, degraded-mode cooldown guard, and reconciliation-context emission.
 - `DEV-00024` completed: control-panel program epic closed with consolidated evidence across `DEV-00025..DEV-00034`.
+- Registered second-chain strengthening ticket set `DEV-00035..DEV-00043` to prioritize hardening of `structure -> feature -> signal -> risk -> execution -> portfolio -> journal`.
 
 ## Current
 
@@ -70,8 +71,8 @@ Last updated: 2026-04-29
 ## Next
 
 1. Run integrated operator UAT across all control-panel modules and capture runtime evidence snapshots.
-2. Capture live degraded-network evidence snapshots for `DEV-00022` runbook closure artifacts.
-3. Expand reconciliation/runbook evidence capture for live adapter behavior.
+2. Start `DEV-00035`/`DEV-00036` to freeze contracts and determinism gates for second-chain services.
+3. Execute `DEV-00037` as first production hardening runtime slice after contract freeze.
 
 ## Risks/Blocks
 

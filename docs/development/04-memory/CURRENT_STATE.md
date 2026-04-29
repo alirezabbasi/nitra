@@ -13,6 +13,12 @@ Last updated: 2026-04-29
 
 ### Recent
 
+- Reviewed control-panel implementation and confirmed production-structure gap:
+  - `services/charting/app.py` remains a large monolith with mixed concerns.
+  - `services/charting/static/control-panel.html` remains single-file UI architecture.
+- Opened control-panel refactor program set `DEV-00044..DEV-00051` for monolith-to-modular migration.
+- Added dedicated target LLD document for renamed `control-panel-service` structure:
+  - `docs/design/ingestion/07-devdocs/04-lld-services/control-panel-service.md`.
 - Committed baseline delivery set: `f51c5f5`.
 - Reorganized `docs/development/` into governance, roadmap, execution, delivery, and memory sections.
 - Added project-wide docs entrypoint and ruleset-level "Where are we?" requirement.
@@ -131,6 +137,9 @@ Last updated: 2026-04-29
 - Completed `DEV-00024` control-panel program epic closure:
   - consolidated delivery evidence map across `DEV-00025..DEV-00034`,
   - confirmed enterprise control-panel program scope is fully delivered and documented.
+- Registered second-chain strengthening delivery set `DEV-00035..DEV-00043`:
+  - strict execution sequence for `structure -> feature -> signal -> risk -> execution -> portfolio -> journal`,
+  - contract-first and replay-determinism gates before deeper runtime expansion.
 
 ### Current
 
@@ -151,13 +160,14 @@ Last updated: 2026-04-29
 - `DEV-00033` closed with config/change-control/governance center baseline in control panel.
 - `DEV-00034` closed with enterprise polish/performance/accessibility baseline in control panel.
 - `DEV-00024` closed with consolidated child-ticket delivery evidence.
+- `DEV-00044` refactor program has been opened to address structural production-readiness gaps left by monolithic implementation shape.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Run integrated operator UAT across control-panel modules and capture evidence checklist.
-2. Capture live degraded-network evidence for `DEV-00022` runbook closure artifacts.
-3. Expand reconciliation/runbook evidence capture for live adapter behavior.
+1. Execute `DEV-00045` architecture and migration contract freeze for control-panel-service refactor.
+2. Start `DEV-00046`/`DEV-00047` backend modularization and domain split implementation.
+3. Start `DEV-00049` frontend app architecture split and parity hardening.
 
 ### Risks/Blocks
 

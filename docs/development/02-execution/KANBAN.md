@@ -4,7 +4,24 @@ Last updated: 2026-04-29
 
 ## Backlog
 
+- [ ] `DEV-00044` control-panel service refactor program epic (monolith-to-modular production architecture).
+- [ ] `DEV-00045` control-panel target architecture and migration contract freeze.
+- [ ] `DEV-00046` control-panel backend modularization foundation and service rename.
+- [ ] `DEV-00047` control-panel domain router split and service-layer extraction.
+- [ ] `DEV-00048` control-panel charting module extraction and compatibility bridge.
+- [ ] `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
+- [ ] `DEV-00050` control-panel refactor quality gates and CI readiness.
+- [ ] `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
+- [ ] `DEV-00035` second-chain hardening program epic (`structure -> feature -> signal -> risk -> execution -> portfolio -> journal`).
+- [ ] `DEV-00036` second-chain contracts and replay determinism.
+- [ ] `DEV-00037` structure-engine production deterministic hardening.
+- [ ] `DEV-00038` feature service deterministic baseline and point-in-time integrity.
+- [ ] `DEV-00039` signal engine deterministic scorer and explainability baseline.
+- [ ] `DEV-00040` risk policy expansion and decision traceability hardening.
+- [ ] `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
+- [ ] `DEV-00042` portfolio authoritative reconciliation and state invariants.
+- [ ] `DEV-00043` journal/audit evidence fabric and incident bundle export.
 
 ## In Progress
 

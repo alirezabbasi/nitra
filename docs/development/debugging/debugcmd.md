@@ -217,6 +217,17 @@ if [[ -f "AGENTS.md" ]]; then
 else
   printf '[session-bootstrap] AGENTS.md not present at repository root (allowed by ruleset when absent).\n'
 fi
+| 2026-04-29 12:36:31 +0330 | `rg --files` | Inventory repository files and locate charting/control-panel/runtime docs before planning refactor. | Success |
+| 2026-04-29 12:36:31 +0330 | `cat docs/ruleset.md` | Load global ruleset before analysis and documentation updates. | Success |
+| 2026-04-29 12:36:31 +0330 | `cat docs/design/ingestion/ruleset.md` | Load ingestion-domain ruleset before scope planning and edits. | Success |
+| 2026-04-29 12:36:31 +0330 | `sed -n '1,260p' services/charting/app.py` | Inspect backend monolith structure and endpoint concentration. | Success |
+| 2026-04-29 12:36:31 +0330 | `sed -n '1,260p' services/charting/static/control-panel.html` | Inspect frontend single-file architecture and inline logic. | Success |
+| 2026-04-29 12:36:31 +0330 | `rg -n '^@app\\.(get|post|put|delete|patch)' services/charting/app.py` | Enumerate route surface to quantify modularization scope. | Success |
+| 2026-04-29 12:36:31 +0330 | `wc -l services/charting/app.py services/charting/static/control-panel.html services/charting/static/index.html` | Capture file-size evidence for monolith risk assessment. | Success |
+| 2026-04-29 12:36:31 +0330 | `cat > docs/development/tickets/DEV-00044..DEV-00051 ...` | Create control-panel refactor epic and implementation ticket set. | Success |
+| 2026-04-29 12:36:31 +0330 | `cat > docs/design/ingestion/07-devdocs/04-lld-services/control-panel-service.md` | Add target control-panel-service LLD architecture document. | Success |
+| 2026-04-29 12:36:31 +0330 | `apply_patch` on `docs/development/02-execution/KANBAN.md` | Add `DEV-00044..DEV-00051` tickets to backlog. | Success |
+| 2026-04-29 12:36:31 +0330 | `apply_patch` on `docs/development/04-memory/CURRENT_STATE.md` | Sync memory snapshot with newly opened control-panel refactor program. | Success |
 
 printf '[session-bootstrap] validating required status structure...\n'
 assert_heading "docs/development/04-memory/CURRENT_STATE.md" "### Completed"
@@ -817,3 +828,9 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 09:54:06 +0330 | `apply_patch` on `docs/development/04-memory/CURRENT_STATE.md` | Add DEV-00024 closure record and update next actions. | Success |
 | 2026-04-29 09:54:06 +0330 | `make enforce-section-5-1` | Re-run architecture policy checks after docs updates. | Success |
 | 2026-04-29 09:54:06 +0330 | `make session-bootstrap` | Re-validate required memory/status context integrity. | Success |
+| 2026-04-29 10:03:21 +0330 | `cat > docs/development/tickets/DEV-00035...DEV-00043` | Register new second-chain hardening ticket set. | Success |
+| 2026-04-29 10:03:21 +0330 | `apply_patch` on `docs/development/02-execution/KANBAN.md` | Add DEV-00035..DEV-00043 to backlog queue. | Success |
+| 2026-04-29 10:03:21 +0330 | `apply_patch` on `docs/development/02-execution/ACTIVE_FOCUS.md` | Update immediate next slices to second-chain strict plan. | Success |
+| 2026-04-29 10:03:21 +0330 | `apply_patch` on `docs/development/04-memory/WHERE_ARE_WE.md` | Add registration outcome and new next actions. | Success |
+| 2026-04-29 10:03:21 +0330 | `apply_patch` on `docs/development/04-memory/CURRENT_STATE.md` | Add second-chain ticket-registration state and next actions. | Success |
+| 2026-04-29 10:03:21 +0330 | `make session-bootstrap` | Validate required context artifacts after planning updates. | Success |
