@@ -123,6 +123,11 @@ Last updated: 2026-04-29
   - added persisted operator preferences (last section + compact/comfortable density),
   - added keyboard/focus accessibility hardening (`skip-link`, `focus-visible`, modal semantics),
   - added bounded render slice helper to reduce heavy-table paint cost.
+- Completed `DEV-00022` execution adapter network resilience hardening:
+  - implemented deterministic bounded retry/backoff policy for submit/amend/cancel broker calls,
+  - added explicit failure classification (`dns_resolution`, timeout/connect, `upstream_5xx`, etc.) in journal/audit metadata,
+  - emitted reconciliation issues with network-failure context for terminal adapter failures,
+  - added degraded-mode cooldown safeguard to reduce uncontrolled retry bursts.
 
 ### Current
 
@@ -132,7 +137,7 @@ Last updated: 2026-04-29
 - `DEV-00019` closed with deterministic risk runtime baseline in production compose path.
 - `DEV-00020` closed with deterministic execution runtime baseline and persisted audit/journal contract.
 - `DEV-00021` closed with broker adapter baseline and ack/fill ingest path.
-- `DEV-00022` opened and moved to active execution track for adapter-network resilience (DNS/connectivity/runtime robustness).
+- `DEV-00022` closed with deterministic network-resilience behavior and triage-ready failure context.
 - `DEV-00023` closed with deterministic portfolio-state baseline and richer portfolio-aware risk controls.
 - `DEV-00027` closed with ingestion/data-quality operations center baseline in control panel.
 - `DEV-00028` closed with strategy/risk/portfolio control center baseline in control panel.
@@ -146,9 +151,9 @@ Last updated: 2026-04-29
 
 ### Next
 
-1. Deliver `DEV-00022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
+1. Close `DEV-00024` epic bookkeeping with consolidated evidence map.
 2. Run integrated operator UAT across control-panel modules and capture evidence checklist.
-3. Continue `DEV-00022` resilience hardening in parallel and attach live degraded-network evidence.
+3. Capture live degraded-network evidence for `DEV-00022` runbook closure artifacts.
 
 ### Risks/Blocks
 

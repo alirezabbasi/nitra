@@ -411,6 +411,10 @@ Enforcement command:
 - execution audit trail persisted in `audit_event_log`
 - broker adapter baseline implemented for submit/amend/cancel and ack/fill ingest (`exec.order_command.v1`, `broker.execution.ack.v1`)
 - command decisions persisted in `execution_command_log`
+- network resilience hardening implemented (DEV-00022):
+  - deterministic bounded retry/backoff for transient broker adapter failures,
+  - explicit failure-class tagging (`dns_resolution`, timeout, connect, `upstream_5xx`, etc.),
+  - terminal adapter failures emit reconciliation issues with actionable context for operator triage.
 
 ---
 

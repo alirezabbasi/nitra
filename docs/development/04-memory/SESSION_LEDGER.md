@@ -917,3 +917,29 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - execute integrated operator UAT across all control-panel modules and continue `DEV-00022` resilience hardening evidence capture.
+
+---
+
+## 2026-04-29 — Session Entry 026
+
+- Objective:
+  - complete `DEV-00022` execution adapter network resilience hardening.
+- Work completed:
+  - implemented deterministic bounded retry/backoff policy in `services/execution-gateway/src/main.rs` for submit/amend/cancel adapter calls.
+  - added explicit terminal failure classes (`dns_resolution`, `connect_timeout`, `io_timeout`, `connect_error`, `upstream_5xx`, `upstream_4xx`, `request_error`).
+  - persisted failure-class context into execution metadata/audit payloads and reconciliation issue events (`adapter_terminal_failure`, `adapter_command_failure`).
+  - added degraded-mode cooldown safeguard (`EXEC_BROKER_DEGRADED_COOLDOWN_MS`) to reduce retry storm pressure.
+  - updated compose/runtime env contracts and LLD/service catalog docs.
+  - added operator runbook: `docs/design/ingestion/03-reliability-risk-ops/execution-adapter-network-degraded-runbook.md`.
+  - added verification pack `tests/dev-0022/run.sh` and Make target `test-dev-0022`.
+  - synchronized ticket/kanban/current-state/where-are-we/active-focus docs to close `DEV-00022`.
+- Verification:
+  - `cargo fmt --manifest-path services/execution-gateway/Cargo.toml`
+  - `CARGO_TARGET_DIR=/tmp/nitra-execution-gateway-target cargo check --offline --manifest-path services/execution-gateway/Cargo.toml`
+  - `CARGO_TARGET_DIR=/tmp/nitra-execution-gateway-target cargo test --offline --manifest-path services/execution-gateway/Cargo.toml`
+  - `tests/dev-0022/run.sh`
+  - `make test-dev-0022`
+  - `make enforce-section-5-1`
+  - `make session-bootstrap`
+- Next recommended action:
+  - close `DEV-00024` program-epic bookkeeping and capture integrated UAT/runtime evidence set.

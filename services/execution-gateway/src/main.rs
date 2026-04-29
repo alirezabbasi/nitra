@@ -6,9 +6,11 @@ use rdkafka::producer::{FutureProducer, FutureRecord};
 use rdkafka::ClientConfig;
 use rdkafka::Message;
 use reqwest::Client as HttpClient;
+use reqwest::StatusCode;
 use serde_json::{json, Value};
 use std::env;
 use std::time::Duration;
+use tokio::time::sleep;
 use tokio_postgres::{Client, NoTls};
 use uuid::Uuid;
 
@@ -46,6 +48,9 @@ struct AdapterResponse {
     status: String,
     broker_order_id: Option<String>,
     reason: Option<String>,
+    failure_class: Option<String>,
+    attempts: u32,
+    terminal: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -56,6 +61,10 @@ struct ExecConfig {
     broker_amend_url: String,
     broker_cancel_url: String,
     broker_timeout_secs: u64,
+    broker_retry_max_attempts: u32,
+    broker_retry_backoff_ms: u64,
+    broker_retry_backoff_cap_ms: u64,
+    broker_degraded_cooldown_ms: u64,
 }
 
 fn env_or(name: &str, default: &str) -> String {
@@ -219,6 +228,45 @@ fn parse_broker_ack(payload: &Value) -> Option<BrokerAck> {
         event_ts: parse_ts(payload.get("event_ts").and_then(|v| v.as_str()))
             .unwrap_or_else(Utc::now),
     })
+}
+
+fn classify_reqwest_error(err: &reqwest::Error) -> (String, bool) {
+    let msg = err.to_string().to_ascii_lowercase();
+    if err.is_connect() {
+        if msg.contains("dns")
+            || msg.contains("failed to lookup")
+            || msg.contains("name resolution")
+            || msg.contains("name or service not known")
+            || msg.contains("temporary failure in name resolution")
+        {
+            return ("dns_resolution".to_string(), true);
+        }
+        if err.is_timeout() {
+            return ("connect_timeout".to_string(), true);
+        }
+        return ("connect_error".to_string(), true);
+    }
+    if err.is_timeout() {
+        return ("io_timeout".to_string(), true);
+    }
+    ("request_error".to_string(), false)
+}
+
+fn classify_http_status(status: StatusCode) -> (String, bool) {
+    if status.is_server_error() {
+        return ("upstream_5xx".to_string(), true);
+    }
+    if status.is_client_error() {
+        return ("upstream_4xx".to_string(), false);
+    }
+    ("upstream_status_other".to_string(), false)
+}
+
+fn attempt_backoff_ms(cfg: &ExecConfig, attempt: u32) -> u64 {
+    let base = cfg.broker_retry_backoff_ms.max(1);
+    let capped_shift = attempt.saturating_sub(1).min(12);
+    let mult = 1u64 << capped_shift;
+    (base.saturating_mul(mult)).min(cfg.broker_retry_backoff_cap_ms.max(base))
 }
 
 fn build_envelope(payload: Value) -> Value {
@@ -549,6 +597,9 @@ async fn adapter_submit(
             status: "submitted".to_string(),
             broker_order_id: Some(format!("dry-{}", order_id)),
             reason: None,
+            failure_class: None,
+            attempts: 1,
+            terminal: false,
         };
     }
 
@@ -561,35 +612,76 @@ async fn adapter_submit(
         "timeframe": intent.timeframe,
     });
 
-    match http.post(&cfg.broker_submit_url).json(&req).send().await {
-        Ok(resp) if resp.status().is_success() => {
-            let parsed = resp.json::<Value>().await.unwrap_or_else(|_| json!({}));
-            AdapterResponse {
-                status: parsed
-                    .get("status")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("submitted")
-                    .to_ascii_lowercase(),
-                broker_order_id: parsed
-                    .get("broker_order_id")
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.to_string()),
-                reason: parsed
-                    .get("reason")
-                    .and_then(|v| v.as_str())
-                    .map(|v| v.to_string()),
+    let max_attempts = cfg.broker_retry_max_attempts.max(1);
+    for attempt in 1..=max_attempts {
+        match http.post(&cfg.broker_submit_url).json(&req).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                let parsed = resp.json::<Value>().await.unwrap_or_else(|_| json!({}));
+                return AdapterResponse {
+                    status: parsed
+                        .get("status")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("submitted")
+                        .to_ascii_lowercase(),
+                    broker_order_id: parsed
+                        .get("broker_order_id")
+                        .and_then(|v| v.as_str())
+                        .map(|v| v.to_string()),
+                    reason: parsed
+                        .get("reason")
+                        .and_then(|v| v.as_str())
+                        .map(|v| v.to_string()),
+                    failure_class: None,
+                    attempts: attempt,
+                    terminal: false,
+                };
+            }
+            Ok(resp) => {
+                let status = resp.status();
+                let (failure_class, retryable) = classify_http_status(status);
+                if retryable && attempt < max_attempts {
+                    sleep(Duration::from_millis(attempt_backoff_ms(cfg, attempt))).await;
+                    continue;
+                }
+                if attempt >= max_attempts && cfg.broker_degraded_cooldown_ms > 0 {
+                    sleep(Duration::from_millis(cfg.broker_degraded_cooldown_ms)).await;
+                }
+                return AdapterResponse {
+                    status: "rejected".to_string(),
+                    broker_order_id: None,
+                    reason: Some(format!("submit_http_status_{}", status)),
+                    failure_class: Some(failure_class),
+                    attempts: attempt,
+                    terminal: true,
+                };
+            }
+            Err(e) => {
+                let (failure_class, retryable) = classify_reqwest_error(&e);
+                if retryable && attempt < max_attempts {
+                    sleep(Duration::from_millis(attempt_backoff_ms(cfg, attempt))).await;
+                    continue;
+                }
+                if attempt >= max_attempts && cfg.broker_degraded_cooldown_ms > 0 {
+                    sleep(Duration::from_millis(cfg.broker_degraded_cooldown_ms)).await;
+                }
+                return AdapterResponse {
+                    status: "rejected".to_string(),
+                    broker_order_id: None,
+                    reason: Some(format!("submit_error: {}", e)),
+                    failure_class: Some(failure_class),
+                    attempts: attempt,
+                    terminal: true,
+                };
             }
         }
-        Ok(resp) => AdapterResponse {
-            status: "rejected".to_string(),
-            broker_order_id: None,
-            reason: Some(format!("submit_http_status_{}", resp.status())),
-        },
-        Err(e) => AdapterResponse {
-            status: "rejected".to_string(),
-            broker_order_id: None,
-            reason: Some(format!("submit_error: {}", e)),
-        },
+    }
+    AdapterResponse {
+        status: "rejected".to_string(),
+        broker_order_id: None,
+        reason: Some("submit_unknown_terminal".to_string()),
+        failure_class: Some("unknown".to_string()),
+        attempts: max_attempts,
+        terminal: true,
     }
 }
 
@@ -603,6 +695,9 @@ async fn adapter_amend(
             status: "amend_requested".to_string(),
             broker_order_id: None,
             reason: None,
+            failure_class: None,
+            attempts: 1,
+            terminal: false,
         };
     }
 
@@ -611,22 +706,65 @@ async fn adapter_amend(
         "new_notional": command.new_notional,
     });
 
-    match http.post(&cfg.broker_amend_url).json(&req).send().await {
-        Ok(resp) if resp.status().is_success() => AdapterResponse {
-            status: "amend_requested".to_string(),
-            broker_order_id: None,
-            reason: None,
-        },
-        Ok(resp) => AdapterResponse {
-            status: "amend_rejected".to_string(),
-            broker_order_id: None,
-            reason: Some(format!("amend_http_status_{}", resp.status())),
-        },
-        Err(e) => AdapterResponse {
-            status: "amend_rejected".to_string(),
-            broker_order_id: None,
-            reason: Some(format!("amend_error: {}", e)),
-        },
+    let max_attempts = cfg.broker_retry_max_attempts.max(1);
+    for attempt in 1..=max_attempts {
+        match http.post(&cfg.broker_amend_url).json(&req).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                return AdapterResponse {
+                    status: "amend_requested".to_string(),
+                    broker_order_id: None,
+                    reason: None,
+                    failure_class: None,
+                    attempts: attempt,
+                    terminal: false,
+                }
+            }
+            Ok(resp) => {
+                let status = resp.status();
+                let (failure_class, retryable) = classify_http_status(status);
+                if retryable && attempt < max_attempts {
+                    sleep(Duration::from_millis(attempt_backoff_ms(cfg, attempt))).await;
+                    continue;
+                }
+                if attempt >= max_attempts && cfg.broker_degraded_cooldown_ms > 0 {
+                    sleep(Duration::from_millis(cfg.broker_degraded_cooldown_ms)).await;
+                }
+                return AdapterResponse {
+                    status: "amend_rejected".to_string(),
+                    broker_order_id: None,
+                    reason: Some(format!("amend_http_status_{}", status)),
+                    failure_class: Some(failure_class),
+                    attempts: attempt,
+                    terminal: true,
+                };
+            }
+            Err(e) => {
+                let (failure_class, retryable) = classify_reqwest_error(&e);
+                if retryable && attempt < max_attempts {
+                    sleep(Duration::from_millis(attempt_backoff_ms(cfg, attempt))).await;
+                    continue;
+                }
+                if attempt >= max_attempts && cfg.broker_degraded_cooldown_ms > 0 {
+                    sleep(Duration::from_millis(cfg.broker_degraded_cooldown_ms)).await;
+                }
+                return AdapterResponse {
+                    status: "amend_rejected".to_string(),
+                    broker_order_id: None,
+                    reason: Some(format!("amend_error: {}", e)),
+                    failure_class: Some(failure_class),
+                    attempts: attempt,
+                    terminal: true,
+                };
+            }
+        }
+    }
+    AdapterResponse {
+        status: "amend_rejected".to_string(),
+        broker_order_id: None,
+        reason: Some("amend_unknown_terminal".to_string()),
+        failure_class: Some("unknown".to_string()),
+        attempts: max_attempts,
+        terminal: true,
     }
 }
 
@@ -640,6 +778,9 @@ async fn adapter_cancel(
             status: "cancel_requested".to_string(),
             broker_order_id: None,
             reason: None,
+            failure_class: None,
+            attempts: 1,
+            terminal: false,
         };
     }
 
@@ -647,22 +788,65 @@ async fn adapter_cancel(
         "order_id": command.order_id.to_string(),
     });
 
-    match http.post(&cfg.broker_cancel_url).json(&req).send().await {
-        Ok(resp) if resp.status().is_success() => AdapterResponse {
-            status: "cancel_requested".to_string(),
-            broker_order_id: None,
-            reason: None,
-        },
-        Ok(resp) => AdapterResponse {
-            status: "cancel_rejected".to_string(),
-            broker_order_id: None,
-            reason: Some(format!("cancel_http_status_{}", resp.status())),
-        },
-        Err(e) => AdapterResponse {
-            status: "cancel_rejected".to_string(),
-            broker_order_id: None,
-            reason: Some(format!("cancel_error: {}", e)),
-        },
+    let max_attempts = cfg.broker_retry_max_attempts.max(1);
+    for attempt in 1..=max_attempts {
+        match http.post(&cfg.broker_cancel_url).json(&req).send().await {
+            Ok(resp) if resp.status().is_success() => {
+                return AdapterResponse {
+                    status: "cancel_requested".to_string(),
+                    broker_order_id: None,
+                    reason: None,
+                    failure_class: None,
+                    attempts: attempt,
+                    terminal: false,
+                }
+            }
+            Ok(resp) => {
+                let status = resp.status();
+                let (failure_class, retryable) = classify_http_status(status);
+                if retryable && attempt < max_attempts {
+                    sleep(Duration::from_millis(attempt_backoff_ms(cfg, attempt))).await;
+                    continue;
+                }
+                if attempt >= max_attempts && cfg.broker_degraded_cooldown_ms > 0 {
+                    sleep(Duration::from_millis(cfg.broker_degraded_cooldown_ms)).await;
+                }
+                return AdapterResponse {
+                    status: "cancel_rejected".to_string(),
+                    broker_order_id: None,
+                    reason: Some(format!("cancel_http_status_{}", status)),
+                    failure_class: Some(failure_class),
+                    attempts: attempt,
+                    terminal: true,
+                };
+            }
+            Err(e) => {
+                let (failure_class, retryable) = classify_reqwest_error(&e);
+                if retryable && attempt < max_attempts {
+                    sleep(Duration::from_millis(attempt_backoff_ms(cfg, attempt))).await;
+                    continue;
+                }
+                if attempt >= max_attempts && cfg.broker_degraded_cooldown_ms > 0 {
+                    sleep(Duration::from_millis(cfg.broker_degraded_cooldown_ms)).await;
+                }
+                return AdapterResponse {
+                    status: "cancel_rejected".to_string(),
+                    broker_order_id: None,
+                    reason: Some(format!("cancel_error: {}", e)),
+                    failure_class: Some(failure_class),
+                    attempts: attempt,
+                    terminal: true,
+                };
+            }
+        }
+    }
+    AdapterResponse {
+        status: "cancel_rejected".to_string(),
+        broker_order_id: None,
+        reason: Some("cancel_unknown_terminal".to_string()),
+        failure_class: Some("unknown".to_string()),
+        attempts: max_attempts,
+        terminal: true,
     }
 }
 
@@ -746,6 +930,9 @@ async fn handle_intent(
         json!({
             "adapter_status": submit_status,
             "adapter_reason": submit_response.reason,
+            "adapter_failure_class": submit_response.failure_class,
+            "adapter_attempts": submit_response.attempts,
+            "adapter_terminal": submit_response.terminal,
             "dry_run": cfg.dry_run,
             "ttl_secs": cfg.default_order_ttl_secs,
         }),
@@ -765,6 +952,8 @@ async fn handle_intent(
             "status": if is_submitted { "submitted" } else { "rejected_by_broker" },
             "broker_order_id": submit_response.broker_order_id,
             "reason": submit_response.reason,
+            "failure_class": submit_response.failure_class,
+            "attempts": submit_response.attempts,
             "event_ts": now.to_rfc3339(),
         }),
     )
@@ -787,9 +976,32 @@ async fn handle_intent(
             "notional": intent.notional,
             "broker_order_id": submit_response.broker_order_id,
             "reason": submit_response.reason,
+            "failure_class": submit_response.failure_class,
+            "attempts": submit_response.attempts,
         }),
     )
     .await?;
+
+    if !is_submitted {
+        if let Some(failure_class) = submit_response.failure_class.clone() {
+            publish_event(
+                producer,
+                reconciliation_topic,
+                &event_key,
+                json!({
+                    "order_id": order_id.to_string(),
+                    "venue": intent.venue,
+                    "canonical_symbol": intent.canonical_symbol,
+                    "issue": "adapter_terminal_failure",
+                    "failure_class": failure_class,
+                    "reason": submit_response.reason,
+                    "attempts": submit_response.attempts,
+                    "event_ts": now.to_rfc3339(),
+                }),
+            )
+            .await?;
+        }
+    }
 
     if cfg.dry_run && is_submitted {
         let fill_ts = now + chrono::Duration::seconds(1);
@@ -861,6 +1073,7 @@ async fn handle_order_command(
     cfg: &ExecConfig,
     service_name: &str,
     order_updated_topic: &str,
+    reconciliation_topic: &str,
     command: ExecOrderCommand,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let Some(intent) = load_order_intent(conn, command.order_id).await? else {
@@ -884,6 +1097,8 @@ async fn handle_order_command(
             "action": command.action,
             "new_notional": command.new_notional,
             "status": response.status,
+            "failure_class": response.failure_class,
+            "attempts": response.attempts,
         }),
     )
     .await?;
@@ -928,6 +1143,8 @@ async fn handle_order_command(
             "action": command.action,
             "event_ts": command.event_ts.to_rfc3339(),
             "reason": response.reason,
+            "failure_class": response.failure_class,
+            "attempts": response.attempts,
         }),
     )
     .await?;
@@ -945,9 +1162,33 @@ async fn handle_order_command(
             "accepted": accepted,
             "reason": response.reason,
             "new_notional": command.new_notional,
+            "failure_class": response.failure_class,
+            "attempts": response.attempts,
         }),
     )
     .await?;
+
+    if !accepted {
+        if let Some(failure_class) = response.failure_class.clone() {
+            publish_event(
+                producer,
+                reconciliation_topic,
+                &event_key,
+                json!({
+                    "order_id": command.order_id.to_string(),
+                    "venue": intent.venue,
+                    "canonical_symbol": intent.canonical_symbol,
+                    "issue": "adapter_command_failure",
+                    "action": command.action,
+                    "failure_class": failure_class,
+                    "reason": response.reason,
+                    "attempts": response.attempts,
+                    "event_ts": command.event_ts.to_rfc3339(),
+                }),
+            )
+            .await?;
+        }
+    }
 
     Ok(())
 }
@@ -1092,6 +1333,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "http://localhost:18080/orders/cancel",
         ),
         broker_timeout_secs: env_u64_or("EXEC_BROKER_TIMEOUT_SECS", 5),
+        broker_retry_max_attempts: env_u64_or("EXEC_BROKER_RETRY_MAX_ATTEMPTS", 3) as u32,
+        broker_retry_backoff_ms: env_u64_or("EXEC_BROKER_RETRY_BACKOFF_MS", 200),
+        broker_retry_backoff_cap_ms: env_u64_or("EXEC_BROKER_RETRY_BACKOFF_CAP_MS", 2000),
+        broker_degraded_cooldown_ms: env_u64_or("EXEC_BROKER_DEGRADED_COOLDOWN_MS", 250),
     };
 
     let http = HttpClient::builder()
@@ -1177,6 +1422,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &exec_cfg,
                     service_name,
                     &order_updated_topic,
+                    &reconciliation_topic,
                     command,
                 )
                 .await
@@ -1274,5 +1520,35 @@ mod tests {
         }))
         .expect("ack");
         assert_eq!(ack.status, "filled");
+    }
+
+    #[test]
+    fn classify_http_status_retryability() {
+        let (c1, r1) = classify_http_status(StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(c1, "upstream_5xx");
+        assert!(r1);
+        let (c2, r2) = classify_http_status(StatusCode::BAD_REQUEST);
+        assert_eq!(c2, "upstream_4xx");
+        assert!(!r2);
+    }
+
+    #[test]
+    fn backoff_is_bounded() {
+        let cfg = ExecConfig {
+            default_order_ttl_secs: 30,
+            dry_run: false,
+            broker_submit_url: "http://x".to_string(),
+            broker_amend_url: "http://x".to_string(),
+            broker_cancel_url: "http://x".to_string(),
+            broker_timeout_secs: 5,
+            broker_retry_max_attempts: 5,
+            broker_retry_backoff_ms: 100,
+            broker_retry_backoff_cap_ms: 250,
+            broker_degraded_cooldown_ms: 10,
+        };
+        assert_eq!(attempt_backoff_ms(&cfg, 1), 100);
+        assert_eq!(attempt_backoff_ms(&cfg, 2), 200);
+        assert_eq!(attempt_backoff_ms(&cfg, 3), 250);
+        assert_eq!(attempt_backoff_ms(&cfg, 5), 250);
     }
 }

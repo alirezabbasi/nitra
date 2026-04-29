@@ -9,7 +9,7 @@ Last updated: 2026-04-29
 
 ## In Progress
 
-- [ ] `DEV-00022` execution adapter network resilience (DNS/connectivity/runtime robustness).
+- [ ] (No active items)
 
 ## Done
 
@@ -48,6 +48,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00032` control panel research/backtesting/model-ops center (dataset lineage registry, backtest launcher/history, model promotion gate with audit trail).
 - [x] `DEV-00033` control panel config registry/change-control/governance center (typed registry, proposal/approve/apply/rollback flow, immutable history + audit trail).
 - [x] `DEV-00034` control panel enterprise polish/performance/accessibility (command palette, persisted layout/density, focus/keyboard semantics, bounded render slices).
+- [x] `DEV-00022` execution adapter network resilience (deterministic retry/backoff, failure-classified terminal outcomes, degraded-mode safeguards, reconciliation context).
 
 ## Blocked
 

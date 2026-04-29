@@ -800,3 +800,13 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 08:43:43 +0330 | `make test-dev-00034` | Run DEV-00034 verification target. | Success |
 | 2026-04-29 08:43:43 +0330 | `make enforce-section-5-1` | Re-run policy hard-gate checks after enterprise polish changes. | Success |
 | 2026-04-29 08:43:43 +0330 | `make session-bootstrap` | Re-validate mandatory session context integrity after memory updates. | Success |
+| 2026-04-29 09:39:17 +0330 | `sed -n '1,260p' docs/development/tickets/DEV-00022-execution-adapter-network-resilience.md` | Load DEV-00022 scope and verification requirements. | Success |
+| 2026-04-29 09:39:17 +0330 | `apply_patch` on `services/execution-gateway/src/main.rs` | Implement deterministic retry/backoff, failure classification, and reconciliation context emissions. | Success |
+| 2026-04-29 09:39:17 +0330 | `cargo fmt --manifest-path services/execution-gateway/Cargo.toml` | Format execution-gateway after resilience logic changes. | Success |
+| 2026-04-29 09:39:17 +0330 | `CARGO_TARGET_DIR=/tmp/nitra-execution-gateway-target cargo check --offline --manifest-path services/execution-gateway/Cargo.toml` | Validate compile of DEV-00022 implementation. | Success |
+| 2026-04-29 09:39:17 +0330 | `CARGO_TARGET_DIR=/tmp/nitra-execution-gateway-target cargo test --offline --manifest-path services/execution-gateway/Cargo.toml` | Validate unit tests for execution-gateway resilience changes. | Success |
+| 2026-04-29 09:39:17 +0330 | `cat > tests/dev-0022/run.sh ...` | Create DEV-0022 test script. | Failed (`tests/dev-0022` directory missing) |
+| 2026-04-29 09:39:17 +0330 | `mkdir -p tests/dev-0022 && cat > tests/dev-0022/run.sh ... && chmod +x tests/dev-0022/run.sh` | Create DEV-0022 test pack with executable script. | Success |
+| 2026-04-29 09:39:17 +0330 | `make test-dev-0022` | Run canonical DEV-0022 verification target. | Success |
+| 2026-04-29 09:39:17 +0330 | `make enforce-section-5-1` | Re-run policy hard gates after DEV-00022 changes. | Success |
+| 2026-04-29 09:39:17 +0330 | `make session-bootstrap` | Re-check memory and context consistency after ticket closure updates. | Success |

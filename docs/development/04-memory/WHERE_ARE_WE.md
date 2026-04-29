@@ -43,6 +43,7 @@ Last updated: 2026-04-29
 - `DEV-00032` completed: control-panel research/backtesting/model-ops baseline implemented with dataset lineage registry, backtest launcher/history, and model promotion gate controls.
 - `DEV-00033` completed: control-panel config/governance baseline implemented with typed registry, controlled proposal/approve/apply/rollback flows, and immutable change history.
 - `DEV-00034` completed: control-panel enterprise polish baseline implemented with command palette search, persisted operator layout/density preferences, keyboard/focus accessibility hardening, and bounded render slices.
+- `DEV-00022` completed: execution adapter network resilience hardening implemented with deterministic bounded retry/backoff, failure classification, degraded-mode cooldown guard, and reconciliation-context emission.
 
 ## Current
 
@@ -53,7 +54,7 @@ Last updated: 2026-04-29
 - `DEV-00019` is closed with deterministic runtime baseline, compose wiring, topic/schema contracts, and test pack (`dev-0019`).
 - `DEV-00020` is closed with deterministic runtime baseline, execution topics, and audit/journal persistence contract in runtime + schema.
 - `DEV-00021` is closed with broker adapter baseline, command/ack topics, and extended execution journal/command persistence contract.
-- `DEV-00022` is now open and in progress for execution adapter network resilience (DNS/connectivity/runtime robustness).
+- `DEV-00022` is closed with deterministic network-resilience policy and operator triage context in runtime/audit events.
 - `DEV-00023` is closed with deterministic portfolio-state baseline and richer risk constraints.
 - `DEV-00027` is closed with ingestion/data-quality operations center baseline in control panel.
 - `DEV-00028` is closed with strategy/risk/portfolio control center baseline in control panel.
@@ -66,9 +67,9 @@ Last updated: 2026-04-29
 
 ## Next
 
-1. Deliver `DEV-00022` implementation for timeout/name-resolution handling and bounded retry/backoff tuning.
+1. Close `DEV-00024` epic bookkeeping with final evidence map across `DEV-00025..DEV-00034`.
 2. Run integrated operator UAT across all control-panel modules and capture runtime evidence snapshots.
-3. Continue `DEV-00022` resilience hardening and attach degraded-network runtime proofs.
+3. Capture live degraded-network evidence snapshots for `DEV-00022` runbook closure artifacts.
 
 ## Risks/Blocks
 
