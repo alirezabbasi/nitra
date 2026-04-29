@@ -217,13 +217,14 @@ Last updated: 2026-04-29
 - `DEV-00042` is closed with authoritative reconciliation invariants and drift evidence emission.
 - `DEV-00043` is closed with taxonomy-versioned audit payloads and incident bundle export contract.
 - `DEV-00044` is in progress as the control-panel refactor program epic with executable baseline gate (`dev-0044`).
+- `DEV-00045` is closed with architecture/migration contract freeze artifacts (`control-panel-service` LLD expansion + migration map + compatibility matrix).
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Complete `DEV-00044` program-epic baseline verification and tracking updates.
-2. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
-3. Execute `DEV-00046` control-panel backend modularization foundation and service rename.
+1. Execute `DEV-00046` control-panel backend modularization foundation and service rename.
+2. Execute `DEV-00047` control-panel domain router split and service-layer extraction.
+3. Execute `DEV-00048` control-panel charting module extraction and compatibility bridge.
 
 ### Risks/Blocks
 

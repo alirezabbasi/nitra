@@ -13,6 +13,6 @@ Execute control-panel refactor program (`DEV-00044..DEV-00051`) with contract-fi
 
 ## Immediate next slices
 
-1. Complete `DEV-00044` program-epic baseline verification and tracking.
-2. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
-3. Execute `DEV-00046` control-panel backend modularization foundation and service rename.
+1. Execute `DEV-00046` control-panel backend modularization foundation and service rename.
+2. Execute `DEV-00047` control-panel domain router split and service-layer extraction.
+3. Execute `DEV-00048` control-panel charting module extraction and compatibility bridge.

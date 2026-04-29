@@ -86,12 +86,13 @@ Last updated: 2026-04-29
 - `DEV-00042` is closed with authoritative portfolio reconciliation checks and drift alert emission.
 - `DEV-00043` is closed with end-to-end journal evidence fabric and incident bundle export baseline.
 - `DEV-00044` is in progress with program decomposition baseline and executable ticket-readiness gate.
+- `DEV-00045` is closed with target architecture freeze and migration compatibility contract artifacts.
 
 ## Next
 
-1. Complete `DEV-00044` program-epic baseline verification and tracking updates.
-2. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
-3. Execute `DEV-00046` control-panel backend modularization foundation and service rename.
+1. Execute `DEV-00046` control-panel backend modularization foundation and service rename.
+2. Execute `DEV-00047` control-panel domain router split and service-layer extraction.
+3. Execute `DEV-00048` control-panel charting module extraction and compatibility bridge.
 
 ## Risks/Blocks
 

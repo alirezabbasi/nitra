@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-29)
+Done (2026-04-29)
 
 ## Summary
 
@@ -31,3 +31,11 @@ Define the target production architecture for `control-panel-service` and freeze
 
 - Documentation review checklist complete.
 - Contract matrix referenced by implementation tickets.
+
+## Delivery Notes
+
+- Expanded `control-panel-service` LLD with frozen backend/frontend ownership boundaries.
+- Added explicit compatibility header contract, route/UI guarantees, and rollout/rollback policy.
+- Published migration map and API compatibility matrix:
+  - `docs/design/ingestion/07-devdocs/04-lld-services/control-panel-service-migration-map.md`
+- Added executable verification pack `tests/dev-0045/run.sh` and `make test-dev-0045`.

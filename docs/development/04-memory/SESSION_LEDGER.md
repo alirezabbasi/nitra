@@ -1165,3 +1165,21 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - execute `DEV-00045` architecture and migration contract freeze deliverables.
+
+## 2026-04-29 — Session Entry 014
+
+- Objective:
+  - execute `DEV-00045` control-panel target architecture and migration contract freeze.
+- Work completed:
+  - expanded `control-panel-service` LLD with frozen backend/frontend ownership boundaries.
+  - defined compatibility header contract and route/UI compatibility guarantees.
+  - added frozen rollout sequence and rollback contract.
+  - published migration map and API compatibility matrix (`control-panel-service-migration-map.md`).
+  - added executable verification pack (`tests/dev-0045/run.sh`) and make target (`test-dev-0045`).
+  - synchronized ticket/kanban/active-focus/memory/debug tracking artifacts.
+- Verification:
+  - `tests/dev-0045/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute `DEV-00046` backend modularization foundation and service rename.

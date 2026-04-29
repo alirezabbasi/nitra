@@ -4,7 +4,6 @@ Last updated: 2026-04-29
 
 ## Backlog
 
-- [ ] `DEV-00045` control-panel target architecture and migration contract freeze.
 - [ ] `DEV-00046` control-panel backend modularization foundation and service rename.
 - [ ] `DEV-00047` control-panel domain router split and service-layer extraction.
 - [ ] `DEV-00048` control-panel charting module extraction and compatibility bridge.
@@ -65,6 +64,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00040` risk policy expansion and decision traceability hardening (canonical policy IDs, evaluation traces, stress suite, `dev-0040` pack).
 - [x] `DEV-00041` execution lifecycle controls and reconciliation SLA hardening (lifecycle guards, stale/duplicate command controls, SLA context, `dev-0041` pack).
 - [x] `DEV-00042` portfolio authoritative reconciliation and state invariants (reconciliation invariants, drift taxonomy, persistence evidence, `dev-0042` pack).
+- [x] `DEV-00045` control-panel target architecture and migration contract freeze (LLD architecture freeze, migration map, compatibility matrix, `dev-0045` pack).
 
 ## Blocked
 
