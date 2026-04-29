@@ -33,14 +33,25 @@ The LLM layer is an analyst and critic, not the execution authority.
    - Every model and LLM-facing interface must use explicit signatures/contracts.
    - MLflow model signatures define expected input/output schemas and help validate deployment requests. citeturn118289search2turn118289search10
 
-6. **Composable serving**
+6. **Interpretation governance by design**
+   - LLM interpretation domains must be constrained by a mandatory seven-artifact contract set:
+     - framework ontology,
+     - rulebook with precedence and edge cases,
+     - structured scenario dataset,
+     - output JSON schema,
+     - RAG document taxonomy,
+     - evaluation benchmark,
+     - prompt contract for inference.
+   - Promotion to production requires these artifacts to exist, be versioned, and pass benchmark gates.
+
+7. **Composable serving**
    - Inference pipelines should be deployable as composed applications with independently scalable parts.
    - Ray Serve supports online inference APIs, model composition, and separate scaling of deployments. citeturn118289search3turn118289search11turn118289search14
 
-7. **Full observability**
+8. **Full observability**
    - OpenTelemetry provides vendor-neutral telemetry collection for traces, metrics, and logs. citeturn914213search1turn914213search7turn914213search10
 
-8. **Cloud-native operations**
+9. **Cloud-native operations**
    - Kubernetes is used for deployment, scaling, and management of containerized workloads, with Deployments for stateless apps and StatefulSets where needed. citeturn914213search8turn914213search23turn914213search11
 
 ---
@@ -57,6 +68,7 @@ The LLM layer is an analyst and critic, not the execution authority.
 - Portfolio and risk management
 - Broker/exchange execution gateway
 - LLM/RAG analyst layer
+- LLM interpretation-governance artifact set (ontology, rulebook, scenarios, schema, taxonomy, benchmark, prompt contract)
 - Observability, audit, and governance
 - Paper trading, shadow mode, and limited live rollout
 
@@ -192,6 +204,7 @@ This policy is mandatory for production runtime architecture and is governed by 
 - external APIs: OpenAPI
 - event streams: AsyncAPI + versioned schemas
 - AI I/O: Pydantic/JSON Schema validation at runtime
+- interpretation governance: versioned ontology + rulebook + scenarios + taxonomy + benchmark + prompt contract
 
 **Platform standards**
 - streaming backbone: Kafka/Redpanda
@@ -716,7 +729,24 @@ Not a prompt chain with delusions of grandeur.
 
 ---
 
-## 17. Next Design Artifacts
+## 17. Interpretation Governance Artifacts (Mandatory)
+
+For any LLM-assisted interpretation capability (including liquidity-structure interpretation), the following seven artifacts are mandatory architecture contracts:
+
+1. framework ontology
+2. rulebook with precedence and edge cases
+3. structured scenario dataset
+4. output JSON schema
+5. RAG document taxonomy
+6. evaluation benchmark
+7. prompt contract for inference
+
+These artifacts are part of architecture compliance, not optional documentation.
+Production promotion is blocked if any artifact is missing, unversioned, or benchmark-incompatible.
+
+---
+
+## 18. Next Design Artifacts
 
 1. service catalog
 2. repository structure
