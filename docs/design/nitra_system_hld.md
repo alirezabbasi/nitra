@@ -744,6 +744,9 @@ For any LLM-assisted interpretation capability (including liquidity-structure in
 These artifacts are part of architecture compliance, not optional documentation.
 Production promotion is blocked if any artifact is missing, unversioned, or benchmark-incompatible.
 
+Canonical baseline for liquidity-structure interpretation ontology:
+- `docs/design/ontology/liquidity-driven-market-structure-ontology.md`
+
 ---
 
 ## 18. Next Design Artifacts

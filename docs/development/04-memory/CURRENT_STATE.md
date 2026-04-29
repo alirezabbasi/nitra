@@ -244,6 +244,7 @@ Last updated: 2026-04-29
 - `DEV-00053` is closed with control-panel ingestion KPI monitoring for per-market 130k `1m` OHLCV target progress and raw-tick realtime lag SLA (`/api/v1/control-panel/ingestion/kpi`, `dev-0053` gate).
 - `DEV-00054` is closed with chart-level liquidity-structure overlay toggle (`Liquidity Layer`) implementing pullback/minor/major visual interpretation directly on instrument charts (`dev-0054` gate).
 - `DEV-00055` is closed with architecture-level interpretation governance formalization: HLD integration plus dedicated LLD defining seven mandatory artifacts (ontology, rulebook, scenarios, output schema, RAG taxonomy, benchmark, prompt contract).
+- `DEV-00056` is closed with canonical liquidity ontology baseline documentation and explicit chart-layer legend semantics for project-wide analytical consistency (`dev-0055` gate).
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next

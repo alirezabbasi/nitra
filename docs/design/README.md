@@ -10,6 +10,7 @@ This folder defines architecture authority for NITRA.
 - `AI-enabled_trading_decision_platform.md`: strategic architecture baseline and principle source.
 - `nitra_system_lld/`: implementation-level LLD pack.
 - `ingestion/`: ingestion-domain architecture, data-platform, DevOps, and LLD documentation.
+- `ontology/`: canonical interpretation ontologies used across charting, AI interpretation, and analysis governance.
 
 ## Supporting documents
 

@@ -53,6 +53,13 @@ Define canonical concepts and relations used by interpretation logic.
 - `relation_definitions[]`
 - `forbidden_inferences[]`
 
+### 3.5 Canonical baseline binding
+
+For liquidity-structure interpretation, the ontology baseline is mandatory:
+- `docs/design/ontology/liquidity-driven-market-structure-ontology.md`
+
+Any deviation must declare explicit versioned variance and benchmark compatibility evidence.
+
 ## 4. Artifact 2 — Rulebook (Precedence + Edge Cases)
 
 ### 4.1 Objective

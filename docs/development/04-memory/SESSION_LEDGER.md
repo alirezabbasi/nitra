@@ -1363,3 +1363,20 @@ Append one entry at the end of each substantial session.
   - documentation consistency checks via targeted grep/read pass completed.
 - Next recommended action:
   - implement repository-native contract folders (`contracts/ai/*`) and CI presence/compatibility gates for the seven artifacts.
+
+## 2026-04-29 — Session Entry 025
+
+- Objective:
+  - make liquidity-driven market-structure ontology a hard project baseline and surface ontology semantics clearly in chart layer UI.
+- Work completed:
+  - added canonical ontology document: `docs/design/ontology/liquidity-driven-market-structure-ontology.md`.
+  - added ontology pack index: `docs/design/ontology/README.md` and linked ontology domain in `docs/design/README.md`.
+  - bound HLD and interpretation-governance LLD to canonical ontology reference path.
+  - enhanced chart liquidity layer clarity in `services/charting/static/index.html` with explicit in-chart legend and live summary (`bias/minor/major`).
+  - added verification pack `tests/dev-0055/run.sh` and make target `test-dev-0055`.
+- Verification:
+  - `make test-dev-0055` passes.
+  - `make test-dev-0054` passes.
+  - `make enforce-section-5-1` passes.
+- Next recommended action:
+  - implement repository-native `contracts/ai/*` artifact files starting with ontology versioned JSON export and rulebook v1.

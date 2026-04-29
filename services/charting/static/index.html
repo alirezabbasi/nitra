@@ -270,6 +270,40 @@
         display: block;
         position: relative;
       }
+      .layer-legend {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 300px;
+        max-width: 38vw;
+        background: rgba(14, 19, 30, 0.86);
+        border: 1px solid #3a4660;
+        border-radius: 8px;
+        padding: 8px 10px;
+        z-index: 22;
+        color: #d7e0f4;
+        font-size: 11px;
+        line-height: 1.45;
+      }
+      .layer-legend.hidden {
+        display: none;
+      }
+      .layer-legend .row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .legend-swatch {
+        display: inline-block;
+        width: 12px;
+        height: 2px;
+      }
+      .legend-swatch.minor {
+        border-top: 2px dashed #f7c744;
+      }
+      .legend-swatch.major {
+        border-top: 2px solid #25d2b8;
+      }
 
       #kline {
         width: 100%;
@@ -786,6 +820,15 @@
 
       <section class="chart-wrap">
         <div id="kline"></div>
+        <div id="liquidity-layer-legend" class="layer-legend hidden">
+          <div><strong>Liquidity Structure Ontology Layer</strong></div>
+          <div id="liquidity-layer-summary" style="margin-top:4px; color:#b7c3dd">Bias:- | Minor:0 | Major:0</div>
+          <div class="row" style="margin-top:6px"><span class="legend-swatch minor"></span><span>Minor pair (local fluctuation)</span></div>
+          <div class="row"><span class="legend-swatch major"></span><span>Major pair (higher-timeframe footprint)</span></div>
+          <div style="margin-top:6px; color:#9eb0cf">
+            Pullback model: reference candle, inside/outside bar rules, extension/termination precedence.
+          </div>
+        </div>
       </section>
 
       <div class="bottombar">
@@ -881,6 +924,8 @@
       const backfillBtn = document.getElementById("backfill-btn");
       const liquidityLayerToggleEl = document.getElementById("liquidity-layer-toggle");
       const settingsBtn = document.getElementById("settings-btn");
+      const liquidityLayerLegendEl = document.getElementById("liquidity-layer-legend");
+      const liquidityLayerSummaryEl = document.getElementById("liquidity-layer-summary");
       const settingsOverlayEl = document.getElementById("settings-overlay");
       const settingsCloseBtn = document.getElementById("settings-close-btn");
       const newVenueInputEl = document.getElementById("new-venue-input");
@@ -2163,9 +2208,11 @@
         if (state.liquidityLayerOverlayId) {
           chart.removeOverlay({ id: state.liquidityLayerOverlayId });
           state.liquidityLayerOverlayId = null;
-          return;
+        } else {
+          chart.removeOverlay({ groupId: LIQ_LAYER_GROUP_ID });
         }
-        chart.removeOverlay({ groupId: LIQ_LAYER_GROUP_ID });
+        liquidityLayerLegendEl.classList.add("hidden");
+        liquidityLayerSummaryEl.textContent = "Bias:- | Minor:0 | Major:0";
       }
 
       function syncLiquidityLayer() {
@@ -2176,6 +2223,8 @@
         }
 
         const payload = buildLiquidityLayerPayload(state.liveBars);
+        liquidityLayerLegendEl.classList.remove("hidden");
+        liquidityLayerSummaryEl.textContent = `Bias:${payload.model.bias} | Minor:${payload.model.minorPairs.length} | Major:${payload.model.majorPairs.length}`;
         if (state.liquidityLayerOverlayId && typeof chart.overrideOverlay === "function") {
           chart.overrideOverlay({
             id: state.liquidityLayerOverlayId,

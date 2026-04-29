@@ -69,6 +69,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00053` control-panel ingestion KPI monitor (130k 1m-ohlcv target tracking + raw-tick realtime SLA monitor + `dev-0053` pack).
 - [x] `DEV-00054` chart liquidity-structure layer toggle (checkbox-enabled pullback/minor/major overlay model on any instrument + `dev-0054` pack).
 - [x] `DEV-00055` interpretation-governance architecture pack (HLD integration + dedicated LLD for ontology/rulebook/scenarios/schema/taxonomy/benchmark/prompt-contract).
+- [x] `DEV-00056` canonical liquidity ontology baseline + chart legend clarity (project-wide ontology doc + explicit in-layer semantic legend + `dev-0055` pack).
 
 ## Blocked
 
