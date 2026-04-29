@@ -7,6 +7,7 @@ bar.1m,12,1,delete,-1,nitra-gap-detection-v1
 gap.events,6,1,delete,-1,nitra-backfill-worker-v1
 replay.commands,3,1,delete,-1,nitra-replay-controller-v1
 structure.snapshot.v1,6,1,delete,-1,nitra-feature-service-v1
+features.snapshot.v1,6,1,delete,-1,nitra-signal-engine-v1
 structure.pullback.v1,6,1,delete,-1,nitra-feature-service-v1
 structure.minor_confirmed.v1,6,1,delete,-1,nitra-feature-service-v1
 structure.major_confirmed.v1,6,1,delete,-1,nitra-feature-service-v1

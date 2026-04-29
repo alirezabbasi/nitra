@@ -184,6 +184,25 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  feature-service:
+    build:
+      context: ./services/feature-service
+      dockerfile: Dockerfile
+    container_name: feature-service
+    environment:
+      DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
+      KAFKA_BROKERS: kafka:9092
+      FEATURE_INPUT_TOPIC: ${FEATURE_INPUT_TOPIC:-structure.snapshot.v1}
+      FEATURE_OUTPUT_TOPIC: ${FEATURE_OUTPUT_TOPIC:-features.snapshot.v1}
+      FEATURE_GROUP_ID: ${FEATURE_GROUP_ID:-nitra-feature-service-v1}
+      FEATURE_SET_VERSION: ${FEATURE_SET_VERSION:-dev-00038.v1}
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
   risk-engine:
     build:
       context: ./services/risk-engine
