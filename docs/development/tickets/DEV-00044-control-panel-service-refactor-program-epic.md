@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-29)
+In Progress (2026-04-29)
 
 ## Summary
 
@@ -53,3 +53,9 @@ Current implementation quality is functionally rich but structurally fragile:
 - Ticket-level verification evidence across `tests/dev-00045` .. `tests/dev-00051`.
 - Compose runtime smoke validation and endpoint/UI parity checks.
 - Architecture docs updated under `docs/design/ingestion/07-devdocs/04-lld-services/`.
+
+## Delivery Notes
+
+- Program decomposition tickets `DEV-00045..DEV-00051` are published and linked.
+- Target service LLD baseline exists at `docs/design/ingestion/07-devdocs/04-lld-services/control-panel-service.md`.
+- Program baseline verification pack added at `tests/dev-0044/run.sh` with `make test-dev-0044`.

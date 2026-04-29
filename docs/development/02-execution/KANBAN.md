@@ -4,7 +4,6 @@ Last updated: 2026-04-29
 
 ## Backlog
 
-- [ ] `DEV-00044` control-panel service refactor program epic (monolith-to-modular production architecture).
 - [ ] `DEV-00045` control-panel target architecture and migration contract freeze.
 - [ ] `DEV-00046` control-panel backend modularization foundation and service rename.
 - [ ] `DEV-00047` control-panel domain router split and service-layer extraction.
@@ -17,7 +16,7 @@ Last updated: 2026-04-29
 
 ## In Progress
 
-- [ ] (No active items)
+- [ ] `DEV-00044` control-panel service refactor program epic (monolith-to-modular production architecture).
 
 ## Done
 

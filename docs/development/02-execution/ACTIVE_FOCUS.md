@@ -2,7 +2,7 @@
 
 ## Objective
 
-Execute second-chain deterministic hardening (`structure -> feature -> signal -> risk -> execution -> portfolio -> journal`) with contract-first sequencing.
+Execute control-panel refactor program (`DEV-00044..DEV-00051`) with contract-first sequencing and compatibility-safe migration.
 
 ## Current constraints
 
@@ -13,6 +13,6 @@ Execute second-chain deterministic hardening (`structure -> feature -> signal ->
 
 ## Immediate next slices
 
-1. Start control-panel refactor stream `DEV-00044`.
+1. Complete `DEV-00044` program-epic baseline verification and tracking.
 2. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
 3. Execute `DEV-00046` control-panel backend modularization foundation and service rename.

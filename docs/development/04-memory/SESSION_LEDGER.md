@@ -1150,3 +1150,18 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - start `DEV-00044` control-panel service refactor epic implementation stream.
+
+## 2026-04-29 — Session Entry 013
+
+- Objective:
+  - start `DEV-00044` control-panel refactor program epic execution.
+- Work completed:
+  - moved `DEV-00044` to `In Progress` with explicit delivery notes.
+  - added executable program-baseline verification pack (`tests/dev-0044/run.sh`) and make target (`test-dev-0044`).
+  - aligned execution/memory tracking artifacts (`KANBAN`, `ACTIVE_FOCUS`, `CURRENT_STATE`, `WHERE_ARE_WE`).
+- Verification:
+  - `tests/dev-0044/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute `DEV-00045` architecture and migration contract freeze deliverables.

@@ -216,11 +216,12 @@ Last updated: 2026-04-29
 - `DEV-00041` is closed with lifecycle transition safety and reconciliation SLA triage context.
 - `DEV-00042` is closed with authoritative reconciliation invariants and drift evidence emission.
 - `DEV-00043` is closed with taxonomy-versioned audit payloads and incident bundle export contract.
+- `DEV-00044` is in progress as the control-panel refactor program epic with executable baseline gate (`dev-0044`).
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Start control-panel refactor stream `DEV-00044`.
+1. Complete `DEV-00044` program-epic baseline verification and tracking updates.
 2. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
 3. Execute `DEV-00046` control-panel backend modularization foundation and service rename.
 
