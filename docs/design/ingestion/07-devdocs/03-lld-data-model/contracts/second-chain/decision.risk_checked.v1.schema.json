@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "decision.risk_checked.v1",
+  "type": "object",
+  "required": ["venue", "canonical_symbol", "timeframe", "event_ts", "risk"],
+  "properties": {
+    "venue": {"type": "string"},
+    "canonical_symbol": {"type": "string"},
+    "timeframe": {"type": "string"},
+    "event_ts": {"type": "string"},
+    "risk": {"type": "object"}
+  }
+}

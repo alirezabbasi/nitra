@@ -990,3 +990,22 @@ Append one entry at the end of each substantial session.
   - documentation consistency checks by cross-reading ticket, kanban, active focus, and memory sources.
 - Next recommended action:
   - begin `DEV-00036` implementation with schema/contract tests and replay-equivalence harness.
+
+---
+
+## 2026-04-29 — Session Entry 030
+
+- Objective:
+  - execute `DEV-00036` second-chain contracts and replay determinism.
+- Work completed:
+  - published canonical contract baseline for second-chain events in `docs/design/ingestion/07-devdocs/03-lld-data-model/second-chain-contracts-and-replay-determinism.md`.
+  - added second-chain JSON schema artifacts under `docs/design/ingestion/07-devdocs/03-lld-data-model/contracts/second-chain/`.
+  - added deterministic replay-equivalence unit tests in structure-engine and risk-engine.
+  - added verification pack `tests/dev-0036/run.sh` and make target `test-dev-0036`.
+  - synchronized ticket, kanban, active-focus, and memory snapshots to close `DEV-00036`.
+- Verification:
+  - `tests/dev-0036/run.sh` (pass)
+  - `make enforce-section-5-1` (pass)
+  - `make session-bootstrap` (pass)
+- Next recommended action:
+  - start `DEV-00037` structure-engine production deterministic hardening.

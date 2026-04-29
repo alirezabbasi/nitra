@@ -13,6 +13,6 @@ Execute second-chain deterministic hardening (`structure -> feature -> signal ->
 
 ## Immediate next slices
 
-1. `DEV-00036` second-chain contracts and replay determinism.
-2. `DEV-00037` structure-engine production deterministic hardening.
-3. `DEV-00038` feature-service deterministic baseline and point-in-time integrity.
+1. `DEV-00037` structure-engine production deterministic hardening.
+2. `DEV-00038` feature-service deterministic baseline and point-in-time integrity.
+3. `DEV-00039` signal-engine deterministic scorer and explainability baseline.

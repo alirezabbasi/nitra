@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "decision.signal_scored.v1",
+  "type": "object",
+  "required": ["venue", "canonical_symbol", "timeframe", "event_ts", "signal"],
+  "properties": {
+    "venue": {"type": "string"},
+    "canonical_symbol": {"type": "string"},
+    "timeframe": {"type": "string"},
+    "event_ts": {"type": "string"},
+    "signal": {"type": "object"}
+  }
+}

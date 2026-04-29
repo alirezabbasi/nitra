@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "exec.order_submitted.v1",
+  "type": "object",
+  "required": ["order_id", "venue", "canonical_symbol", "timeframe", "status", "event_ts"],
+  "properties": {
+    "order_id": {"type": "string"},
+    "venue": {"type": "string"},
+    "canonical_symbol": {"type": "string"},
+    "timeframe": {"type": "string"},
+    "status": {"type": "string"},
+    "event_ts": {"type": "string"}
+  }
+}

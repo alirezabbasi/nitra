@@ -144,6 +144,10 @@ Last updated: 2026-04-29
   - verified ordered implementation-ready ticket sequence `DEV-00036..DEV-00043`,
   - confirmed deterministic guardrails and verification criteria at each chain stage,
   - synchronized Kanban/active-focus/memory artifacts for execution handoff.
+- Completed `DEV-00036` second-chain contracts and replay determinism:
+  - published canonical second-chain contract baseline and schema artifacts (`contracts/second-chain/*.schema.json`),
+  - added deterministic replay equivalence unit tests in `structure-engine` and `risk-engine`,
+  - added executable contract/determinism verification pack (`tests/dev-0036/run.sh`, `make test-dev-0036`).
 
 ### Current
 
@@ -165,13 +169,14 @@ Last updated: 2026-04-29
 - `DEV-00034` closed with enterprise polish/performance/accessibility baseline in control panel.
 - `DEV-00024` closed with consolidated child-ticket delivery evidence.
 - `DEV-00035` is closed with deterministic hardening sequence and acceptance gates fully defined.
+- `DEV-00036` is closed with canonical contract baseline and replay determinism checks.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00036` cross-chain contracts, schema gates, and replay determinism.
-2. Execute `DEV-00037` structure-engine production deterministic hardening.
-3. Execute `DEV-00038` feature-service deterministic baseline with point-in-time integrity.
+1. Execute `DEV-00037` structure-engine production deterministic hardening.
+2. Execute `DEV-00038` feature-service deterministic baseline with point-in-time integrity.
+3. Execute `DEV-00039` signal-engine deterministic scorer and explainability baseline.
 
 ### Risks/Blocks
 

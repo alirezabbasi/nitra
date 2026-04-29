@@ -839,3 +839,11 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 12:58:16 +0330 | `sed/rg` reads on `DEV-00035`, `KANBAN`, `ACTIVE_FOCUS`, `WHERE_ARE_WE`, `CURRENT_STATE`, `SESSION_LEDGER` | Re-validate scope and determine required state synchronization edits for DEV-00035 closure. | Success |
 | 2026-04-29 12:58:16 +0330 | `apply_patch` on `DEV-00035`, `KANBAN`, `ACTIVE_FOCUS`, `WHERE_ARE_WE`, `CURRENT_STATE` | Mark DEV-00035 done and align execution/memory tracking to start DEV-00036 next. | Success |
 | 2026-04-29 12:58:16 +0330 | `cat >> docs/development/04-memory/SESSION_LEDGER.md` | Append Session Entry 029 for DEV-00035 completion bookkeeping. | Success |
+| 2026-04-29 13:10:46 +0330 | `sed/rg/cat` across `DEV-00036`, ruleset, topic registry, and service parsers/tests | Reload DEV-00036 scope and identify enforceable contract/determinism implementation points. | Success |
+| 2026-04-29 13:10:46 +0330 | `mkdir -p` + `cat >` for second-chain contract docs/schemas and `tests/dev-0036/run.sh` | Create canonical second-chain schema contract artifacts and verification pack scaffold. | Success |
+| 2026-04-29 13:10:46 +0330 | `apply_patch` on `services/structure-engine/src/main.rs` and `services/risk-engine/src/main.rs` | Add deterministic replay/equivalence unit tests for structure transitions and risk policy outputs. | Success |
+| 2026-04-29 13:10:46 +0330 | `tests/dev-0036/run.sh` | Run DEV-00036 verification pack. | Failed (Cargo dependency fetch network/proxy error) |
+| 2026-04-29 13:10:46 +0330 | escalated `tests/dev-0036/run.sh` | Retry DEV-00036 verification with unrestricted network for dependency download. | Failed (`target/` permission denied) |
+| 2026-04-29 13:10:46 +0330 | `apply_patch` on `tests/dev-0036/run.sh` | Route Cargo build output to `/tmp` target dirs to avoid local permissions issue. | Success |
+| 2026-04-29 13:10:46 +0330 | escalated `tests/dev-0036/run.sh` | Re-run DEV-00036 verification after script patch. | Success |
+| 2026-04-29 13:10:46 +0330 | `make enforce-section-5-1` + `make session-bootstrap` | Re-run policy and session consistency gates after DEV-00036 updates. | Success |

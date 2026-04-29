@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -37,3 +37,15 @@ Freeze and enforce canonical contracts across structure/features/signal/risk/exe
 
 - Contract/schema test suite across all second-chain topics.
 - Replay determinism test pack with byte/stable-state comparison.
+
+## Delivery Evidence
+
+- Added canonical second-chain contract baseline:
+  - `docs/design/ingestion/07-devdocs/03-lld-data-model/second-chain-contracts-and-replay-determinism.md`
+  - `docs/design/ingestion/07-devdocs/03-lld-data-model/contracts/second-chain/*.schema.json`
+- Added deterministic replay equivalence unit tests:
+  - `services/structure-engine/src/main.rs` (`replay_sequence_is_deterministic`)
+  - `services/risk-engine/src/main.rs` (`risk_policy_evaluation_is_deterministic`)
+- Added verification pack:
+  - `tests/dev-0036/run.sh`
+  - `make test-dev-0036`

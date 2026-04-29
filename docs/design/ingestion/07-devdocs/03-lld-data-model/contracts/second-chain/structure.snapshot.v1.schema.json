@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "structure.snapshot.v1",
+  "type": "object",
+  "required": ["venue", "canonical_symbol", "timeframe", "bucket_start", "last_event_ts", "state", "transition_reason"],
+  "properties": {
+    "venue": {"type": "string"},
+    "canonical_symbol": {"type": "string"},
+    "timeframe": {"type": "string"},
+    "bucket_start": {"type": "string"},
+    "last_event_ts": {"type": "string"},
+    "state": {"type": "object"},
+    "transition_reason": {"type": "string"}
+  }
+}

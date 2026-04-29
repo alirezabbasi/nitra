@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "audit.event.v1",
+  "type": "object",
+  "required": ["audit_id", "service_name", "event_domain", "event_type", "correlation_id", "event_ts", "payload"],
+  "properties": {
+    "audit_id": {"type": "string"},
+    "service_name": {"type": "string"},
+    "event_domain": {"type": "string"},
+    "event_type": {"type": "string"},
+    "correlation_id": {"type": "string"},
+    "event_ts": {"type": "string"},
+    "payload": {"type": "object"}
+  }
+}

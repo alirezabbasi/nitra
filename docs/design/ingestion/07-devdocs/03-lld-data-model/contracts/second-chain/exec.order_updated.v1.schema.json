@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "exec.order_updated.v1",
+  "type": "object",
+  "required": ["order_id", "status", "event_ts"],
+  "properties": {
+    "order_id": {"type": "string"},
+    "status": {"type": "string"},
+    "event_ts": {"type": "string"}
+  }
+}

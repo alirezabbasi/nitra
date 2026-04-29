@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "features.snapshot.v1",
+  "type": "object",
+  "required": ["venue", "canonical_symbol", "timeframe", "event_ts", "features", "lineage"],
+  "properties": {
+    "venue": {"type": "string"},
+    "canonical_symbol": {"type": "string"},
+    "timeframe": {"type": "string"},
+    "event_ts": {"type": "string"},
+    "features": {"type": "object"},
+    "lineage": {"type": "object"}
+  }
+}
