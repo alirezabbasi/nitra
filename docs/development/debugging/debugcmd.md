@@ -863,3 +863,8 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 13:44:34 +0330 | `cat > services/inference-gateway/app.py` + `cat > infra/timescaledb/init/014_signal_score_log.sql` | Implement deterministic scorer, explainability payload, calibration harness, and persistence migration. | Success |
 | 2026-04-29 13:44:34 +0330 | `apply_patch` on compose/env/LLD/Makefile + `cat > tests/dev-0039/*` | Wire runtime config, risk input handoff, documentation, and DEV-0039 verification pack. | Success |
 | 2026-04-29 13:44:34 +0330 | `make test-dev-0039` + `make enforce-section-5-1` + `make session-bootstrap` | Execute DEV-00039 verification, policy gate, and session context checks. | Success |
+| 2026-04-29 14:09:44 +0330 | `sed/rg` reads on DEV-00040, risk-engine runtime, schema/env docs, and existing tests | Load ticket scope and locate risk-policy traceability hardening touchpoints. | Success |
+| 2026-04-29 14:09:44 +0330 | `apply_patch` on `services/risk-engine/src/main.rs` | Add expanded risk policy checks, canonical policy IDs, evaluation trace payloads, and stress tests. | Success |
+| 2026-04-29 14:09:44 +0330 | `cat > infra/timescaledb/init/015_risk_policy_trace.sql` | Add DB migration for persisted risk policy trace fields/index. | Success |
+| 2026-04-29 14:09:44 +0330 | `cat > tests/dev-0040/run.sh` + `apply_patch` on `Makefile` | Add DEV-0040 verification pack and make target. | Success |
+| 2026-04-29 14:09:44 +0330 | `make test-dev-0040` + `make enforce-section-5-1` + `make session-bootstrap` | Execute DEV-00040 verification, policy gate, and context integrity checks. | Success |

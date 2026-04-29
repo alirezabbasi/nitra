@@ -13,7 +13,6 @@ Last updated: 2026-04-29
 - [ ] `DEV-00050` control-panel refactor quality gates and CI readiness.
 - [ ] `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
-- [ ] `DEV-00040` risk policy expansion and decision traceability hardening.
 - [ ] `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
 - [ ] `DEV-00042` portfolio authoritative reconciliation and state invariants.
 - [ ] `DEV-00043` journal/audit evidence fabric and incident bundle export.
@@ -66,6 +65,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00037` structure-engine production deterministic hardening (invariant guards, replay ordering protection, transition-reason persistence, `dev-0037` pack).
 - [x] `DEV-00038` feature service deterministic baseline and point-in-time integrity (Python feature-service baseline, PIT-safe transforms, lineage persistence, `dev-0038` pack).
 - [x] `DEV-00039` signal engine deterministic scorer and explainability baseline (deterministic scoring contract, explainability payloads, calibration harness, `dev-0039` pack).
+- [x] `DEV-00040` risk policy expansion and decision traceability hardening (canonical policy IDs, evaluation traces, stress suite, `dev-0040` pack).
 
 ## Blocked
 

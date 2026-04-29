@@ -1071,3 +1071,23 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` (pass)
 - Next recommended action:
   - start `DEV-00040` risk policy expansion and decision traceability hardening.
+
+---
+
+## 2026-04-29 — Session Entry 034
+
+- Objective:
+  - execute `DEV-00040` risk policy expansion and decision traceability hardening.
+- Work completed:
+  - expanded deterministic risk policy checks in `risk-engine` with additional fail-closed controls (regime volatility, conflict score, strict kill-switch mode).
+  - added canonical policy IDs (`RISK-*`) and policy-hit emission on every decision.
+  - added evaluation-trace metadata to risk events and persistence (`policy_hits`, `evaluation_trace`).
+  - added migration `infra/timescaledb/init/015_risk_policy_trace.sql` for trace columns and index.
+  - added stress/regression verification pack `tests/dev-0040/run.sh` and make target `test-dev-0040`.
+  - synchronized ticket/kanban/active-focus/current-state/where-are-we to close `DEV-00040`.
+- Verification:
+  - `make test-dev-0040` (pass)
+  - `make enforce-section-5-1` (pass)
+  - `make session-bootstrap` (pass)
+- Next recommended action:
+  - start `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.

@@ -165,6 +165,12 @@ Last updated: 2026-04-29
   - added calibration harness (`run_calibration`) for reproducible score distribution validation,
   - switched risk baseline input topic to `decision.signal_scored.v1`,
   - added persistence migration `014_signal_score_log.sql` and test pack (`tests/dev-0039/run.sh`, `make test-dev-0039`).
+- Completed `DEV-00040` risk policy expansion and decision traceability hardening:
+  - expanded deterministic risk policy checks (volatility, conflict, strict kill-switch variant),
+  - added canonical risk policy IDs (`RISK-*`) and policy-hit trace emission on all decisions,
+  - added persisted evaluation traces (`policy_hits`, `evaluation_trace`) for forensic diagnostics,
+  - added schema migration `015_risk_policy_trace.sql`,
+  - added stress/regression verification pack (`tests/dev-0040/run.sh`, `make test-dev-0040`).
 
 ### Current
 
@@ -190,13 +196,14 @@ Last updated: 2026-04-29
 - `DEV-00037` is closed with deterministic transition guards and replay ordering protection.
 - `DEV-00038` is closed with deterministic PIT-safe feature baseline and lineage persistence.
 - `DEV-00039` is closed with deterministic scored-signal baseline and explainability contract.
+- `DEV-00040` is closed with deterministic policy-trace metadata and stress-tested fail-closed interactions.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00040` risk policy expansion and decision traceability hardening.
-2. Execute `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
-3. Execute `DEV-00042` portfolio authoritative reconciliation and state invariants.
+1. Execute `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
+2. Execute `DEV-00042` portfolio authoritative reconciliation and state invariants.
+3. Execute `DEV-00043` journal/audit evidence fabric and incident bundle export.
 
 ### Risks/Blocks
 

@@ -260,10 +260,15 @@ Notes:
 - `RISK_MAX_PORTFOLIO_GROSS_EXPOSURE_NOTIONAL` default `500000`
 - `RISK_MIN_AVAILABLE_EQUITY` default `10000`
 - `RISK_PORTFOLIO_ACCOUNT_ID` default `paper`
+- `RISK_POLICY_BUNDLE_ID` default `risk-policy-bundle-dev-0040-v1`
+- `RISK_MAX_REGIME_VOLATILITY` default `0.95`
+- `RISK_MAX_CONFLICT_SCORE` default `0.9`
+- `RISK_KILL_SWITCH_MODE` default `strict`
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 Notes:
 - The baseline risk service is deterministic and fail-closed for kill-switch/drawdown/notional/confidence and portfolio-cap violations.
+- Decision traceability baseline (`DEV-00040`) adds canonical policy-hit IDs and JSON evaluation traces on every decision event and in `risk_decision_log`.
 - Risk state and audit history are persisted in `risk_state` and `risk_decision_log`.
 - `processed_message_ledger` idempotency is enforced to keep replay-safe decision behavior.
 
