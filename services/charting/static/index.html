@@ -958,6 +958,7 @@
       const LAYOUT_STATE_KEY = "nitra.chart.layout_state.v1";
       const DRAW_GROUP_ID = "nitra_drawing_tools";
       const LIQ_LAYER_GROUP_ID = "nitra_liquidity_layer";
+      const LIQ_LAYER_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 
       const drawCursorBtn = document.getElementById("draw-cursor-btn");
       const drawLineBtn = document.getElementById("draw-line-btn");
@@ -2203,6 +2204,15 @@
         return { model, overlayData: { segments, markers } };
       }
 
+      function getLiquidityWindowBars(inputBars) {
+        const bars = Array.isArray(inputBars) ? inputBars : [];
+        if (!bars.length) return [];
+        const lastTs = Number(bars[bars.length - 1]?.timestamp || 0);
+        if (!Number.isFinite(lastTs) || lastTs <= 0) return bars;
+        const cutoff = lastTs - LIQ_LAYER_WINDOW_MS;
+        return bars.filter((bar) => Number(bar.timestamp) >= cutoff);
+      }
+
       function clearLiquidityLayer() {
         if (!chart || typeof chart.removeOverlay !== "function") return;
         if (state.liquidityLayerOverlayId) {
@@ -2222,9 +2232,15 @@
           return;
         }
 
-        const payload = buildLiquidityLayerPayload(state.liveBars);
+        const liqBars = getLiquidityWindowBars(state.liveBars);
+        if (!liqBars.length) {
+          clearLiquidityLayer();
+          return;
+        }
+
+        const payload = buildLiquidityLayerPayload(liqBars);
         liquidityLayerLegendEl.classList.remove("hidden");
-        liquidityLayerSummaryEl.textContent = `Bias:${payload.model.bias} | Minor:${payload.model.minorPairs.length} | Major:${payload.model.majorPairs.length}`;
+        liquidityLayerSummaryEl.textContent = `Bias:${payload.model.bias} | Minor:${payload.model.minorPairs.length} | Major:${payload.model.majorPairs.length} | Window:48h`;
         if (state.liquidityLayerOverlayId && typeof chart.overrideOverlay === "function") {
           chart.overrideOverlay({
             id: state.liquidityLayerOverlayId,

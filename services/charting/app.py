@@ -3484,6 +3484,29 @@ def coinbase_product(symbol: str) -> str:
     return symbol
 
 
+def coinbase_product_candidates(symbol: str) -> list[str]:
+    symbol_norm = symbol.strip().upper()
+    candidates: list[str] = []
+    primary = coinbase_product(symbol_norm)
+    if primary:
+        candidates.append(primary)
+
+    if symbol_norm.endswith("USD") and len(symbol_norm) >= 6:
+        base = symbol_norm[:-3]
+        candidates.append(f"{base}-USDC")
+        candidates.append(f"{base}-USD")
+    elif symbol_norm.endswith("USDC") and len(symbol_norm) >= 7:
+        base = symbol_norm[:-4]
+        candidates.append(f"{base}-USD")
+
+    dedup: list[str] = []
+    for candidate in candidates:
+        normalized = candidate.strip().upper()
+        if normalized and normalized not in dedup:
+            dedup.append(normalized)
+    return dedup
+
+
 def capital_base_url() -> str:
     return env("CAPITAL_API_URL", "https://api-capital.backend-capital.com").rstrip("/")
 
@@ -3607,7 +3630,7 @@ def fetch_capital_range(symbol: str, start_dt: datetime, end_dt: datetime) -> li
                 "resolution": "MINUTE",
                 "from": from_str,
                 "to": to_str,
-                "max": "1000",
+                "max": "240",
             }
         )
         url = f"{capital_base_url()}/api/v1/prices/{urllib.parse.quote(epic, safe='')}?{params}"
@@ -3721,79 +3744,87 @@ def fetch_oanda_range(symbol: str, start_dt: datetime, end_dt: datetime) -> list
 
 def fetch_coinbase_range(symbol: str, start_dt: datetime, end_dt: datetime) -> list[tuple]:
     base = COINBASE_REST_URL.rstrip("/")
-    product = coinbase_product(symbol)
-    params = urllib.parse.urlencode(
-        {
-            "granularity": "60",
-            "start": start_dt.isoformat().replace("+00:00", "Z"),
-            "end": (end_dt + timedelta(minutes=1)).isoformat().replace("+00:00", "Z"),
-        }
-    )
-    url = f"{base}/products/{product}/candles?{params}"
-    req = urllib.request.Request(url, headers={"Content-Type": "application/json"}, method="GET")
-    try:
-        with urllib.request.urlopen(req, timeout=VENUE_FETCH_TIMEOUT_SECS) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-        bars: list[tuple] = []
-        # Coinbase Exchange returns [time, low, high, open, close, volume]
-        for row in payload:
-            if not isinstance(row, list) or len(row) < 5:
+    for product in coinbase_product_candidates(symbol):
+        params = urllib.parse.urlencode(
+            {
+                "granularity": "60",
+                "start": start_dt.isoformat().replace("+00:00", "Z"),
+                "end": (end_dt + timedelta(minutes=1)).isoformat().replace("+00:00", "Z"),
+            }
+        )
+        url = f"{base}/products/{product}/candles?{params}"
+        req = urllib.request.Request(url, headers={"Content-Type": "application/json"}, method="GET")
+        try:
+            with urllib.request.urlopen(req, timeout=VENUE_FETCH_TIMEOUT_SECS) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            bars: list[tuple] = []
+            # Coinbase Exchange returns [time, low, high, open, close, volume]
+            for row in payload:
+                if not isinstance(row, list) or len(row) < 5:
+                    continue
+                ts = datetime.fromtimestamp(int(row[0]), tz=timezone.utc).replace(second=0, microsecond=0)
+                low = parse_float(row[1])
+                high = parse_float(row[2])
+                open_ = parse_float(row[3])
+                close = parse_float(row[4])
+                if None in (open_, high, low, close):
+                    continue
+                bars.append((ts, open_, high, low, close, 0, ts))
+            bars.sort(key=lambda item: item[0])
+            if bars:
+                return bars
+        except urllib.error.HTTPError as exc:
+            if exc.code not in {400, 403, 429, 500, 503}:
+                raise
+
+        # Fallback: Coinbase Advanced Trade public candles endpoint.
+        public_base = COINBASE_PUBLIC_REST_URL.rstrip("/")
+        params_v3 = urllib.parse.urlencode(
+            {
+                "granularity": "ONE_MINUTE",
+                "start": str(int(start_dt.timestamp())),
+                "end": str(int((end_dt + timedelta(minutes=1)).timestamp())),
+                "limit": "350",
+            }
+        )
+        v3_url = f"{public_base}/api/v3/brokerage/market/products/{product}/candles?{params_v3}"
+        v3_req = urllib.request.Request(
+            v3_url,
+            headers={"Content-Type": "application/json", "Cache-Control": "no-cache"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(v3_req, timeout=VENUE_FETCH_TIMEOUT_SECS) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            if exc.code in {400, 404}:
                 continue
-            ts = datetime.fromtimestamp(int(row[0]), tz=timezone.utc).replace(second=0, microsecond=0)
-            low = parse_float(row[1])
-            high = parse_float(row[2])
-            open_ = parse_float(row[3])
-            close = parse_float(row[4])
+            raise
+
+        candles = payload.get("candles", [])
+        bars: list[tuple] = []
+        for item in candles:
+            if not isinstance(item, dict):
+                continue
+            start_raw = item.get("start")
+            low_raw = item.get("low")
+            high_raw = item.get("high")
+            open_raw = item.get("open")
+            close_raw = item.get("close")
+            if None in (start_raw, low_raw, high_raw, open_raw, close_raw):
+                continue
+            ts = datetime.fromtimestamp(int(start_raw), tz=timezone.utc).replace(second=0, microsecond=0)
+            open_ = parse_float(open_raw)
+            high = parse_float(high_raw)
+            low = parse_float(low_raw)
+            close = parse_float(close_raw)
             if None in (open_, high, low, close):
                 continue
             bars.append((ts, open_, high, low, close, 0, ts))
         bars.sort(key=lambda item: item[0])
         if bars:
             return bars
-    except urllib.error.HTTPError as exc:
-        if exc.code not in {403, 429, 500, 503}:
-            raise
-
-    # Fallback: Coinbase Advanced Trade public candles endpoint.
-    public_base = COINBASE_PUBLIC_REST_URL.rstrip("/")
-    params_v3 = urllib.parse.urlencode(
-        {
-            "granularity": "ONE_MINUTE",
-            "start": str(int(start_dt.timestamp())),
-            "end": str(int((end_dt + timedelta(minutes=1)).timestamp())),
-            "limit": "350",
-        }
-    )
-    v3_url = f"{public_base}/api/v3/brokerage/market/products/{product}/candles?{params_v3}"
-    v3_req = urllib.request.Request(
-        v3_url,
-        headers={"Content-Type": "application/json", "Cache-Control": "no-cache"},
-        method="GET",
-    )
-    with urllib.request.urlopen(v3_req, timeout=VENUE_FETCH_TIMEOUT_SECS) as resp:
-        payload = json.loads(resp.read().decode("utf-8"))
-    candles = payload.get("candles", [])
-    bars: list[tuple] = []
-    for item in candles:
-        if not isinstance(item, dict):
-            continue
-        start_raw = item.get("start")
-        low_raw = item.get("low")
-        high_raw = item.get("high")
-        open_raw = item.get("open")
-        close_raw = item.get("close")
-        if None in (start_raw, low_raw, high_raw, open_raw, close_raw):
-            continue
-        ts = datetime.fromtimestamp(int(start_raw), tz=timezone.utc).replace(second=0, microsecond=0)
-        open_ = parse_float(open_raw)
-        high = parse_float(high_raw)
-        low = parse_float(low_raw)
-        close = parse_float(close_raw)
-        if None in (open_, high, low, close):
-            continue
-        bars.append((ts, open_, high, low, close, 0, ts))
-    bars.sort(key=lambda item: item[0])
-    return bars
+    return []
 
 
 def fetch_from_venue(venue: str, symbol: str, ranges: list[tuple[datetime, datetime]]) -> tuple[int, str]:
@@ -3801,7 +3832,7 @@ def fetch_from_venue(venue: str, symbol: str, ranges: list[tuple[datetime, datet
     chunk_minutes_map = {
         "oanda": 4500,
         "coinbase": 300,
-        "capital": 1000,
+        "capital": 240,
     }
     chunk_minutes = chunk_minutes_map.get(venue, 300)
     fetched = 0
@@ -3828,6 +3859,23 @@ def fetch_from_venue(venue: str, symbol: str, ranges: list[tuple[datetime, datet
                     body = exc.read().decode("utf-8", errors="ignore")
                 except Exception:
                     body = ""
+                if venue == "capital" and "error.invalid.max.daterange" in body:
+                    fallback_end = min(
+                        chunk_end,
+                        chunk_start + timedelta(minutes=239),
+                    )
+                    if fallback_end > chunk_start:
+                        try:
+                            bars = fetch_capital_range(symbol, chunk_start, fallback_end)
+                            if bars:
+                                with psycopg.connect(db_url()) as conn:
+                                    upsert_bars(conn, venue, symbol, bars)
+                                    conn.commit()
+                                fetched += len(bars)
+                                failed_calls = 0
+                                continue
+                        except Exception:
+                            pass
                 errors.append(
                     f"{chunk_start.isoformat()}..{chunk_end.isoformat()}: HTTP {exc.code} {body[:240]}"
                 )
