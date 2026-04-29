@@ -709,6 +709,88 @@ def ensure_research_seed_data(conn: psycopg.Connection) -> None:
             )
 
 
+def ensure_control_panel_config_tables(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_config_registry (
+              config_key TEXT PRIMARY KEY,
+              environment TEXT NOT NULL,
+              config_value JSONB NOT NULL DEFAULT '{}'::jsonb,
+              value_type TEXT NOT NULL,
+              risk_level TEXT NOT NULL DEFAULT 'medium',
+              min_role TEXT NOT NULL DEFAULT 'operator',
+              schema_ref TEXT,
+              updated_by TEXT NOT NULL,
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_config_change_request (
+              change_id UUID PRIMARY KEY,
+              config_key TEXT NOT NULL,
+              environment TEXT NOT NULL,
+              proposed_value JSONB NOT NULL,
+              previous_value JSONB NOT NULL,
+              status TEXT NOT NULL,
+              requested_by TEXT NOT NULL,
+              approved_by TEXT,
+              justification TEXT NOT NULL,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              decided_at TIMESTAMPTZ
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_config_change_history (
+              history_id UUID PRIMARY KEY,
+              change_id UUID NOT NULL,
+              action TEXT NOT NULL,
+              actor TEXT NOT NULL,
+              metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+
+def ensure_config_seed_data(conn: psycopg.Connection) -> None:
+    ensure_control_panel_config_tables(conn)
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM control_panel_config_registry")
+        if int(cur.fetchone()[0] or 0) > 0:
+            return
+        cur.execute(
+            """
+            INSERT INTO control_panel_config_registry (
+              config_key, environment, config_value, value_type, risk_level, min_role, schema_ref, updated_by
+            ) VALUES
+            ('risk.max_notional', 'dev', '100000'::jsonb, 'number', 'high', 'risk_manager', 'risk_limits.v1', 'seed'),
+            ('risk.max_notional', 'paper', '90000'::jsonb, 'number', 'high', 'risk_manager', 'risk_limits.v1', 'seed'),
+            ('risk.max_notional', 'prod', '75000'::jsonb, 'number', 'high', 'admin', 'risk_limits.v1', 'seed'),
+            ('execution.default_tif', 'dev', '\"GTC\"'::jsonb, 'string', 'low', 'operator', 'execution_config.v1', 'seed'),
+            ('execution.default_tif', 'paper', '\"GTC\"'::jsonb, 'string', 'low', 'operator', 'execution_config.v1', 'seed'),
+            ('execution.default_tif', 'prod', '\"IOC\"'::jsonb, 'string', 'medium', 'risk_manager', 'execution_config.v1', 'seed'),
+            ('alerts.sla_minutes_default', 'dev', '30'::jsonb, 'number', 'low', 'operator', 'ops_alerts.v1', 'seed'),
+            ('alerts.sla_minutes_default', 'paper', '20'::jsonb, 'number', 'low', 'operator', 'ops_alerts.v1', 'seed'),
+            ('alerts.sla_minutes_default', 'prod', '15'::jsonb, 'number', 'medium', 'risk_manager', 'ops_alerts.v1', 'seed')
+            """
+        )
+
+
+def validate_typed_config(value_type: str, value: object) -> bool:
+    if value_type == "number":
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if value_type == "boolean":
+        return isinstance(value, bool)
+    if value_type == "string":
+        return isinstance(value, str) and len(value.strip()) > 0
+    return False
+
+
 def load_current_risk_limits(conn: psycopg.Connection) -> dict:
     ensure_control_panel_risk_limits_table(conn)
     with conn.cursor() as cur:
@@ -2030,6 +2112,421 @@ def control_panel_research_model_promote(
         )
         conn.commit()
     return {"status": "updated", "model_id": model_id, "model_name": model_name, "model_version": model_version, "stage": stage, "gate_status": gate_status}
+
+
+@app.get("/api/v1/control-panel/config")
+def control_panel_config(
+    x_control_panel_token: str | None = Header(default=None),
+    environment: str = Query(default="dev", min_length=3, max_length=16),
+    row_limit: int = Query(default=40, ge=1, le=200),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    env_name = environment.strip().lower()
+    if env_name not in {"dev", "paper", "prod"}:
+        raise HTTPException(status_code=400, detail="environment must be dev|paper|prod")
+    metrics = {
+        "keys_total": 0,
+        "high_risk_keys": 0,
+        "pending_changes": 0,
+        "applied_24h": 0,
+        "rollbacks_7d": 0,
+        "drift_keys": 0,
+    }
+    config_rows: list[dict] = []
+    change_rows: list[dict] = []
+    history_rows: list[dict] = []
+    mode = "online"
+    try:
+        with psycopg.connect(db_url()) as conn:
+            ensure_config_seed_data(conn)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                      COUNT(*) FILTER (WHERE environment = %s),
+                      COUNT(*) FILTER (WHERE environment = %s AND risk_level = 'high')
+                    FROM control_panel_config_registry
+                    """,
+                    (env_name, env_name),
+                )
+                row = cur.fetchone()
+                metrics["keys_total"] = int(row[0] or 0)
+                metrics["high_risk_keys"] = int(row[1] or 0)
+
+                cur.execute("SELECT COUNT(*) FROM control_panel_config_change_request WHERE status = 'pending'")
+                metrics["pending_changes"] = int(cur.fetchone()[0] or 0)
+                cur.execute("SELECT COUNT(*) FROM control_panel_config_change_request WHERE status = 'applied' AND decided_at >= now() - interval '24 hours'")
+                metrics["applied_24h"] = int(cur.fetchone()[0] or 0)
+                cur.execute("SELECT COUNT(*) FROM control_panel_config_change_history WHERE action = 'rollback' AND created_at >= now() - interval '7 days'")
+                metrics["rollbacks_7d"] = int(cur.fetchone()[0] or 0)
+                cur.execute(
+                    """
+                    SELECT COUNT(*) FROM (
+                      SELECT config_key, COUNT(DISTINCT config_value::text) AS variants
+                      FROM control_panel_config_registry
+                      GROUP BY config_key
+                      HAVING COUNT(DISTINCT config_value::text) > 1
+                    ) d
+                    """
+                )
+                metrics["drift_keys"] = int(cur.fetchone()[0] or 0)
+
+                cur.execute(
+                    """
+                    SELECT config_key, environment, config_value, value_type, risk_level, min_role, schema_ref, updated_by, updated_at
+                    FROM control_panel_config_registry
+                    WHERE environment = %s
+                    ORDER BY config_key ASC
+                    LIMIT %s
+                    """,
+                    (env_name, row_limit),
+                )
+                for row in cur.fetchall():
+                    config_rows.append(
+                        {
+                            "config_key": str(row[0]),
+                            "environment": str(row[1]),
+                            "config_value": row[2],
+                            "value_type": str(row[3]),
+                            "risk_level": str(row[4]),
+                            "min_role": str(row[5]),
+                            "schema_ref": row[6],
+                            "updated_by": str(row[7]),
+                            "updated_at": row[8].isoformat() if row[8] else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT change_id, config_key, environment, status, requested_by, approved_by, created_at, decided_at
+                    FROM control_panel_config_change_request
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for row in cur.fetchall():
+                    change_rows.append(
+                        {
+                            "change_id": str(row[0]),
+                            "config_key": str(row[1]),
+                            "environment": str(row[2]),
+                            "status": str(row[3]),
+                            "requested_by": str(row[4]),
+                            "approved_by": row[5],
+                            "created_at": row[6].isoformat() if row[6] else None,
+                            "decided_at": row[7].isoformat() if row[7] else None,
+                        }
+                    )
+
+                cur.execute(
+                    """
+                    SELECT history_id, change_id, action, actor, metadata, created_at
+                    FROM control_panel_config_change_history
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for row in cur.fetchall():
+                    history_rows.append(
+                        {
+                            "history_id": str(row[0]),
+                            "change_id": str(row[1]),
+                            "action": str(row[2]),
+                            "actor": str(row[3]),
+                            "metadata": row[4],
+                            "created_at": row[5].isoformat() if row[5] else None,
+                        }
+                    )
+    except Exception:
+        mode = "degraded"
+
+    return {
+        "service": "control-panel",
+        "module": "config-governance",
+        "mode": mode,
+        "session": session,
+        "environment": env_name,
+        "metrics": metrics,
+        "config_rows": config_rows,
+        "change_rows": change_rows,
+        "history_rows": history_rows,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.post("/api/v1/control-panel/config/propose")
+def control_panel_config_propose(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+    config_key = str(payload.get("config_key", "")).strip()
+    env_name = str(payload.get("environment", "dev")).strip().lower()
+    justification = str(payload.get("justification", "")).strip()
+    proposed_value = payload.get("proposed_value")
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if env_name not in {"dev", "paper", "prod"}:
+        raise HTTPException(status_code=400, detail="environment must be dev|paper|prod")
+    if not config_key:
+        raise HTTPException(status_code=400, detail="config_key required")
+
+    change_id = str(uuid.uuid4())
+    status = "pending"
+    with psycopg.connect(db_url()) as conn:
+        ensure_config_seed_data(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT config_value, value_type, min_role, risk_level
+                FROM control_panel_config_registry
+                WHERE config_key = %s AND environment = %s
+                LIMIT 1
+                """,
+                (config_key, env_name),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="config_key/environment pair not found")
+            previous_value, value_type, min_role, risk_level = row[0], str(row[1]), str(row[2]), str(row[3])
+            if not validate_typed_config(value_type, proposed_value):
+                raise HTTPException(status_code=400, detail=f"proposed_value must match type {value_type}")
+            require_min_role(session["role"], min_role)
+            if risk_level == "low":
+                status = "approved"
+            cur.execute(
+                """
+                INSERT INTO control_panel_config_change_request (
+                  change_id, config_key, environment, proposed_value, previous_value, status, requested_by, justification
+                ) VALUES (%s::uuid, %s, %s, %s::jsonb, %s::jsonb, %s, %s, %s)
+                """,
+                (
+                    change_id,
+                    config_key,
+                    env_name,
+                    json.dumps(proposed_value),
+                    json.dumps(previous_value),
+                    status,
+                    session["user_id"],
+                    justification,
+                ),
+            )
+            cur.execute(
+                """
+                INSERT INTO control_panel_config_change_history (history_id, change_id, action, actor, metadata)
+                VALUES (%s::uuid, %s::uuid, 'proposed', %s, %s::jsonb)
+                """,
+                (str(uuid.uuid4()), change_id, session["user_id"], json.dumps({"status": status, "risk_level": risk_level})),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="config.propose",
+            section="config",
+            target=change_id,
+            status="approved",
+            reason=None,
+            metadata={"config_key": config_key, "environment": env_name, "justification": justification, "status": status},
+        )
+        conn.commit()
+    return {"status": status, "change_id": change_id, "config_key": config_key, "environment": env_name}
+
+
+@app.post("/api/v1/control-panel/config/approve")
+def control_panel_config_approve(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "admin")
+    change_id = str(payload.get("change_id", "")).strip()
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    try:
+        parsed_change_id = str(uuid.UUID(change_id))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="invalid change_id uuid") from exc
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_config_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE control_panel_config_change_request
+                SET status = 'approved', approved_by = %s, decided_at = now()
+                WHERE change_id = %s::uuid AND status = 'pending'
+                """,
+                (session["user_id"], parsed_change_id),
+            )
+            if int(cur.rowcount or 0) == 0:
+                raise HTTPException(status_code=409, detail="change is not pending or not found")
+            cur.execute(
+                "INSERT INTO control_panel_config_change_history (history_id, change_id, action, actor, metadata) VALUES (%s::uuid, %s::uuid, 'approved', %s, %s::jsonb)",
+                (str(uuid.uuid4()), parsed_change_id, session["user_id"], json.dumps({"justification": justification})),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="config.approve",
+            section="config",
+            target=parsed_change_id,
+            status="approved",
+            reason=None,
+            metadata={"justification": justification},
+        )
+        conn.commit()
+    return {"status": "approved", "change_id": parsed_change_id}
+
+
+@app.post("/api/v1/control-panel/config/apply")
+def control_panel_config_apply(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "risk_manager")
+    change_id = str(payload.get("change_id", "")).strip()
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    try:
+        parsed_change_id = str(uuid.UUID(change_id))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="invalid change_id uuid") from exc
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_config_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT config_key, environment, proposed_value, status
+                FROM control_panel_config_change_request
+                WHERE change_id = %s::uuid
+                LIMIT 1
+                """,
+                (parsed_change_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="change not found")
+            config_key, env_name, proposed_value, status = str(row[0]), str(row[1]), row[2], str(row[3])
+            if status not in {"approved"}:
+                raise HTTPException(status_code=409, detail="change must be approved before apply")
+            cur.execute(
+                """
+                UPDATE control_panel_config_registry
+                SET config_value = %s::jsonb, updated_by = %s, updated_at = now()
+                WHERE config_key = %s AND environment = %s
+                """,
+                (json.dumps(proposed_value), session["user_id"], config_key, env_name),
+            )
+            cur.execute(
+                """
+                UPDATE control_panel_config_change_request
+                SET status = 'applied', decided_at = now()
+                WHERE change_id = %s::uuid
+                """,
+                (parsed_change_id,),
+            )
+            cur.execute(
+                "INSERT INTO control_panel_config_change_history (history_id, change_id, action, actor, metadata) VALUES (%s::uuid, %s::uuid, 'applied', %s, %s::jsonb)",
+                (str(uuid.uuid4()), parsed_change_id, session["user_id"], json.dumps({"justification": justification})),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="config.apply",
+            section="config",
+            target=parsed_change_id,
+            status="approved",
+            reason=None,
+            metadata={"justification": justification},
+        )
+        conn.commit()
+    return {"status": "applied", "change_id": parsed_change_id}
+
+
+@app.post("/api/v1/control-panel/config/rollback")
+def control_panel_config_rollback(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "admin")
+    change_id = str(payload.get("change_id", "")).strip()
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    try:
+        parsed_change_id = str(uuid.UUID(change_id))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="invalid change_id uuid") from exc
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_config_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT config_key, environment, previous_value
+                FROM control_panel_config_change_request
+                WHERE change_id = %s::uuid
+                LIMIT 1
+                """,
+                (parsed_change_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="change not found")
+            config_key, env_name, previous_value = str(row[0]), str(row[1]), row[2]
+            cur.execute(
+                """
+                UPDATE control_panel_config_registry
+                SET config_value = %s::jsonb, updated_by = %s, updated_at = now()
+                WHERE config_key = %s AND environment = %s
+                """,
+                (json.dumps(previous_value), session["user_id"], config_key, env_name),
+            )
+            rollback_change_id = str(uuid.uuid4())
+            cur.execute(
+                """
+                INSERT INTO control_panel_config_change_request (
+                  change_id, config_key, environment, proposed_value, previous_value, status, requested_by, approved_by, justification, decided_at
+                ) VALUES (%s::uuid, %s, %s, %s::jsonb, %s::jsonb, 'applied', %s, %s, %s, now())
+                """,
+                (
+                    rollback_change_id,
+                    config_key,
+                    env_name,
+                    json.dumps(previous_value),
+                    json.dumps(previous_value),
+                    session["user_id"],
+                    session["user_id"],
+                    f"rollback:{parsed_change_id}:{justification}",
+                ),
+            )
+            cur.execute(
+                "INSERT INTO control_panel_config_change_history (history_id, change_id, action, actor, metadata) VALUES (%s::uuid, %s::uuid, 'rollback', %s, %s::jsonb)",
+                (str(uuid.uuid4()), rollback_change_id, session["user_id"], json.dumps({"rollback_of": parsed_change_id, "justification": justification})),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="config.rollback",
+            section="config",
+            target=parsed_change_id,
+            status="approved",
+            reason=None,
+            metadata={"justification": justification},
+        )
+        conn.commit()
+    return {"status": "rolled_back", "rollback_of": parsed_change_id}
 
 
 @app.get("/api/v1/control-panel/charting/profile")

@@ -862,3 +862,33 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - implement `DEV-00033` config registry, change control, and governance center.
+
+---
+
+## 2026-04-29 — Session Entry 024
+
+- Objective:
+  - deliver `DEV-00033` control-panel config registry, change control, and governance center baseline.
+- Work completed:
+  - added config governance APIs in `services/charting/app.py`:
+    - `GET /api/v1/control-panel/config`
+    - `POST /api/v1/control-panel/config/propose`
+    - `POST /api/v1/control-panel/config/approve`
+    - `POST /api/v1/control-panel/config/apply`
+    - `POST /api/v1/control-panel/config/rollback`
+  - added persistence contracts for typed config and immutable history:
+    - `control_panel_config_registry`
+    - `control_panel_config_change_request`
+    - `control_panel_config_change_history`
+  - added seeded baseline config rows for `dev`/`paper`/`prod` comparison behavior.
+  - added config workspace UI in `services/charting/static/control-panel.html` with environment load, proposal, approval/apply/rollback controls, pending changes, and immutable history tables.
+  - added verification pack `tests/dev-00033/run.sh` and Make target `test-dev-00033`.
+  - updated ticket/kanban/memory sources and moved next focus to `DEV-00034`.
+- Verification:
+  - `tests/dev-00032/run.sh` passes.
+  - `tests/dev-00033/run.sh` passes.
+  - `make test-dev-00033` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - implement `DEV-00034` enterprise polish/performance/accessibility hardening.

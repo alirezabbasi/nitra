@@ -41,6 +41,7 @@ Last updated: 2026-04-29
 - `DEV-00030` completed: control-panel charting workbench integration baseline implemented with instrument profile API, split-view chart workspace, and one-click context handoff from ops modules.
 - `DEV-00031` completed: control-panel alerting/incidents/runbooks baseline implemented with alert lifecycle actions, incident workspace, and audited runbook execution contract.
 - `DEV-00032` completed: control-panel research/backtesting/model-ops baseline implemented with dataset lineage registry, backtest launcher/history, and model promotion gate controls.
+- `DEV-00033` completed: control-panel config/governance baseline implemented with typed registry, controlled proposal/approve/apply/rollback flows, and immutable change history.
 
 ## Current
 
@@ -59,11 +60,12 @@ Last updated: 2026-04-29
 - `DEV-00030` is closed with charting workbench integration baseline in control panel.
 - `DEV-00031` is closed with alerting, incidents, and runbooks center baseline in control panel.
 - `DEV-00032` is closed with research/backtesting/model-ops center baseline in control panel.
+- `DEV-00033` is closed with config registry/change-control/governance center baseline in control panel.
 
 ## Next
 
 1. Deliver `DEV-00022` implementation for timeout/name-resolution handling and bounded retry/backoff tuning.
-2. Continue `DEV-00033..DEV-00034` governance, enterprise polish, and release-hardening modules.
+2. Execute `DEV-00034` enterprise polish, performance, and accessibility hardening for control panel release readiness.
 3. Run integrated control-panel UX hardening pass before governance modules close.
 
 ## Risks/Blocks

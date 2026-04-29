@@ -786,3 +786,10 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 00:31:05 +0330 | `make test-dev-00032` | Run DEV-00032 verification target. | Success |
 | 2026-04-29 00:31:05 +0330 | `make enforce-section-5-1` | Re-run architecture hard-gate checks. | Success |
 | 2026-04-29 00:31:05 +0330 | `make session-bootstrap` | Confirm mandatory session context consistency after updates. | Success |
+| 2026-04-29 07:21:42 +0330 | `sed -n '1,260p' docs/development/tickets/DEV-00033-control-panel-config-change-control-and-governance.md` | Load DEV-00033 scope and acceptance criteria. | Success |
+| 2026-04-29 07:21:42 +0330 | `apply_patch` on `services/charting/app.py` | Implement config registry/change-control/governance APIs and persistence. | Success |
+| 2026-04-29 07:21:42 +0330 | `apply_patch` on `services/charting/static/control-panel.html` | Add config workspace UI and control actions wiring. | Success |
+| 2026-04-29 07:21:42 +0330 | `cat > tests/dev-00033/run.sh ... && chmod +x tests/dev-00033/run.sh` | Add DEV-00033 verification script. | Success |
+| 2026-04-29 07:21:42 +0330 | `make test-dev-00033` | Run DEV-00033 verification target. | Success |
+| 2026-04-29 07:21:42 +0330 | `make enforce-section-5-1` | Re-run policy hard-gate checks. | Success |
+| 2026-04-29 07:21:42 +0330 | `make session-bootstrap` | Re-validate mandatory memory/status context integrity. | Success |

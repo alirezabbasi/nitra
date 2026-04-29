@@ -497,6 +497,61 @@
             </article>
           </article>
         </section>
+        <section class="workspace hidden" id="workspace-config">
+          <article class="card">
+            <div><strong>Config Registry</strong></div>
+            <div class="muted">Typed, environment-aware configuration with governance controls</div>
+            <div class="form-row" style="margin-top:8px; grid-template-columns: 1fr auto;">
+              <input id="cfgEnvironment" value="dev" placeholder="environment dev|paper|prod" />
+              <button class="btn" id="cfgLoadBtn">Load Environment</button>
+            </div>
+            <section class="grid" id="configMetrics" style="margin-top:10px"></section>
+            <table class="table" id="configTable">
+              <thead><tr><th>Key</th><th>Value</th><th>Type</th><th>Risk</th><th>Min Role</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Change Proposal</strong></div>
+              <div class="form-row">
+                <input id="cpConfigKey" placeholder="config_key" />
+                <input id="cpProposedValue" placeholder='proposed_value (json literal, e.g. 120000 or \"GTC\")' />
+                <input id="cpJustification" placeholder="justification" />
+                <button class="btn" id="cpProposeBtn">Propose</button>
+              </div>
+              <div class="small" id="cpResult" style="margin-top:8px">No proposal submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Change Control</strong></div>
+              <div class="form-row">
+                <input id="ccChangeId" placeholder="change_id uuid" />
+                <input id="ccJustification" placeholder="justification" />
+                <button class="btn" id="ccApproveBtn">Approve</button>
+                <button class="btn" id="ccApplyBtn">Apply</button>
+              </div>
+              <div class="form-row">
+                <input id="ccRollbackJustification" placeholder="rollback justification" />
+                <button class="btn" id="ccRollbackBtn">Rollback</button>
+              </div>
+              <div class="small" id="ccResult" style="margin-top:8px">No control action submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Pending/Recent Changes</strong></div>
+              <table class="table" id="changeTable">
+                <thead><tr><th>Change</th><th>Key</th><th>Env</th><th>Status</th><th>Requested</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Immutable History</strong></div>
+              <table class="table" id="configHistoryTable">
+                <thead><tr><th>Action</th><th>Actor</th><th>Change</th><th>Created</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
       </main>
     </div>
 
@@ -556,6 +611,7 @@
         document.getElementById("workspace-charting").classList.toggle("hidden", section !== "charting");
         document.getElementById("workspace-ops").classList.toggle("hidden", section !== "ops");
         document.getElementById("workspace-research").classList.toggle("hidden", section !== "research");
+        document.getElementById("workspace-config").classList.toggle("hidden", section !== "config");
       }
 
       function fmt(value) {
@@ -1150,6 +1206,158 @@
         await loadResearch();
       }
 
+      function renderConfig(data) {
+        const metricMap = [
+          ["keys_total", "Keys (Env)"],
+          ["high_risk_keys", "High Risk Keys"],
+          ["pending_changes", "Pending Changes"],
+          ["applied_24h", "Applied (24h)"],
+          ["rollbacks_7d", "Rollbacks (7d)"],
+          ["drift_keys", "Drifted Keys"],
+        ];
+        const m = document.getElementById("configMetrics");
+        m.innerHTML = "";
+        for (const [key, label] of metricMap) {
+          const card = document.createElement("article");
+          card.className = "card";
+          card.innerHTML = `<div class="muted">${label}</div><div class="metric">${fmt(data.metrics[key])}</div>`;
+          m.appendChild(card);
+        }
+        const cfgBody = document.querySelector("#configTable tbody");
+        cfgBody.innerHTML = "";
+        for (const row of data.config_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.config_key}</td><td><code>${JSON.stringify(row.config_value)}</code></td><td>${row.value_type}</td><td>${row.risk_level}</td><td>${row.min_role}</td>`;
+          cfgBody.appendChild(tr);
+        }
+
+        const changeBody = document.querySelector("#changeTable tbody");
+        changeBody.innerHTML = "";
+        for (const row of data.change_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.change_id}</td><td>${row.config_key}</td><td>${row.environment}</td><td>${row.status}</td><td>${row.requested_by}</td>`;
+          changeBody.appendChild(tr);
+        }
+        if ((data.change_rows || []).length > 0) {
+          document.getElementById("ccChangeId").value = data.change_rows[0].change_id;
+        }
+
+        const histBody = document.querySelector("#configHistoryTable tbody");
+        histBody.innerHTML = "";
+        for (const row of data.history_rows || []) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.action}</td><td>${row.actor}</td><td>${row.change_id}</td><td>${row.created_at || "-"}</td>`;
+          histBody.appendChild(tr);
+        }
+      }
+
+      async function loadConfig() {
+        const env = document.getElementById("cfgEnvironment").value.trim() || "dev";
+        const qs = new URLSearchParams({ environment: env, row_limit: "30" });
+        const res = await authedFetch(`/api/v1/control-panel/config?${qs.toString()}`);
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          throw new Error("unauthorized");
+        }
+        const data = await res.json();
+        applyRoleVisibility(data.session || {});
+        renderConfig(data);
+      }
+
+      function parseJsonLiteral(raw) {
+        try {
+          return JSON.parse(raw);
+        } catch (_e) {
+          return raw;
+        }
+      }
+
+      async function proposeConfigChange() {
+        const payload = {
+          config_key: document.getElementById("cpConfigKey").value.trim(),
+          environment: document.getElementById("cfgEnvironment").value.trim() || "dev",
+          proposed_value: parseJsonLiteral(document.getElementById("cpProposedValue").value.trim()),
+          justification: document.getElementById("cpJustification").value.trim(),
+        };
+        const out = document.getElementById("cpResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/config/propose", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Proposal ${data.status}: ${data.change_id}`;
+        await loadConfig();
+      }
+
+      async function approveConfigChange() {
+        const payload = {
+          change_id: document.getElementById("ccChangeId").value.trim(),
+          justification: document.getElementById("ccJustification").value.trim(),
+        };
+        const out = document.getElementById("ccResult");
+        out.textContent = "Submitting approve...";
+        const res = await authedFetch("/api/v1/control-panel/config/approve", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Approved: ${data.change_id}`;
+        await loadConfig();
+      }
+
+      async function applyConfigChange() {
+        const payload = {
+          change_id: document.getElementById("ccChangeId").value.trim(),
+          justification: document.getElementById("ccJustification").value.trim(),
+        };
+        const out = document.getElementById("ccResult");
+        out.textContent = "Submitting apply...";
+        const res = await authedFetch("/api/v1/control-panel/config/apply", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Applied: ${data.change_id}`;
+        await loadConfig();
+      }
+
+      async function rollbackConfigChange() {
+        const payload = {
+          change_id: document.getElementById("ccChangeId").value.trim(),
+          justification: document.getElementById("ccRollbackJustification").value.trim(),
+        };
+        const out = document.getElementById("ccResult");
+        out.textContent = "Submitting rollback...";
+        const res = await authedFetch("/api/v1/control-panel/config/rollback", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Rollback completed for ${data.rollback_of}`;
+        await loadConfig();
+      }
+
       function openChartWorkbench(venue, symbol, timeframe = "1m") {
         switchSection("charting");
         loadChartingWorkbench(venue, symbol, timeframe).catch(console.error);
@@ -1171,6 +1379,8 @@
             await loadOps();
           } else if (section === "research") {
             await loadResearch();
+          } else if (section === "config") {
+            await loadConfig();
           } else {
             await loadOverview();
           }
@@ -1185,6 +1395,11 @@
       document.getElementById("opsAlertBtn").addEventListener("click", () => submitOpsAlert().catch(console.error));
       document.getElementById("backtestBtn").addEventListener("click", () => submitBacktest().catch(console.error));
       document.getElementById("promoteBtn").addEventListener("click", () => submitModelPromotion().catch(console.error));
+      document.getElementById("cfgLoadBtn").addEventListener("click", () => loadConfig().catch(console.error));
+      document.getElementById("cpProposeBtn").addEventListener("click", () => proposeConfigChange().catch(console.error));
+      document.getElementById("ccApproveBtn").addEventListener("click", () => approveConfigChange().catch(console.error));
+      document.getElementById("ccApplyBtn").addEventListener("click", () => applyConfigChange().catch(console.error));
+      document.getElementById("ccRollbackBtn").addEventListener("click", () => rollbackConfigChange().catch(console.error));
       document.getElementById('refreshBtn').addEventListener('click', () => {
         if (currentSection === "ingestion") {
           loadIngestion().catch(console.error);
@@ -1198,6 +1413,8 @@
           loadOps().catch(console.error);
         } else if (currentSection === "research") {
           loadResearch().catch(console.error);
+        } else if (currentSection === "config") {
+          loadConfig().catch(console.error);
         } else {
           loadOverview().catch(console.error);
         }

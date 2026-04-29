@@ -113,6 +113,11 @@ Last updated: 2026-04-29
   - added `/api/v1/control-panel/research/backtest` for role-gated backtest launch workflow,
   - added `/api/v1/control-panel/research/model/promote` for readiness/stage gate updates with audit trail,
   - added research workspace UI section with dataset lineage table, backtest launcher/history, and model promotion gate controls.
+- Completed `DEV-00033` control panel config/change-control/governance center baseline:
+  - added `/api/v1/control-panel/config` for typed environment-aware registry and governance metrics,
+  - added `/api/v1/control-panel/config/propose`, `/approve`, `/apply`, `/rollback` with RBAC and justification policy,
+  - added immutable change history and request-tracking contracts (`control_panel_config_change_request`, `control_panel_config_change_history`),
+  - added config workspace UI section with proposal, approval, apply, rollback, and history views.
 
 ### Current
 
@@ -130,12 +135,13 @@ Last updated: 2026-04-29
 - `DEV-00030` closed with charting workbench integration baseline in control panel.
 - `DEV-00031` closed with alerting/incidents/runbooks center baseline in control panel.
 - `DEV-00032` closed with research/backtesting/model-ops center baseline in control panel.
+- `DEV-00033` closed with config/change-control/governance center baseline in control panel.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
 1. Deliver `DEV-00022` bounded retry/backoff and failure-classification implementation in `execution-gateway`.
-2. Execute control-panel governance modules (`DEV-00033..DEV-00034`) now that research/model-ops baseline is in place.
+2. Execute `DEV-00034` enterprise polish/performance/accessibility hardening for full control-panel release readiness.
 3. Continue `DEV-00022` resilience hardening in parallel and attach live degraded-network evidence.
 
 ### Risks/Blocks

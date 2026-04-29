@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -31,3 +31,4 @@ Deliver centralized configuration management with validation, staged rollout, an
 
 - Config mutation and rollback integration tests.
 - Approval/audit trail validation.
+- `tests/dev-00033/run.sh`

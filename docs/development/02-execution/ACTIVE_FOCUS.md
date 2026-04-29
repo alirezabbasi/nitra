@@ -14,4 +14,4 @@ Transition from ingestion-only completion into full-platform, HLD-aligned increm
 
 1. `DEV-00022`: execution adapter network resilience hardening for broker routes (retry/backoff and DNS/connectivity failure policy).
 2. `DEV-00024` control panel program kickoff and phased delivery definition.
-3. `DEV-00033` control panel config registry, change control, and governance.
+3. `DEV-00034` control panel enterprise polish, performance, and accessibility.
