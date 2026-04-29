@@ -42,6 +42,7 @@ Last updated: 2026-04-29
 - `DEV-00031` completed: control-panel alerting/incidents/runbooks baseline implemented with alert lifecycle actions, incident workspace, and audited runbook execution contract.
 - `DEV-00032` completed: control-panel research/backtesting/model-ops baseline implemented with dataset lineage registry, backtest launcher/history, and model promotion gate controls.
 - `DEV-00033` completed: control-panel config/governance baseline implemented with typed registry, controlled proposal/approve/apply/rollback flows, and immutable change history.
+- `DEV-00034` completed: control-panel enterprise polish baseline implemented with command palette search, persisted operator layout/density preferences, keyboard/focus accessibility hardening, and bounded render slices.
 
 ## Current
 
@@ -61,12 +62,13 @@ Last updated: 2026-04-29
 - `DEV-00031` is closed with alerting, incidents, and runbooks center baseline in control panel.
 - `DEV-00032` is closed with research/backtesting/model-ops center baseline in control panel.
 - `DEV-00033` is closed with config registry/change-control/governance center baseline in control panel.
+- `DEV-00034` is closed with enterprise polish/performance/accessibility baseline in control panel.
 
 ## Next
 
 1. Deliver `DEV-00022` implementation for timeout/name-resolution handling and bounded retry/backoff tuning.
-2. Execute `DEV-00034` enterprise polish, performance, and accessibility hardening for control panel release readiness.
-3. Run integrated control-panel UX hardening pass before governance modules close.
+2. Run integrated operator UAT across all control-panel modules and capture runtime evidence snapshots.
+3. Continue `DEV-00022` resilience hardening and attach degraded-network runtime proofs.
 
 ## Risks/Blocks
 

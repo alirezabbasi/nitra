@@ -91,6 +91,10 @@
         cursor: pointer;
       }
       .btn:hover { border-color: #444; }
+      .btn:focus-visible, .nav-item:focus-visible, input:focus-visible {
+        outline: 2px solid #f2f2f2;
+        outline-offset: 2px;
+      }
       .btn.mini { padding: 4px 8px; font-size: 11px; border-radius: 6px; }
       .grid {
         display: grid;
@@ -144,6 +148,44 @@
         padding: 8px;
       }
       .small { font-size: 11px; color: var(--muted); }
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0,0,0,0);
+        border: 0;
+      }
+      .skip-link {
+        position: absolute;
+        left: 8px;
+        top: 8px;
+        background: #fff;
+        color: #000;
+        border-radius: 6px;
+        padding: 6px 10px;
+        transform: translateY(-150%);
+      }
+      .skip-link:focus { transform: translateY(0); }
+      .dense .table th, .dense .table td { padding: 6px 6px; font-size: 12px; }
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.68);
+        display: grid;
+        place-items: center;
+        z-index: 1000;
+      }
+      .modal.hidden { display: none; }
+      .modal-card {
+        width: min(760px, 92vw);
+        background: #111;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+      }
       @media (max-width: 1100px) {
         .layout { grid-template-columns: 1fr; }
         .sidebar { border-right: none; border-bottom: 1px solid var(--border); }
@@ -154,7 +196,8 @@
     </style>
   </head>
   <body>
-    <div class="layout">
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+    <div class="layout" id="appLayout">
       <aside class="sidebar">
         <div class="brand">NITRA <span>CONTROL</span></div>
         <div class="section-label">Core Operations</div>
@@ -169,7 +212,7 @@
         <button class="nav-item" data-section="config">Config Registry</button>
       </aside>
 
-      <main class="main">
+      <main class="main" id="mainContent" tabindex="-1">
         <div class="topbar">
           <div>
             <h1 class="title">Operations Overview</h1>
@@ -177,6 +220,8 @@
           </div>
           <div class="topbar-right">
             <div class="session-pill" id="sessionPill">Unauthenticated</div>
+            <button class="btn" id="densityBtn" aria-label="Toggle compact density">Density</button>
+            <button class="btn" id="paletteBtn" aria-label="Open command palette">Search</button>
             <button class="btn" id="refreshBtn">Refresh</button>
           </div>
         </div>
@@ -554,6 +599,20 @@
         </section>
       </main>
     </div>
+    <section class="modal hidden" id="paletteModal" aria-modal="true" role="dialog" aria-labelledby="paletteTitle">
+      <article class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <strong id="paletteTitle">Command Palette</strong>
+          <button class="btn mini" id="paletteCloseBtn">Close</button>
+        </div>
+        <label for="paletteInput" class="sr-only">Search</label>
+        <input id="paletteInput" placeholder="Search markets, config keys, models... (Ctrl/Cmd + K)" style="width:100%; margin-top:10px; background:#0f0f0f; color:#fff; border:1px solid #2a2a2a; border-radius:8px; padding:10px;" />
+        <table class="table" style="margin-top:10px;">
+          <thead><tr><th>Type</th><th>Label</th><th>Section</th></tr></thead>
+          <tbody id="paletteResults"></tbody>
+        </table>
+      </article>
+    </section>
 
     <script>
       const metricOrder = [
@@ -570,7 +629,17 @@
         ["portfolio_net_exposure", "Portfolio Net Exposure"],
       ];
       const TOKEN_KEY = "nitra.control_panel.token";
+      const SECTION_KEY = "nitra.control_panel.section";
+      const DENSITY_KEY = "nitra.control_panel.density";
       let currentSection = "overview";
+      let paletteOpen = false;
+      let paletteTimer = null;
+
+      function applyDensity() {
+        const dense = localStorage.getItem(DENSITY_KEY) === "dense";
+        document.getElementById("appLayout").classList.toggle("dense", dense);
+        document.getElementById("densityBtn").textContent = dense ? "Density: Dense" : "Density: Comfort";
+      }
 
       function getToken() {
         let token = localStorage.getItem(TOKEN_KEY);
@@ -601,6 +670,7 @@
 
       function switchSection(section) {
         currentSection = section;
+        localStorage.setItem(SECTION_KEY, section);
         document.querySelectorAll(".nav-item[data-section]").forEach((el) => {
           el.classList.toggle("active", (el.dataset.section || "") === section);
         });
@@ -612,6 +682,10 @@
         document.getElementById("workspace-ops").classList.toggle("hidden", section !== "ops");
         document.getElementById("workspace-research").classList.toggle("hidden", section !== "research");
         document.getElementById("workspace-config").classList.toggle("hidden", section !== "config");
+      }
+
+      function tableSlice(rows, limit = 30) {
+        return (rows || []).slice(0, limit);
       }
 
       function fmt(value) {
@@ -633,7 +707,7 @@
 
         const tbody = document.querySelector("#moduleTable tbody");
         tbody.innerHTML = "";
-        for (const module of data.modules) {
+        for (const module of tableSlice(data.modules, 20)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${module.name}</td><td><span class="status ${module.status}">${module.status.toUpperCase()}</span></td>`;
           tbody.appendChild(tr);
@@ -671,7 +745,7 @@
 
         const connectorBody = document.querySelector("#connectorTable tbody");
         connectorBody.innerHTML = "";
-        for (const row of data.connector_health || []) {
+        for (const row of tableSlice(data.connector_health, 40)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.venue}</td><td>${row.symbol} <button class="btn mini" onclick="openChartWorkbench('${row.venue}','${row.symbol}','1m')">Chart</button></td><td><span class="status ${row.status === "online" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td><td>${row.updated_at || "-"}</td>`;
           connectorBody.appendChild(tr);
@@ -679,7 +753,7 @@
 
         const backfillBody = document.querySelector("#backfillTable tbody");
         backfillBody.innerHTML = "";
-        for (const row of data.backfill_recent || []) {
+        for (const row of tableSlice(data.backfill_recent, 30)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.status}</td><td>${row.venue}:${row.symbol}</td><td>${row.attempt_count}</td>`;
           backfillBody.appendChild(tr);
@@ -687,7 +761,7 @@
 
         const replayBody = document.querySelector("#replayTable tbody");
         replayBody.innerHTML = "";
-        for (const row of data.replay_recent || []) {
+        for (const row of tableSlice(data.replay_recent, 30)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.status}</td><td>${row.venue}:${row.symbol}</td><td>${row.started_at || "-"}</td>`;
           replayBody.appendChild(tr);
@@ -749,7 +823,7 @@
 
         const strategyBody = document.querySelector("#strategyTable tbody");
         strategyBody.innerHTML = "";
-        for (const row of data.strategy_rows || []) {
+        for (const row of tableSlice(data.strategy_rows, 40)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartWorkbench('${row.venue}','${row.symbol}','1m')">Chart</button></td><td>${row.decisions_24h}</td><td>${fmt(row.avg_confidence)}</td><td>${row.violations_24h}</td><td><span class="status ${row.status === "healthy" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td>`;
           strategyBody.appendChild(tr);
@@ -757,7 +831,7 @@
 
         const expBody = document.querySelector("#exposureTable tbody");
         expBody.innerHTML = "";
-        for (const row of data.symbol_exposure_rows || []) {
+        for (const row of tableSlice(data.symbol_exposure_rows, 40)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.venue}:${row.symbol}:${row.timeframe}</td><td>${fmt(row.exposure_notional)}</td><td>${fmt(row.drawdown_pct)}</td><td>${row.kill_switch_enabled ? "ON" : "OFF"}</td>`;
           expBody.appendChild(tr);
@@ -765,7 +839,7 @@
 
         const vioBody = document.querySelector("#violationsTable tbody");
         vioBody.innerHTML = "";
-        for (const row of data.recent_violations || []) {
+        for (const row of tableSlice(data.recent_violations, 30)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.venue}:${row.symbol}</td><td>${row.reason}</td><td>${(row.violations || []).join(", ")}</td>`;
           vioBody.appendChild(tr);
@@ -861,7 +935,7 @@
 
         const ordersBody = document.querySelector("#ordersTable tbody");
         ordersBody.innerHTML = "";
-        for (const row of data.order_rows || []) {
+        for (const row of tableSlice(data.order_rows, 40)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.order_id}</td><td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartWorkbench('${row.venue}','${row.symbol}','1m')">Chart</button></td><td>${row.side}</td><td>${row.status}</td><td>${fmt(row.requested_notional)}</td><td>${row.updated_at || "-"}</td>`;
           ordersBody.appendChild(tr);
@@ -869,7 +943,7 @@
 
         const cmdBody = document.querySelector("#commandsTable tbody");
         cmdBody.innerHTML = "";
-        for (const row of data.command_rows || []) {
+        for (const row of tableSlice(data.command_rows, 40)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.action}</td><td>${row.order_id}</td><td>${row.accepted ? "YES" : "NO"}</td><td>${row.created_at || "-"}</td>`;
           cmdBody.appendChild(tr);
@@ -877,7 +951,7 @@
 
         const recBody = document.querySelector("#reconciliationTable tbody");
         recBody.innerHTML = "";
-        for (const row of data.reconciliation_rows || []) {
+        for (const row of tableSlice(data.reconciliation_rows, 40)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.order_id}</td><td>${row.venue}:${row.symbol}</td><td>${row.status}</td><td>${row.updated_at || "-"}</td>`;
           recBody.appendChild(tr);
@@ -885,7 +959,7 @@
 
         const bdBody = document.querySelector("#brokerDiagTable tbody");
         bdBody.innerHTML = "";
-        for (const row of data.broker_diagnostics || []) {
+        for (const row of tableSlice(data.broker_diagnostics, 20)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.event_type}</td><td>${row.count_24h}</td>`;
           bdBody.appendChild(tr);
@@ -997,7 +1071,7 @@
 
         const alertBody = document.querySelector("#alertTable tbody");
         alertBody.innerHTML = "";
-        for (const row of data.alert_rows || []) {
+        for (const row of tableSlice(data.alert_rows, 40)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.title}</td><td>${row.severity}</td><td>${row.status}</td><td>${row.owner || "-"}</td><td>${row.sla_due_at || "-"}</td><td><button class="btn mini" onclick="submitAlertAction('${row.alert_id}','acknowledge')">Acknowledge</button> <button class="btn mini" onclick="submitAlertAction('${row.alert_id}','incident')">Incident</button></td>`;
           alertBody.appendChild(tr);
@@ -1005,7 +1079,7 @@
 
         const incidentBody = document.querySelector("#incidentTable tbody");
         incidentBody.innerHTML = "";
-        for (const row of data.incident_rows || []) {
+        for (const row of tableSlice(data.incident_rows, 30)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.incident_id}</td><td>${row.severity}</td><td>${row.status}</td><td>${row.owner || "-"}</td><td>${row.opened_at || "-"}</td>`;
           incidentBody.appendChild(tr);
@@ -1013,7 +1087,7 @@
 
         const runbookBody = document.querySelector("#runbookTable tbody");
         runbookBody.innerHTML = "";
-        for (const row of data.runbook_rows || []) {
+        for (const row of tableSlice(data.runbook_rows, 30)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.runbook_code}</td><td>${row.action}</td><td>${row.status}</td><td>${row.incident_id || "-"}</td><td>${row.created_at || "-"}</td>`;
           runbookBody.appendChild(tr);
@@ -1119,7 +1193,7 @@
 
         const datasetBody = document.querySelector("#datasetTable tbody");
         datasetBody.innerHTML = "";
-        for (const row of data.dataset_rows || []) {
+        for (const row of tableSlice(data.dataset_rows, 30)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.dataset_code}</td><td>${row.venue}:${row.symbol}:${row.timeframe}</td><td>${fmt(row.row_count)}</td><td>${row.status}</td><td>${row.lineage_ref || "-"}</td>`;
           datasetBody.appendChild(tr);
@@ -1127,7 +1201,7 @@
 
         const backtestBody = document.querySelector("#backtestTable tbody");
         backtestBody.innerHTML = "";
-        for (const row of data.backtest_rows || []) {
+        for (const row of tableSlice(data.backtest_rows, 30)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.run_id}</td><td>${row.strategy_code}</td><td>${row.status}</td><td>${fmt(row.pnl)}</td><td>${fmt(row.sharpe)}</td>`;
           backtestBody.appendChild(tr);
@@ -1135,7 +1209,7 @@
 
         const modelBody = document.querySelector("#modelTable tbody");
         modelBody.innerHTML = "";
-        for (const row of data.model_rows || []) {
+        for (const row of tableSlice(data.model_rows, 30)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.model_name}</td><td>${row.model_version}</td><td>${row.stage}</td><td>${row.gate_status}</td><td>${fmt(row.readiness_score)}</td>`;
           modelBody.appendChild(tr);
@@ -1225,7 +1299,7 @@
         }
         const cfgBody = document.querySelector("#configTable tbody");
         cfgBody.innerHTML = "";
-        for (const row of data.config_rows || []) {
+        for (const row of tableSlice(data.config_rows, 40)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.config_key}</td><td><code>${JSON.stringify(row.config_value)}</code></td><td>${row.value_type}</td><td>${row.risk_level}</td><td>${row.min_role}</td>`;
           cfgBody.appendChild(tr);
@@ -1233,7 +1307,7 @@
 
         const changeBody = document.querySelector("#changeTable tbody");
         changeBody.innerHTML = "";
-        for (const row of data.change_rows || []) {
+        for (const row of tableSlice(data.change_rows, 30)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.change_id}</td><td>${row.config_key}</td><td>${row.environment}</td><td>${row.status}</td><td>${row.requested_by}</td>`;
           changeBody.appendChild(tr);
@@ -1244,7 +1318,7 @@
 
         const histBody = document.querySelector("#configHistoryTable tbody");
         histBody.innerHTML = "";
-        for (const row of data.history_rows || []) {
+        for (const row of tableSlice(data.history_rows, 30)) {
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.action}</td><td>${row.actor}</td><td>${row.change_id}</td><td>${row.created_at || "-"}</td>`;
           histBody.appendChild(tr);
@@ -1358,6 +1432,31 @@
         await loadConfig();
       }
 
+      function openPalette() {
+        paletteOpen = true;
+        document.getElementById("paletteModal").classList.remove("hidden");
+        document.getElementById("paletteInput").focus();
+      }
+      function closePalette() {
+        paletteOpen = false;
+        document.getElementById("paletteModal").classList.add("hidden");
+      }
+      async function searchPalette() {
+        const q = document.getElementById("paletteInput").value.trim();
+        const tbody = document.getElementById("paletteResults");
+        tbody.innerHTML = "";
+        if (q.length < 2) return;
+        const qs = new URLSearchParams({ q });
+        const res = await authedFetch(`/api/v1/control-panel/search?${qs.toString()}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        for (const row of tableSlice(data.results, 20)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.type}</td><td>${row.label}</td><td><button class="btn mini" onclick="switchSection('${row.section}');closePalette();">${row.section}</button></td>`;
+          tbody.appendChild(tr);
+        }
+      }
+
       function openChartWorkbench(venue, symbol, timeframe = "1m") {
         switchSection("charting");
         loadChartingWorkbench(venue, symbol, timeframe).catch(console.error);
@@ -1400,6 +1499,25 @@
       document.getElementById("ccApproveBtn").addEventListener("click", () => approveConfigChange().catch(console.error));
       document.getElementById("ccApplyBtn").addEventListener("click", () => applyConfigChange().catch(console.error));
       document.getElementById("ccRollbackBtn").addEventListener("click", () => rollbackConfigChange().catch(console.error));
+      document.getElementById("densityBtn").addEventListener("click", () => {
+        const dense = localStorage.getItem(DENSITY_KEY) === "dense";
+        localStorage.setItem(DENSITY_KEY, dense ? "comfort" : "dense");
+        applyDensity();
+      });
+      document.getElementById("paletteBtn").addEventListener("click", () => openPalette());
+      document.getElementById("paletteCloseBtn").addEventListener("click", () => closePalette());
+      document.getElementById("paletteInput").addEventListener("input", () => {
+        if (paletteTimer) clearTimeout(paletteTimer);
+        paletteTimer = setTimeout(() => { searchPalette().catch(console.error); }, 120);
+      });
+      document.addEventListener("keydown", (ev) => {
+        if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "k") {
+          ev.preventDefault();
+          openPalette();
+        } else if (ev.key === "Escape" && paletteOpen) {
+          closePalette();
+        }
+      });
       document.getElementById('refreshBtn').addEventListener('click', () => {
         if (currentSection === "ingestion") {
           loadIngestion().catch(console.error);
@@ -1419,8 +1537,17 @@
           loadOverview().catch(console.error);
         }
       });
-      switchSection("overview");
-      loadOverview().catch(console.error);
+      applyDensity();
+      const initialSection = localStorage.getItem(SECTION_KEY) || "overview";
+      switchSection(initialSection);
+      if (initialSection === "ingestion") loadIngestion().catch(console.error);
+      else if (initialSection === "risk") loadRiskPortfolio().catch(console.error);
+      else if (initialSection === "execution") loadExecution().catch(console.error);
+      else if (initialSection === "charting") loadChartingWorkbench().catch(console.error);
+      else if (initialSection === "ops") loadOps().catch(console.error);
+      else if (initialSection === "research") loadResearch().catch(console.error);
+      else if (initialSection === "config") loadConfig().catch(console.error);
+      else loadOverview().catch(console.error);
     </script>
   </body>
 </html>

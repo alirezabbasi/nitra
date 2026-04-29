@@ -793,3 +793,10 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 07:21:42 +0330 | `make test-dev-00033` | Run DEV-00033 verification target. | Success |
 | 2026-04-29 07:21:42 +0330 | `make enforce-section-5-1` | Re-run policy hard-gate checks. | Success |
 | 2026-04-29 07:21:42 +0330 | `make session-bootstrap` | Re-validate mandatory memory/status context integrity. | Success |
+| 2026-04-29 08:43:43 +0330 | `sed -n '1,320p' docs/development/tickets/DEV-00034-control-panel-enterprise-polish-performance-and-accessibility.md` | Load DEV-00034 scope and acceptance criteria. | Success |
+| 2026-04-29 08:43:43 +0330 | `apply_patch` on `services/charting/app.py` | Add control-panel global search endpoint for command palette support. | Success |
+| 2026-04-29 08:43:43 +0330 | `apply_patch` on `services/charting/static/control-panel.html` | Add accessibility hardening, command palette, persisted layout/density, and render-slice helper. | Success |
+| 2026-04-29 08:43:43 +0330 | `cat > tests/dev-00034/run.sh ... && chmod +x tests/dev-00034/run.sh` | Add DEV-00034 verification script. | Success |
+| 2026-04-29 08:43:43 +0330 | `make test-dev-00034` | Run DEV-00034 verification target. | Success |
+| 2026-04-29 08:43:43 +0330 | `make enforce-section-5-1` | Re-run policy hard-gate checks after enterprise polish changes. | Success |
+| 2026-04-29 08:43:43 +0330 | `make session-bootstrap` | Re-validate mandatory session context integrity after memory updates. | Success |

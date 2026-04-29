@@ -2529,6 +2529,74 @@ def control_panel_config_rollback(
     return {"status": "rolled_back", "rollback_of": parsed_change_id}
 
 
+@app.get("/api/v1/control-panel/search")
+def control_panel_search(
+    q: str = Query(min_length=1, max_length=64),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    term = q.strip().lower()
+    rows: list[dict] = []
+    if len(term) < 2:
+        return {"service": "control-panel", "module": "search", "session": session, "results": rows}
+    try:
+        with psycopg.connect(db_url()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT venue, symbol
+                    FROM venue_market
+                    WHERE lower(venue) LIKE %s OR lower(symbol) LIKE %s
+                    ORDER BY venue, symbol
+                    LIMIT 8
+                    """,
+                    (f"%{term}%", f"%{term}%"),
+                )
+                for venue, symbol in cur.fetchall():
+                    rows.append({"type": "market", "label": f"{venue}:{symbol}", "section": "charting"})
+
+                cur.execute(
+                    """
+                    SELECT config_key, environment
+                    FROM control_panel_config_registry
+                    WHERE lower(config_key) LIKE %s
+                    ORDER BY config_key, environment
+                    LIMIT 8
+                    """,
+                    (f"%{term}%",),
+                )
+                for config_key, environment in cur.fetchall():
+                    rows.append({"type": "config", "label": f"{config_key} [{environment}]", "section": "config"})
+
+                cur.execute(
+                    """
+                    SELECT model_name, model_version, stage
+                    FROM control_panel_model_registry
+                    WHERE lower(model_name) LIKE %s OR lower(model_version) LIKE %s
+                    ORDER BY updated_at DESC
+                    LIMIT 8
+                    """,
+                    (f"%{term}%", f"%{term}%"),
+                )
+                for model_name, model_version, stage in cur.fetchall():
+                    rows.append(
+                        {
+                            "type": "model",
+                            "label": f"{model_name}:{model_version} ({stage})",
+                            "section": "research",
+                        }
+                    )
+    except Exception:
+        rows = []
+    return {
+        "service": "control-panel",
+        "module": "search",
+        "session": session,
+        "results": rows[:20],
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 @app.get("/api/v1/control-panel/charting/profile")
 def control_panel_charting_profile(
     venue: str = Query(min_length=1, max_length=64),

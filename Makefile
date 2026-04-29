@@ -84,6 +84,9 @@ test-dev-00032:
 test-dev-00033:
 	tests/dev-00033/run.sh
 
+test-dev-00034:
+	tests/dev-00034/run.sh
+
 test-dev-0010:
 	tests/dev-0010/run.sh
 

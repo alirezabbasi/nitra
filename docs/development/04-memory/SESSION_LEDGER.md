@@ -892,3 +892,28 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - implement `DEV-00034` enterprise polish/performance/accessibility hardening.
+
+---
+
+## 2026-04-29 — Session Entry 025
+
+- Objective:
+  - deliver `DEV-00034` enterprise polish, performance, and accessibility hardening for control-panel release readiness.
+- Work completed:
+  - added global control-panel search API `GET /api/v1/control-panel/search` in `services/charting/app.py`.
+  - added command palette UX (`Ctrl/Cmd+K`) in `services/charting/static/control-panel.html` with section-jump actions.
+  - added accessibility hardening: skip link, keyboard-focus-visible states, modal semantics, and focusable main landmark.
+  - added persisted operator productivity preferences via localStorage:
+    - last selected section,
+    - table density mode (`dense`/`comfort`).
+  - added bounded render helper (`tableSlice`) to reduce heavy table paint cost across modules.
+  - added verification pack `tests/dev-00034/run.sh` and Make target `test-dev-00034`.
+  - updated ticket/kanban/memory artifacts to close `DEV-00034` and mark control-panel ticket stack complete.
+- Verification:
+  - `tests/dev-00033/run.sh` passes.
+  - `tests/dev-00034/run.sh` passes.
+  - `make test-dev-00034` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute integrated operator UAT across all control-panel modules and continue `DEV-00022` resilience hardening evidence capture.

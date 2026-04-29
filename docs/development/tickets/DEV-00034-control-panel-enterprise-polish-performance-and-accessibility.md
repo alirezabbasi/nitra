@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -31,3 +31,4 @@ Finalize the control panel with enterprise polish: performance tuning, accessibi
 
 - Lighthouse/UX benchmarks and accessibility audits.
 - Full regression run across all control-panel modules.
+- `tests/dev-00034/run.sh`

@@ -6,7 +6,6 @@ Last updated: 2026-04-29
 
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
 - [ ] `DEV-00024` control panel program epic (professional admin console, black-and-white shadcn design language).
-- [ ] `DEV-00034` control panel enterprise polish, performance, and accessibility.
 
 ## In Progress
 
@@ -48,6 +47,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00031` control panel alerting, incidents, and runbooks center (alert inbox lifecycle actions, incident workspace, runbook execution audit contract).
 - [x] `DEV-00032` control panel research/backtesting/model-ops center (dataset lineage registry, backtest launcher/history, model promotion gate with audit trail).
 - [x] `DEV-00033` control panel config registry/change-control/governance center (typed registry, proposal/approve/apply/rollback flow, immutable history + audit trail).
+- [x] `DEV-00034` control panel enterprise polish/performance/accessibility (command palette, persisted layout/density, focus/keyboard semantics, bounded render slices).
 
 ## Blocked
 
