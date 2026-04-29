@@ -148,6 +148,11 @@ Last updated: 2026-04-29
   - published canonical second-chain contract baseline and schema artifacts (`contracts/second-chain/*.schema.json`),
   - added deterministic replay equivalence unit tests in `structure-engine` and `risk-engine`,
   - added executable contract/determinism verification pack (`tests/dev-0036/run.sh`, `make test-dev-0036`).
+- Completed `DEV-00037` structure-engine production deterministic hardening:
+  - added transition invariant validator to block illegal state-machine paths,
+  - added explicit out-of-order/duplicate replay bar protection (`bucket_start` monotonic guard),
+  - persisted transition reason codes in `structure_state.last_transition_reason` with migration `012_structure_transition_reason.sql`,
+  - added executable hardening verification pack (`tests/dev-0037/run.sh`, `make test-dev-0037`).
 
 ### Current
 
@@ -170,13 +175,14 @@ Last updated: 2026-04-29
 - `DEV-00024` closed with consolidated child-ticket delivery evidence.
 - `DEV-00035` is closed with deterministic hardening sequence and acceptance gates fully defined.
 - `DEV-00036` is closed with canonical contract baseline and replay determinism checks.
+- `DEV-00037` is closed with deterministic transition guards and replay ordering protection.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00037` structure-engine production deterministic hardening.
-2. Execute `DEV-00038` feature-service deterministic baseline with point-in-time integrity.
-3. Execute `DEV-00039` signal-engine deterministic scorer and explainability baseline.
+1. Execute `DEV-00038` feature-service deterministic baseline with point-in-time integrity.
+2. Execute `DEV-00039` signal-engine deterministic scorer and explainability baseline.
+3. Execute `DEV-00040` risk policy expansion and decision traceability hardening.
 
 ### Risks/Blocks
 

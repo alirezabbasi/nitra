@@ -13,7 +13,6 @@ Last updated: 2026-04-29
 - [ ] `DEV-00050` control-panel refactor quality gates and CI readiness.
 - [ ] `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
-- [ ] `DEV-00037` structure-engine production deterministic hardening.
 - [ ] `DEV-00038` feature service deterministic baseline and point-in-time integrity.
 - [ ] `DEV-00039` signal engine deterministic scorer and explainability baseline.
 - [ ] `DEV-00040` risk policy expansion and decision traceability hardening.
@@ -66,6 +65,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00024` control panel program epic (closed with delivery evidence map across `DEV-00025..DEV-00034`).
 - [x] `DEV-00035` second-chain hardening program epic (delivery program + deterministic ticket sequence `DEV-00036..DEV-00043` finalized).
 - [x] `DEV-00036` second-chain contracts and replay determinism (canonical schema baseline + replay equivalence gates + `dev-0036` test pack).
+- [x] `DEV-00037` structure-engine production deterministic hardening (invariant guards, replay ordering protection, transition-reason persistence, `dev-0037` pack).
 
 ## Blocked
 

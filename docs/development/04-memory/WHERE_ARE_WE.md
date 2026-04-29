@@ -48,6 +48,7 @@ Last updated: 2026-04-29
 - Registered second-chain strengthening ticket set `DEV-00035..DEV-00043` to prioritize hardening of `structure -> feature -> signal -> risk -> execution -> portfolio -> journal`.
 - `DEV-00035` completed: second-chain hardening program finalized with ordered implementation tickets `DEV-00036..DEV-00043` and deterministic acceptance gates.
 - `DEV-00036` completed: canonical second-chain schema contracts and replay-determinism verification gates delivered (`dev-0036`).
+- `DEV-00037` completed: structure-engine deterministic hardening delivered with illegal-transition guards, out-of-order replay protection, and persisted transition-reason state.
 
 ## Current
 
@@ -71,12 +72,13 @@ Last updated: 2026-04-29
 - `DEV-00024` is closed with full child-ticket delivery evidence map.
 - `DEV-00035` is closed with second-chain hardening sequence and verification gates defined.
 - `DEV-00036` is closed with contract/schema baselines and deterministic replay equivalence tests.
+- `DEV-00037` is closed with production deterministic transition guards and replay ordering safety.
 
 ## Next
 
-1. Execute `DEV-00037` as first production runtime hardening slice after contract freeze.
-2. Continue with `DEV-00038` feature-service deterministic baseline and point-in-time integrity.
-3. Continue with `DEV-00039` signal-engine deterministic scorer and explainability baseline.
+1. Execute `DEV-00038` feature-service deterministic baseline and point-in-time integrity.
+2. Continue with `DEV-00039` signal-engine deterministic scorer and explainability baseline.
+3. Continue with `DEV-00040` risk policy expansion and decision traceability hardening.
 
 ## Risks/Blocks
 

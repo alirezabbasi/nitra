@@ -847,3 +847,9 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 13:10:46 +0330 | `apply_patch` on `tests/dev-0036/run.sh` | Route Cargo build output to `/tmp` target dirs to avoid local permissions issue. | Success |
 | 2026-04-29 13:10:46 +0330 | escalated `tests/dev-0036/run.sh` | Re-run DEV-00036 verification after script patch. | Success |
 | 2026-04-29 13:10:46 +0330 | `make enforce-section-5-1` + `make session-bootstrap` | Re-run policy and session consistency gates after DEV-00036 updates. | Success |
+| 2026-04-29 13:15:05 +0330 | `sed/rg` reads over `DEV-00037`, `structure-engine`, `infra/timescaledb/init`, and test packs | Load ticket scope and locate deterministic transition/replay hardening touchpoints. | Success |
+| 2026-04-29 13:15:05 +0330 | `apply_patch` on `services/structure-engine/src/main.rs` | Add transition invariants, out-of-order replay guard, and persisted transition-reason runtime wiring. | Success |
+| 2026-04-29 13:15:05 +0330 | `cat > infra/timescaledb/init/012_structure_transition_reason.sql` | Add migration to persist structure transition reason in DB state table. | Success |
+| 2026-04-29 13:15:05 +0330 | `cat > tests/dev-0037/run.sh` + `apply_patch` on `Makefile` | Add DEV-00037 verification pack and make target. | Success |
+| 2026-04-29 13:15:05 +0330 | `make test-dev-0037` | Execute structure deterministic hardening test pack. | Success |
+| 2026-04-29 13:15:05 +0330 | `make enforce-section-5-1` + `make session-bootstrap` | Re-run policy and context integrity gates after DEV-00037 implementation. | Success |

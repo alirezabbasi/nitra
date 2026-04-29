@@ -1009,3 +1009,23 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` (pass)
 - Next recommended action:
   - start `DEV-00037` structure-engine production deterministic hardening.
+
+---
+
+## 2026-04-29 — Session Entry 031
+
+- Objective:
+  - execute `DEV-00037` structure-engine production deterministic hardening.
+- Work completed:
+  - added explicit transition invariant guard (`has_illegal_transition`) to block invalid phase/trend/event combinations.
+  - added out-of-order/duplicate replay guard so bars with non-monotonic `bucket_start` do not mutate structure state.
+  - persisted transition reason into structure state (`last_transition_reason`) and emitted reason consistently.
+  - added runtime migration `infra/timescaledb/init/012_structure_transition_reason.sql`.
+  - added verification pack `tests/dev-0037/run.sh` and make target `test-dev-0037`.
+  - synchronized ticket/kanban/active-focus/current-state/where-are-we to close `DEV-00037`.
+- Verification:
+  - `make test-dev-0037` (pass)
+  - `make enforce-section-5-1` (pass)
+  - `make session-bootstrap` (pass)
+- Next recommended action:
+  - start `DEV-00038` feature-service deterministic baseline and point-in-time integrity.
