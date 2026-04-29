@@ -4,7 +4,6 @@ Last updated: 2026-04-29
 
 ## Backlog
 
-- [ ] `DEV-00050` control-panel refactor quality gates and CI readiness.
 - [ ] `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
 - [x] `DEV-00043` journal/audit evidence fabric and incident bundle export.
@@ -65,6 +64,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00047` control-panel domain router split and service-layer extraction (domain routers + service proxy bridge + `dev-0047` pack).
 - [x] `DEV-00048` control-panel charting module extraction and compatibility bridge (dedicated charting router + compatibility alias/deprecation headers + `dev-0048` pack).
 - [x] `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening (source/dist frontend boundary + extracted css/js modules + `dev-0049` pack).
+- [x] `DEV-00050` control-panel refactor quality gates and CI readiness (aggregate backend/frontend/compat gates + CI-ready command + `dev-0050` pack).
 
 ## Blocked
 

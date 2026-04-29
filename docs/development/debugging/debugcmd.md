@@ -925,3 +925,8 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 18:35:05 +0330 | `make test-dev-0049` | Execute DEV-00049 verification pack. | Failed then Success (initial strict grep mismatch on multi-line mount; fixed assertion and reran) |
 | 2026-04-29 18:35:05 +0330 | `make enforce-section-5-1 && make session-bootstrap` | Run policy and session-integrity gates after DEV-00049 implementation. | Success |
 | 2026-04-29 18:35:05 +0330 | `apply_patch`/`cat >>` on ticket/kanban/memory/LLD docs | Synchronize DEV-00049 closure and next-slice project tracking artifacts. | Success |
+| 2026-04-29 18:38:10 +0330 | `sed/find/rg` on `DEV-00050`, rulesets, Makefile, and test inventory | Load DEV-00050 scope and inspect current quality-gate/CI baseline. | Success |
+| 2026-04-29 18:38:10 +0330 | `cat > tests/dev-0050/*` + `cat > scripts/ci/control_panel_refactor_quality_gate.sh` + `apply_patch` on Makefile | Add aggregate control-panel quality gates, route-smoke coverage, and CI-ready wrapper command. | Success |
+| 2026-04-29 18:38:10 +0330 | `cat > docs/design/ingestion/06-devops/control-panel-refactor-quality-gates.md` + README patch | Document deterministic backend/frontend/contract gate contract for DEV-00050. | Success |
+| 2026-04-29 18:38:10 +0330 | `make test-dev-0050 && make enforce-section-5-1 && make session-bootstrap` | Execute DEV-00050 verification + policy/session gates. | Failed then Success (initial fastapi import dependency in route smoke; replaced with dependency-free static smoke checks) |
+| 2026-04-29 18:38:10 +0330 | `apply_patch`/`cat >>` on ticket/kanban/memory/LLD/session ledger | Synchronize DEV-00050 closure and next-slice planning artifacts. | Success |

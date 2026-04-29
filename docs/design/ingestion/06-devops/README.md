@@ -18,6 +18,7 @@ It implements `ruleset.md` requirements for:
 - `observability-stack.md`
 - `release-closure-gate.md`
 - `implementation-checklist.md`
+- `control-panel-refactor-quality-gates.md`
 
 ## Compliance Rule
 

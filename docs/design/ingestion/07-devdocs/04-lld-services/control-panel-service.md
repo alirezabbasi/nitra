@@ -172,3 +172,14 @@ Rollback policy:
   - `/control-panel` -> `frontend/dist/control-panel.html`
   - `/control-panel-assets/*` -> `frontend/dist/*`
 - Legacy charting mount remains for non-extracted routes and full-chart embed continuity.
+
+## DEV-00050 Quality Gate Snapshot
+
+- Added deterministic quality gate pack: `tests/dev-0050/run.sh`.
+- Added CI-ready aggregate command:
+  - `scripts/ci/control_panel_refactor_quality_gate.sh`
+- Gate scope includes:
+  - backend compile and router-hygiene checks,
+  - frontend build/parity checks (`src -> dist`),
+  - compatibility contract regression (`dev-0048`, `dev-0049`),
+  - native + compatibility route smoke checks.

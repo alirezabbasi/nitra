@@ -195,6 +195,10 @@ Last updated: 2026-04-29
   - extracted monolithic control-panel HTML inline CSS/JS into modular frontend source structure under `services/control-panel/frontend/src`,
   - added reproducible `src -> dist` build/sync script and runtime `frontend/dist` artifact contract,
   - updated control-panel service to serve `/control-panel` and `/control-panel-assets` from native frontend dist path.
+- Completed `DEV-00050` control-panel refactor quality gates and CI readiness:
+  - added aggregate quality gate suite (`dev-0050`) covering backend/frontend/compatibility checks,
+  - added CI-ready command wrapper for deterministic merge gating,
+  - published DevOps-quality-gates documentation for reproducible enforcement.
 
 ### Current
 
@@ -230,13 +234,14 @@ Last updated: 2026-04-29
 - `DEV-00047` is closed with domain router split and service-layer proxy extraction for control-panel APIs.
 - `DEV-00048` is closed with charting module extraction and compatibility/deprecation bridge coverage.
 - `DEV-00049` is closed with frontend source/dist app-shell architecture hardening and native asset serving path.
+- `DEV-00050` is closed with aggregate quality gate coverage and CI-readiness command path.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
-2. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
-3. Expand reconciliation/runbook evidence capture for live adapter behavior.
+1. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
+2. Expand reconciliation/runbook evidence capture for live adapter behavior.
+3. Re-validate control-panel migration deprecation timeline and shim retirement plan.
 
 ### Risks/Blocks
 

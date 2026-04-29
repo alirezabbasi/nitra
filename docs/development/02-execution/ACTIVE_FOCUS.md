@@ -13,6 +13,6 @@ Execute control-panel refactor program (`DEV-00044..DEV-00051`) with contract-fi
 
 ## Immediate next slices
 
-1. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
-2. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
-3. Expand reconciliation/runbook evidence capture for live adapter behavior.
+1. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
+2. Expand reconciliation/runbook evidence capture for live adapter behavior.
+3. Re-validate control-panel migration deprecation timeline and shim retirement plan.

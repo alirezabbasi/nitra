@@ -91,12 +91,13 @@ Last updated: 2026-04-29
 - `DEV-00047` is closed with control-panel domain router split and service-layer proxy extraction.
 - `DEV-00048` is closed with control-panel charting module extraction and compatibility/deprecation bridge.
 - `DEV-00049` is closed with control-panel frontend app-shell modularization and source/dist pipeline hardening.
+- `DEV-00050` is closed with control-panel backend/frontend/compatibility aggregate quality gates and CI-ready enforcement command.
 
 ## Next
 
-1. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
-2. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
-3. Expand reconciliation/runbook evidence capture for live adapter behavior.
+1. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
+2. Expand reconciliation/runbook evidence capture for live adapter behavior.
+3. Re-validate control-panel migration deprecation timeline and shim retirement plan.
 
 ## Risks/Blocks
 
