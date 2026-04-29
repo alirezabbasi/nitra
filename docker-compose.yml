@@ -212,7 +212,7 @@ services:
       RUST_LOG: info
       DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
       KAFKA_BROKERS: kafka:9092
-      RISK_INPUT_TOPIC: ${RISK_INPUT_TOPIC:-structure.snapshot.v1}
+      RISK_INPUT_TOPIC: ${RISK_INPUT_TOPIC:-decision.signal_scored.v1}
       RISK_CHECKED_TOPIC: ${RISK_CHECKED_TOPIC:-decision.risk_checked.v1}
       RISK_VIOLATION_TOPIC: ${RISK_VIOLATION_TOPIC:-ops.policy_violation.v1}
       RISK_GROUP_ID: ${RISK_GROUP_ID:-nitra-risk-engine-v1}
@@ -295,8 +295,19 @@ services:
       DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
       MLFLOW_TRACKING_URI: http://mlflow:5000
       REDIS_URL: redis://redis:6379/0
+      KAFKA_BROKERS: kafka:9092
+      SIGNAL_INPUT_TOPIC: ${SIGNAL_INPUT_TOPIC:-features.snapshot.v1}
+      SIGNAL_OUTPUT_TOPIC: ${SIGNAL_OUTPUT_TOPIC:-decision.signal_scored.v1}
+      SIGNAL_GROUP_ID: ${SIGNAL_GROUP_ID:-nitra-signal-engine-v1}
+      SIGNAL_SCORER_CONFIG_VERSION: ${SIGNAL_SCORER_CONFIG_VERSION:-dev-00039.v1}
+      SIGNAL_MODEL_VERSION: ${SIGNAL_MODEL_VERSION:-deterministic-linear-v1}
+      SIGNAL_SCORE_THRESHOLD_BUY: ${SIGNAL_SCORE_THRESHOLD_BUY:-0.62}
+      SIGNAL_SCORE_THRESHOLD_SELL: ${SIGNAL_SCORE_THRESHOLD_SELL:--0.62}
+      SIGNAL_CONFIDENCE_CAP: ${SIGNAL_CONFIDENCE_CAP:-0.99}
     depends_on:
       timescaledb:
+        condition: service_healthy
+      kafka:
         condition: service_healthy
       mlflow:
         condition: service_started
@@ -304,7 +315,7 @@ services:
         condition: service_healthy
     volumes:
       - ./services/inference-gateway:/app
-    command: ["sleep", "infinity"]
+    command: ["python", "/app/app.py"]
 
   llm-analyst:
     build:
