@@ -40,12 +40,16 @@ struct PortfolioSnapshot {
 
 #[derive(Clone, Debug)]
 struct RiskPolicy {
+    policy_bundle_id: String,
     min_confidence: f64,
     max_notional: f64,
     max_drawdown_pct: f64,
     max_symbol_exposure_notional: f64,
     max_portfolio_gross_exposure_notional: f64,
     min_available_equity: f64,
+    max_regime_volatility: f64,
+    max_conflict_score: f64,
+    kill_switch_mode: String,
 }
 
 #[derive(Clone, Debug)]
@@ -55,6 +59,8 @@ struct RiskDecision {
     violations: Vec<String>,
     side: String,
     accepted_notional: f64,
+    policy_hits: Vec<String>,
+    trace: Value,
 }
 
 fn env_or(name: &str, default: &str) -> String {
@@ -160,6 +166,10 @@ fn parse_risk_input(payload: &Value, default_notional: f64) -> Option<RiskInput>
     })
 }
 
+fn policy_id(code: &str) -> String {
+    format!("RISK-{}", code)
+}
+
 fn evaluate_policy(
     input: &RiskInput,
     state: &RiskState,
@@ -167,19 +177,55 @@ fn evaluate_policy(
     policy: &RiskPolicy,
 ) -> RiskDecision {
     let mut violations = Vec::new();
+    let mut policy_hits = Vec::new();
+    let mut trace_checks = Vec::new();
+
+    let volatility = if input.source_kind == "signal_scored" {
+        input.confidence
+    } else {
+        0.0
+    };
+    let conflict_score = if input.side == "hold" { 1.0 } else { 0.0 };
 
     if state.kill_switch_enabled {
         violations.push("kill_switch_enabled".to_string());
+        policy_hits.push(policy_id("KILL_SWITCH_001"));
     }
+    trace_checks.push(json!({
+        "policy_id": policy_id("KILL_SWITCH_001"),
+        "status": if state.kill_switch_enabled { "blocked" } else { "passed" },
+        "value": state.kill_switch_enabled
+    }));
     if input.requested_notional > policy.max_notional {
         violations.push("max_notional_exceeded".to_string());
+        policy_hits.push(policy_id("MAX_NOTIONAL_001"));
     }
+    trace_checks.push(json!({
+        "policy_id": policy_id("MAX_NOTIONAL_001"),
+        "status": if input.requested_notional > policy.max_notional { "blocked" } else { "passed" },
+        "value": input.requested_notional,
+        "threshold": policy.max_notional
+    }));
     if state.drawdown_pct > policy.max_drawdown_pct {
         violations.push("max_drawdown_exceeded".to_string());
+        policy_hits.push(policy_id("MAX_DRAWDOWN_001"));
     }
+    trace_checks.push(json!({
+        "policy_id": policy_id("MAX_DRAWDOWN_001"),
+        "status": if state.drawdown_pct > policy.max_drawdown_pct { "blocked" } else { "passed" },
+        "value": state.drawdown_pct,
+        "threshold": policy.max_drawdown_pct
+    }));
     if input.side != "hold" && input.confidence < policy.min_confidence {
         violations.push("confidence_below_threshold".to_string());
+        policy_hits.push(policy_id("MIN_CONFIDENCE_001"));
     }
+    trace_checks.push(json!({
+        "policy_id": policy_id("MIN_CONFIDENCE_001"),
+        "status": if input.side != "hold" && input.confidence < policy.min_confidence { "blocked" } else { "passed" },
+        "value": input.confidence,
+        "threshold": policy.min_confidence
+    }));
 
     let next_symbol_exposure = if input.side == "buy" {
         state.current_exposure_notional + input.requested_notional
@@ -188,19 +234,83 @@ fn evaluate_policy(
     };
     if next_symbol_exposure > policy.max_symbol_exposure_notional {
         violations.push("max_symbol_exposure_exceeded".to_string());
+        policy_hits.push(policy_id("MAX_SYMBOL_EXPOSURE_001"));
     }
+    trace_checks.push(json!({
+        "policy_id": policy_id("MAX_SYMBOL_EXPOSURE_001"),
+        "status": if next_symbol_exposure > policy.max_symbol_exposure_notional { "blocked" } else { "passed" },
+        "value": next_symbol_exposure,
+        "threshold": policy.max_symbol_exposure_notional
+    }));
 
     let next_portfolio_gross =
         portfolio.portfolio_gross_exposure_notional + input.requested_notional;
     if next_portfolio_gross > policy.max_portfolio_gross_exposure_notional {
         violations.push("max_portfolio_gross_exposure_exceeded".to_string());
+        policy_hits.push(policy_id("MAX_PORTFOLIO_GROSS_001"));
     }
+    trace_checks.push(json!({
+        "policy_id": policy_id("MAX_PORTFOLIO_GROSS_001"),
+        "status": if next_portfolio_gross > policy.max_portfolio_gross_exposure_notional { "blocked" } else { "passed" },
+        "value": next_portfolio_gross,
+        "threshold": policy.max_portfolio_gross_exposure_notional
+    }));
 
     let available_equity =
         (portfolio.equity - portfolio.portfolio_gross_exposure_notional).max(0.0);
     if available_equity < policy.min_available_equity {
         violations.push("min_available_equity_breached".to_string());
+        policy_hits.push(policy_id("MIN_AVAILABLE_EQUITY_001"));
     }
+    trace_checks.push(json!({
+        "policy_id": policy_id("MIN_AVAILABLE_EQUITY_001"),
+        "status": if available_equity < policy.min_available_equity { "blocked" } else { "passed" },
+        "value": available_equity,
+        "threshold": policy.min_available_equity
+    }));
+
+    if volatility > policy.max_regime_volatility {
+        violations.push("regime_volatility_exceeded".to_string());
+        policy_hits.push(policy_id("MAX_REGIME_VOL_001"));
+    }
+    trace_checks.push(json!({
+        "policy_id": policy_id("MAX_REGIME_VOL_001"),
+        "status": if volatility > policy.max_regime_volatility { "blocked" } else { "passed" },
+        "value": volatility,
+        "threshold": policy.max_regime_volatility
+    }));
+
+    if conflict_score > policy.max_conflict_score {
+        violations.push("conflict_score_exceeded".to_string());
+        policy_hits.push(policy_id("MAX_CONFLICT_001"));
+    }
+    trace_checks.push(json!({
+        "policy_id": policy_id("MAX_CONFLICT_001"),
+        "status": if conflict_score > policy.max_conflict_score { "blocked" } else { "passed" },
+        "value": conflict_score,
+        "threshold": policy.max_conflict_score
+    }));
+
+    if policy.kill_switch_mode == "strict" && state.kill_switch_enabled {
+        violations.push("kill_switch_strict_mode".to_string());
+        policy_hits.push(policy_id("KILL_SWITCH_STRICT_001"));
+    }
+    trace_checks.push(json!({
+        "policy_id": policy_id("KILL_SWITCH_STRICT_001"),
+        "status": if policy.kill_switch_mode == "strict" && state.kill_switch_enabled { "blocked" } else { "passed" },
+        "mode": policy.kill_switch_mode
+    }));
+
+    let trace = json!({
+        "policy_bundle_id": policy.policy_bundle_id,
+        "checks": trace_checks,
+        "input_summary": {
+            "side": input.side,
+            "confidence": input.confidence,
+            "requested_notional": input.requested_notional,
+            "source_kind": input.source_kind
+        }
+    });
 
     if input.side == "hold" {
         return RiskDecision {
@@ -209,6 +319,8 @@ fn evaluate_policy(
             violations,
             side: input.side.clone(),
             accepted_notional: 0.0,
+            policy_hits,
+            trace,
         };
     }
 
@@ -219,6 +331,8 @@ fn evaluate_policy(
             violations,
             side: input.side.clone(),
             accepted_notional: 0.0,
+            policy_hits,
+            trace,
         };
     }
 
@@ -228,6 +342,8 @@ fn evaluate_policy(
         violations,
         side: input.side.clone(),
         accepted_notional: input.requested_notional,
+        policy_hits,
+        trace,
     }
 }
 
@@ -275,6 +391,8 @@ async fn ensure_risk_tables(conn: &Client) -> Result<(), tokio_postgres::Error> 
           approved BOOLEAN NOT NULL,
           reason TEXT NOT NULL,
           violations JSONB NOT NULL DEFAULT '[]'::jsonb,
+          policy_hits JSONB NOT NULL DEFAULT '[]'::jsonb,
+          evaluation_trace JSONB NOT NULL DEFAULT '{}'::jsonb,
           event_ts TIMESTAMPTZ NOT NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT now()
         );
@@ -430,9 +548,9 @@ async fn insert_decision_log(
         INSERT INTO risk_decision_log (
           decision_id, venue, canonical_symbol, timeframe, input_topic,
           side, requested_notional, confidence, approved, reason,
-          violations, event_ts
+          violations, policy_hits, evaluation_trace, event_ts
         ) VALUES (
-          $1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12
+          $1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::jsonb,$12::jsonb,$13::jsonb,$14
         )
         ",
         &[
@@ -447,6 +565,8 @@ async fn insert_decision_log(
             &decision.approved,
             &decision.reason,
             &json!(decision.violations),
+            &json!(decision.policy_hits),
+            &decision.trace,
             &input.event_ts,
         ],
     )
@@ -531,6 +651,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let policy = RiskPolicy {
+        policy_bundle_id: env_or("RISK_POLICY_BUNDLE_ID", "risk-policy-bundle-dev-0040-v1"),
         min_confidence: env_f64_or("RISK_MIN_CONFIDENCE", 0.55).clamp(0.0, 1.0),
         max_notional: env_f64_or("RISK_MAX_NOTIONAL", 100000.0).max(1.0),
         max_drawdown_pct: env_f64_or("RISK_MAX_DRAWDOWN_PCT", 5.0).max(0.0),
@@ -542,6 +663,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .max(1.0),
         min_available_equity: env_f64_or("RISK_MIN_AVAILABLE_EQUITY", 10000.0).max(0.0),
+        max_regime_volatility: env_f64_or("RISK_MAX_REGIME_VOLATILITY", 0.95).clamp(0.0, 1.0),
+        max_conflict_score: env_f64_or("RISK_MAX_CONFLICT_SCORE", 0.9).clamp(0.0, 1.0),
+        kill_switch_mode: env_or("RISK_KILL_SWITCH_MODE", "strict"),
     };
     let default_notional = env_f64_or("RISK_DEFAULT_NOTIONAL", 1000.0).max(1.0);
     let account_id = env_or("RISK_PORTFOLIO_ACCOUNT_ID", "paper");
@@ -641,13 +765,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "accepted_notional": decision.accepted_notional,
                 "confidence": input.confidence,
                 "violations": decision.violations,
+                "policy_hits": decision.policy_hits,
+                "policy_bundle_id": policy.policy_bundle_id,
+                "evaluation_trace": decision.trace,
                 "policy": {
+                    "policy_bundle_id": policy.policy_bundle_id,
                     "min_confidence": policy.min_confidence,
                     "max_notional": policy.max_notional,
                     "max_drawdown_pct": policy.max_drawdown_pct,
                     "max_symbol_exposure_notional": policy.max_symbol_exposure_notional,
                     "max_portfolio_gross_exposure_notional": policy.max_portfolio_gross_exposure_notional,
                     "min_available_equity": policy.min_available_equity,
+                    "max_regime_volatility": policy.max_regime_volatility,
+                    "max_conflict_score": policy.max_conflict_score,
+                    "kill_switch_mode": policy.kill_switch_mode,
                 },
                 "state": {
                     "current_exposure_notional": current_state.current_exposure_notional,
@@ -672,6 +803,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "side": decision.side,
                 "reason": decision.reason,
                 "violations": decision.violations,
+                "policy_hits": decision.policy_hits,
+                "policy_bundle_id": policy.policy_bundle_id,
                 "requested_notional": input.requested_notional,
                 "confidence": input.confidence,
             });
@@ -730,12 +863,16 @@ mod tests {
 
     fn base_policy() -> RiskPolicy {
         RiskPolicy {
+            policy_bundle_id: "risk-policy-bundle-dev-0040-v1".to_string(),
             min_confidence: 0.55,
             max_notional: 100000.0,
             max_drawdown_pct: 5.0,
             max_symbol_exposure_notional: 250000.0,
             max_portfolio_gross_exposure_notional: 500000.0,
             min_available_equity: 10000.0,
+            max_regime_volatility: 0.95,
+            max_conflict_score: 0.9,
+            kill_switch_mode: "strict".to_string(),
         }
     }
 
@@ -773,6 +910,53 @@ mod tests {
         assert_eq!(d1.violations, d2.violations);
         assert_eq!(d1.side, d2.side);
         assert_eq!(d1.accepted_notional, d2.accepted_notional);
+    }
+
+    #[test]
+    fn rejects_when_regime_volatility_exceeded() {
+        let input = mk_input("buy", 0.99, 1000.0);
+        let decision = evaluate_policy(&input, &base_state(), &base_portfolio(), &base_policy());
+        assert!(!decision.approved);
+        assert!(decision
+            .violations
+            .iter()
+            .any(|v| v == "regime_volatility_exceeded"));
+        assert!(decision
+            .policy_hits
+            .iter()
+            .any(|v| v == "RISK-MAX_REGIME_VOL_001"));
+    }
+
+    #[test]
+    fn carries_policy_trace_metadata() {
+        let input = mk_input("buy", 0.8, 1000.0);
+        let decision = evaluate_policy(&input, &base_state(), &base_portfolio(), &base_policy());
+        let bundle = decision
+            .trace
+            .get("policy_bundle_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
+        assert_eq!(bundle, "risk-policy-bundle-dev-0040-v1");
+        let checks = decision
+            .trace
+            .get("checks")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        assert!(!checks.is_empty());
+    }
+
+    #[test]
+    fn stress_policy_interaction_fail_closed() {
+        let input = mk_input("buy", 0.2, 1_000_000.0);
+        let mut state = base_state();
+        state.drawdown_pct = 9.0;
+        state.kill_switch_enabled = true;
+        let mut portfolio = base_portfolio();
+        portfolio.portfolio_gross_exposure_notional = 1_000_000.0;
+        let decision = evaluate_policy(&input, &state, &portfolio, &base_policy());
+        assert!(!decision.approved);
+        assert!(decision.violations.len() >= 4);
     }
 
     #[test]
