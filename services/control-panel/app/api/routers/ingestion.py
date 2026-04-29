@@ -10,6 +10,11 @@ async def control_panel_ingestion(request: Request) -> Response:
     return await proxy_to_legacy(request)
 
 
+@router.get("/api/v1/control-panel/ingestion/kpi")
+async def control_panel_ingestion_kpi(request: Request) -> Response:
+    return await proxy_to_legacy(request)
+
+
 @router.post("/api/v1/control-panel/ingestion/backfill-window")
 async def control_panel_ingestion_backfill_window(request: Request) -> Response:
     return await proxy_to_legacy(request)

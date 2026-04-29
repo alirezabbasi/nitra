@@ -14,6 +14,7 @@
         <div class="section-label">Core Operations</div>
         <button class="nav-item active" data-section="overview">Overview</button>
         <button class="nav-item" data-section="ingestion">Ingestion & Data</button>
+        <button class="nav-item" data-section="kpi">KPI Monitor</button>
         <button class="nav-item" data-section="risk">Risk & Portfolio</button>
         <button class="nav-item" data-section="execution">Execution OMS</button>
         <button class="nav-item" data-section="charting">Charting Workbench</button>
@@ -161,6 +162,34 @@
                 <tbody></tbody>
               </table>
             </article>
+          </article>
+        </section>
+
+        <section class="workspace hidden" id="workspace-kpi">
+          <article class="card">
+            <div><strong>Ingestion KPI Monitor</strong></div>
+            <div class="muted">Target: ~130k `1m` OHLCV bars per market + realtime raw-tick flow for all active instruments</div>
+            <div class="form-row" style="margin-top:10px">
+              <input id="kpiTargetBars" value="130000" placeholder="target 1m bars" />
+              <input id="kpiTickSla" value="120" placeholder="tick SLA seconds" />
+              <button class="btn" id="kpiLoadBtn">Refresh KPI</button>
+            </div>
+            <section class="grid" id="kpiMetrics" style="margin-top:10px"></section>
+            <table class="table" id="kpiTable">
+              <thead>
+                <tr>
+                  <th>Market</th>
+                  <th>1m Bars</th>
+                  <th>Coverage</th>
+                  <th>Last 1m</th>
+                  <th>Ticks(5m)</th>
+                  <th>Last Tick</th>
+                  <th>Tick Lag(s)</th>
+                  <th>KPI</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
           </article>
         </section>
 

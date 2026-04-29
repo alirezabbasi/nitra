@@ -1313,3 +1313,21 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - run post-cutover observability threshold validation under sustained runtime load.
+
+## 2026-04-29 — Session Entry 022
+
+- Objective:
+  - add a control-panel page to monitor ingestion KPIs: ~130k `1m` OHLCV per instrument and realtime `raw_tick` health for all active instruments.
+- Work completed:
+  - added backend KPI endpoint `GET /api/v1/control-panel/ingestion/kpi` in `services/charting/app.py` with configurable target and tick-SLA thresholds.
+  - added control-panel proxy route for KPI endpoint in `services/control-panel/app/api/routers/ingestion.py`.
+  - added new control-panel frontend workspace/tab `KPI Monitor` with per-market pass/warn state, coverage progress, and tick lag details.
+  - exposed `kpi` section in role visibility payload (`ROLE_DEFAULT_SECTIONS`) and search palette discovery keywords.
+  - synced frontend source to dist using `scripts/frontend/build_control_panel_frontend.sh`.
+  - added verification pack `tests/dev-0053/run.sh` and make target `test-dev-0053`.
+- Verification:
+  - `make test-dev-0053` passes.
+  - `make test-dev-0050` passes.
+  - `make enforce-section-5-1` passes.
+- Next recommended action:
+  - run the KPI page live against current stack and triage markets failing either coverage or tick-lag thresholds.

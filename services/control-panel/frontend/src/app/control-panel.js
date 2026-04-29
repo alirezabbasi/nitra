@@ -43,6 +43,7 @@ const metricOrder = [
         });
         document.getElementById("workspace-overview").classList.toggle("hidden", section !== "overview");
         document.getElementById("workspace-ingestion").classList.toggle("hidden", section !== "ingestion");
+        document.getElementById("workspace-kpi").classList.toggle("hidden", section !== "kpi");
         document.getElementById("workspace-risk").classList.toggle("hidden", section !== "risk");
         document.getElementById("workspace-execution").classList.toggle("hidden", section !== "execution");
         document.getElementById("workspace-charting").classList.toggle("hidden", section !== "charting");
@@ -157,6 +158,53 @@ const metricOrder = [
         }
         out.textContent = `Accepted: ${data.result?.status || "ok"} | missing_after=${data.result?.missing_after_fetch_count ?? "-"}`;
         await loadIngestion();
+      }
+
+      function renderIngestionKpi(data) {
+        const metricMap = [
+          ["active_markets", "Active Markets"],
+          ["markets_meeting_ohlcv_target", "OHLCV Target Met"],
+          ["markets_meeting_tick_sla", "Tick SLA Met"],
+          ["markets_meeting_both", "Both KPI Met"],
+          ["avg_ohlcv_progress_pct", "Avg OHLCV Progress %"],
+          ["worst_tick_lag_seconds", "Worst Tick Lag (s)"],
+        ];
+        const m = document.getElementById("kpiMetrics");
+        m.innerHTML = "";
+        for (const [key, label] of metricMap) {
+          const card = document.createElement("article");
+          card.className = "card";
+          card.innerHTML = `<div class="muted">${label}</div><div class="metric">${fmt(data.metrics[key])}</div>`;
+          m.appendChild(card);
+        }
+
+        const body = document.querySelector("#kpiTable tbody");
+        body.innerHTML = "";
+        for (const row of tableSlice(data.rows, 300)) {
+          const tr = document.createElement("tr");
+          const kpiState = row.meets_both_kpi ? "PASS" : "WARN";
+          const kpiClass = row.meets_both_kpi ? "online" : "degraded";
+          tr.innerHTML = `<td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartWorkbench('${row.venue}','${row.symbol}','1m')">Chart</button></td><td>${fmt(row.ohlcv_1m_count)} / ${fmt(row.ohlcv_target)}</td><td>${fmt(row.ohlcv_progress_pct)}%</td><td>${row.last_ohlcv_bucket || "-"}</td><td>${fmt(row.ticks_5m)}</td><td>${row.last_tick_ts || "-"}</td><td>${row.tick_lag_seconds ?? "-"}</td><td><span class="status ${kpiClass}">${kpiState}</span></td>`;
+          body.appendChild(tr);
+        }
+      }
+
+      async function loadIngestionKpi() {
+        const target = Math.max(10000, Number(document.getElementById("kpiTargetBars").value || 130000));
+        const tickSla = Math.max(5, Number(document.getElementById("kpiTickSla").value || 120));
+        const qs = new URLSearchParams({
+          target_1m_bars: String(target),
+          tick_sla_seconds: String(tickSla),
+          row_limit: "300",
+        });
+        const res = await authedFetch(`/api/v1/control-panel/ingestion/kpi?${qs.toString()}`);
+        if (res.status === 401) {
+          localStorage.removeItem(TOKEN_KEY);
+          throw new Error("unauthorized");
+        }
+        const data = await res.json();
+        applyRoleVisibility(data.session || {});
+        renderIngestionKpi(data);
       }
 
       function renderRiskPortfolio(data) {
@@ -828,6 +876,8 @@ const metricOrder = [
           switchSection(section);
           if (section === "ingestion") {
             await loadIngestion();
+          } else if (section === "kpi") {
+            await loadIngestionKpi();
           } else if (section === "risk") {
             await loadRiskPortfolio();
           } else if (section === "execution") {
@@ -846,6 +896,7 @@ const metricOrder = [
         });
       });
       document.getElementById("backfillBtn").addEventListener("click", () => submitBackfillWindow().catch(console.error));
+      document.getElementById("kpiLoadBtn").addEventListener("click", () => loadIngestionKpi().catch(console.error));
       document.getElementById("riskLimitsBtn").addEventListener("click", () => submitRiskLimits().catch(console.error));
       document.getElementById("killSwitchBtn").addEventListener("click", () => submitKillSwitch().catch(console.error));
       document.getElementById("executionCmdBtn").addEventListener("click", () => submitExecutionCommand().catch(console.error));
@@ -881,6 +932,8 @@ const metricOrder = [
       document.getElementById('refreshBtn').addEventListener('click', () => {
         if (currentSection === "ingestion") {
           loadIngestion().catch(console.error);
+        } else if (currentSection === "kpi") {
+          loadIngestionKpi().catch(console.error);
         } else if (currentSection === "risk") {
           loadRiskPortfolio().catch(console.error);
         } else if (currentSection === "execution") {
@@ -901,6 +954,7 @@ const metricOrder = [
       const initialSection = localStorage.getItem(SECTION_KEY) || "overview";
       switchSection(initialSection);
       if (initialSection === "ingestion") loadIngestion().catch(console.error);
+      else if (initialSection === "kpi") loadIngestionKpi().catch(console.error);
       else if (initialSection === "risk") loadRiskPortfolio().catch(console.error);
       else if (initialSection === "execution") loadExecution().catch(console.error);
       else if (initialSection === "charting") loadChartingWorkbench().catch(console.error);

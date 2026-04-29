@@ -75,12 +75,13 @@ VALID_ASSET_CLASSES = {"fx", "crypto", "other"}
 VALID_VENUES = {"oanda", "capital", "coinbase"}
 ROLE_RANK = {"viewer": 0, "operator": 1, "risk_manager": 2, "admin": 3}
 ROLE_DEFAULT_SECTIONS = {
-    "viewer": ["overview", "ingestion", "risk", "portfolio", "execution", "charting", "ops"],
-    "operator": ["overview", "ingestion", "risk", "portfolio", "execution", "charting", "ops"],
-    "risk_manager": ["overview", "risk", "portfolio", "execution", "charting", "ops", "governance"],
+    "viewer": ["overview", "ingestion", "kpi", "risk", "portfolio", "execution", "charting", "ops"],
+    "operator": ["overview", "ingestion", "kpi", "risk", "portfolio", "execution", "charting", "ops"],
+    "risk_manager": ["overview", "kpi", "risk", "portfolio", "execution", "charting", "ops", "governance"],
     "admin": [
         "overview",
         "ingestion",
+        "kpi",
         "risk",
         "portfolio",
         "execution",
@@ -486,6 +487,130 @@ def control_panel_ingestion(
         "coverage_rows": coverage_rows,
         "backfill_recent": backfill_recent,
         "replay_recent": replay_recent,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get("/api/v1/control-panel/ingestion/kpi")
+def control_panel_ingestion_kpi(
+    x_control_panel_token: str | None = Header(default=None),
+    target_1m_bars: int = Query(default=130000, ge=10000, le=300000),
+    tick_sla_seconds: int = Query(default=120, ge=5, le=3600),
+    row_limit: int = Query(default=200, ge=1, le=500),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    metrics = {
+        "target_1m_bars": int(target_1m_bars),
+        "tick_sla_seconds": int(tick_sla_seconds),
+        "active_markets": 0,
+        "markets_meeting_ohlcv_target": 0,
+        "markets_meeting_tick_sla": 0,
+        "markets_meeting_both": 0,
+        "avg_ohlcv_progress_pct": 0.0,
+        "worst_tick_lag_seconds": 0,
+    }
+    rows: list[dict] = []
+    mode = "online"
+    try:
+        with psycopg.connect(db_url()) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    WITH markets AS (
+                      SELECT lower(venue) AS venue, upper(symbol) AS symbol
+                      FROM venue_market
+                      WHERE enabled = TRUE
+                        AND ingest_enabled = TRUE
+                    ),
+                    bars AS (
+                      SELECT
+                        lower(venue) AS venue,
+                        upper(canonical_symbol) AS symbol,
+                        COUNT(*)::bigint AS ohlcv_1m_count,
+                        MAX(bucket_start) AS last_ohlcv_bucket
+                      FROM ohlcv_bar
+                      WHERE timeframe = '1m'
+                      GROUP BY lower(venue), upper(canonical_symbol)
+                    ),
+                    ticks AS (
+                      SELECT
+                        lower(venue) AS venue,
+                        upper(broker_symbol) AS symbol,
+                        COUNT(*) FILTER (WHERE event_ts_received >= now() - interval '5 minutes')::bigint AS ticks_5m,
+                        MAX(event_ts_received) AS last_tick_ts
+                      FROM raw_tick
+                      GROUP BY lower(venue), upper(broker_symbol)
+                    )
+                    SELECT
+                      m.venue,
+                      m.symbol,
+                      COALESCE(b.ohlcv_1m_count, 0)::bigint AS ohlcv_1m_count,
+                      b.last_ohlcv_bucket,
+                      COALESCE(t.ticks_5m, 0)::bigint AS ticks_5m,
+                      t.last_tick_ts,
+                      CASE
+                        WHEN t.last_tick_ts IS NULL THEN NULL
+                        ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - t.last_tick_ts))))::bigint
+                      END AS tick_lag_seconds
+                    FROM markets m
+                    LEFT JOIN bars b
+                      ON b.venue = m.venue
+                     AND b.symbol = m.symbol
+                    LEFT JOIN ticks t
+                      ON t.venue = m.venue
+                     AND t.symbol = m.symbol
+                    ORDER BY m.venue, m.symbol
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                raw_rows = cur.fetchall()
+        progress_sum = 0.0
+        worst_tick_lag = 0
+        for venue, symbol, ohlcv_count, last_ohlcv_bucket, ticks_5m, last_tick_ts, tick_lag in raw_rows:
+            count = int(ohlcv_count or 0)
+            progress = min(100.0, (count / max(1, target_1m_bars)) * 100.0)
+            meets_ohlcv = count >= target_1m_bars
+            lag_seconds = int(tick_lag) if tick_lag is not None else None
+            meets_tick = lag_seconds is not None and lag_seconds <= tick_sla_seconds
+            progress_sum += progress
+            if lag_seconds is not None:
+                worst_tick_lag = max(worst_tick_lag, lag_seconds)
+            rows.append(
+                {
+                    "venue": str(venue),
+                    "symbol": str(symbol),
+                    "ohlcv_1m_count": count,
+                    "ohlcv_target": int(target_1m_bars),
+                    "ohlcv_progress_pct": round(progress, 2),
+                    "ohlcv_missing": max(0, int(target_1m_bars) - count),
+                    "last_ohlcv_bucket": last_ohlcv_bucket.isoformat() if last_ohlcv_bucket else None,
+                    "ticks_5m": int(ticks_5m or 0),
+                    "last_tick_ts": last_tick_ts.isoformat() if last_tick_ts else None,
+                    "tick_lag_seconds": lag_seconds,
+                    "tick_sla_seconds": int(tick_sla_seconds),
+                    "meets_ohlcv_target": bool(meets_ohlcv),
+                    "meets_tick_sla": bool(meets_tick),
+                    "meets_both_kpi": bool(meets_ohlcv and meets_tick),
+                }
+            )
+        total = len(rows)
+        metrics["active_markets"] = total
+        metrics["markets_meeting_ohlcv_target"] = sum(1 for row in rows if row["meets_ohlcv_target"])
+        metrics["markets_meeting_tick_sla"] = sum(1 for row in rows if row["meets_tick_sla"])
+        metrics["markets_meeting_both"] = sum(1 for row in rows if row["meets_both_kpi"])
+        metrics["avg_ohlcv_progress_pct"] = round(progress_sum / total, 2) if total > 0 else 0.0
+        metrics["worst_tick_lag_seconds"] = int(worst_tick_lag)
+    except Exception:
+        mode = "degraded"
+        rows = []
+    return {
+        "service": "control-panel",
+        "module": "ingestion-kpi",
+        "mode": mode,
+        "session": session,
+        "metrics": metrics,
+        "rows": rows,
         "generated_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -2810,6 +2935,20 @@ def control_panel_search(
                             "section": "research",
                         }
                     )
+        if (
+            "kpi" in term
+            or "coverage" in term
+            or "ohlcv" in term
+            or "tick" in term
+            or "latency" in term
+        ):
+            rows.append(
+                {
+                    "type": "kpi",
+                    "label": "Ingestion KPI Monitor",
+                    "section": "kpi",
+                }
+            )
     except Exception:
         rows = []
     return {
