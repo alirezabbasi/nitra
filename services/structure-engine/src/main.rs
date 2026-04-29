@@ -38,6 +38,7 @@ struct StructureState {
     pullback_count: i32,
     inside_bars: i32,
     outside_bars: i32,
+    last_transition_reason: String,
 }
 
 #[derive(Clone, Debug)]
@@ -140,6 +141,7 @@ fn apply_bar_transition(prev: Option<&StructureState>, bar: &BarInput) -> (Struc
                 pullback_count: 0,
                 inside_bars: 0,
                 outside_bars: 0,
+                last_transition_reason: "initialization".to_string(),
             },
             TransitionFlags {
                 emit_pullback: false,
@@ -217,8 +219,7 @@ fn apply_bar_transition(prev: Option<&StructureState>, bar: &BarInput) -> (Struc
         (previous.swing_high.max(bar.high), previous.swing_low.min(bar.low))
     };
 
-    (
-        StructureState {
+    let next_state = StructureState {
             trend,
             phase,
             objective,
@@ -230,7 +231,11 @@ fn apply_bar_transition(prev: Option<&StructureState>, bar: &BarInput) -> (Struc
             pullback_count,
             inside_bars: previous.inside_bars + if inside { 1 } else { 0 },
             outside_bars: previous.outside_bars + if outside { 1 } else { 0 },
-        },
+            last_transition_reason: reason.clone(),
+        };
+
+    (
+        next_state,
         TransitionFlags {
             emit_pullback,
             emit_minor,
@@ -238,6 +243,48 @@ fn apply_bar_transition(prev: Option<&StructureState>, bar: &BarInput) -> (Struc
             reason,
         },
     )
+}
+
+fn has_illegal_transition(prev: Option<&StructureState>, next: &StructureState, flags: &TransitionFlags) -> bool {
+    if next.phase != "init" && next.phase != "extension" && next.phase != "pullback" {
+        return true;
+    }
+
+    if next.trend != "neutral" && next.trend != "bullish" && next.trend != "bearish" {
+        return true;
+    }
+
+    if next.trend == "neutral" && next.phase != "init" {
+        return true;
+    }
+
+    if next.phase == "pullback" && next.trend == "neutral" {
+        return true;
+    }
+
+    if flags.emit_minor && flags.reason != "trend_shift" {
+        return true;
+    }
+
+    if flags.emit_pullback && next.phase != "pullback" {
+        return true;
+    }
+
+    if flags.emit_major && (next.phase != "extension" || next.extension_count < 3) {
+        return true;
+    }
+
+    if next.extension_count < 0 || next.pullback_count < 0 || next.inside_bars < 0 || next.outside_bars < 0 {
+        return true;
+    }
+
+    if let Some(previous) = prev {
+        if next.last_bucket_start <= previous.last_bucket_start {
+            return true;
+        }
+    }
+
+    false
 }
 
 async fn ensure_structure_tables(conn: &Client) -> Result<(), tokio_postgres::Error> {
@@ -258,6 +305,7 @@ async fn ensure_structure_tables(conn: &Client) -> Result<(), tokio_postgres::Er
           pullback_count INT NOT NULL DEFAULT 0,
           inside_bars INT NOT NULL DEFAULT 0,
           outside_bars INT NOT NULL DEFAULT 0,
+          last_transition_reason TEXT NOT NULL DEFAULT 'initialization',
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
           PRIMARY KEY (venue, canonical_symbol, timeframe)
         );
@@ -279,7 +327,7 @@ async fn load_state(
             "
             SELECT trend, phase, objective, swing_high, swing_low,
                    last_bucket_start, last_close, extension_count,
-                   pullback_count, inside_bars, outside_bars
+                   pullback_count, inside_bars, outside_bars, last_transition_reason
             FROM structure_state
             WHERE venue = $1 AND canonical_symbol = $2 AND timeframe = $3
             ",
@@ -303,6 +351,7 @@ async fn load_state(
         pullback_count: row.get::<_, i32>(8),
         inside_bars: row.get::<_, i32>(9),
         outside_bars: row.get::<_, i32>(10),
+        last_transition_reason: row.get::<_, String>(11),
     }))
 }
 
@@ -318,9 +367,9 @@ async fn persist_state(
         INSERT INTO structure_state (
           venue, canonical_symbol, timeframe, trend, phase, objective,
           swing_high, swing_low, last_bucket_start, last_close,
-          extension_count, pullback_count, inside_bars, outside_bars
+          extension_count, pullback_count, inside_bars, outside_bars, last_transition_reason
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
         )
         ON CONFLICT (venue, canonical_symbol, timeframe)
         DO UPDATE SET
@@ -335,6 +384,7 @@ async fn persist_state(
           pullback_count = EXCLUDED.pullback_count,
           inside_bars = EXCLUDED.inside_bars,
           outside_bars = EXCLUDED.outside_bars,
+          last_transition_reason = EXCLUDED.last_transition_reason,
           updated_at = now()
         ",
         &[
@@ -352,6 +402,7 @@ async fn persist_state(
             &state.pullback_count,
             &state.inside_bars,
             &state.outside_bars,
+            &state.last_transition_reason,
         ],
     )
     .await?;
@@ -509,7 +560,45 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             loaded
         };
 
+        if let Some(previous_state) = previous.as_ref() {
+            if bar.bucket_start <= previous_state.last_bucket_start {
+                // Out-of-order or duplicate bar; fail closed by ignoring state mutation.
+                record_message_processed(
+                    &conn,
+                    service_name,
+                    message_id,
+                    &source_topic,
+                    source_partition,
+                    source_offset,
+                )
+                .await?;
+                consumer.commit_message(&msg, CommitMode::Sync)?;
+                continue;
+            }
+        }
+
         let (new_state, flags) = apply_bar_transition(previous.as_ref(), &bar);
+        if has_illegal_transition(previous.as_ref(), &new_state, &flags) {
+            eprintln!(
+                "illegal structure transition blocked for {}:{}:{} at {} (reason={})",
+                bar.venue,
+                bar.canonical_symbol,
+                bar.timeframe,
+                bar.bucket_start,
+                flags.reason
+            );
+            record_message_processed(
+                &conn,
+                service_name,
+                message_id,
+                &source_topic,
+                source_partition,
+                source_offset,
+            )
+            .await?;
+            consumer.commit_message(&msg, CommitMode::Sync)?;
+            continue;
+        }
 
         persist_state(
             &conn,
@@ -545,6 +634,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "pullback_count": new_state.pullback_count,
                 "inside_bars": new_state.inside_bars,
                 "outside_bars": new_state.outside_bars,
+                "last_transition_reason": new_state.last_transition_reason,
             },
             "transition_reason": flags.reason,
         });
@@ -574,7 +664,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "trend": new_state.trend,
                 "phase": new_state.phase,
                 "objective": new_state.objective,
-                "reason": "trend_shift",
+                "reason": flags.reason,
             });
             publish_event(&producer, &minor_topic, &event_key, minor_payload).await?;
         }
@@ -717,5 +807,54 @@ mod tests {
         assert_eq!(state_a.inside_bars, state_b.inside_bars);
         assert_eq!(state_a.outside_bars, state_b.outside_bars);
         assert_eq!(reasons_a, reasons_b);
+    }
+
+    #[test]
+    fn rejects_out_of_order_transition() {
+        let first = mk_bar(100.0, 101.0, 99.0, 10);
+        let (state, _) = apply_bar_transition(None, &first);
+
+        let older = mk_bar(101.0, 102.0, 100.0, 9);
+        let (next, flags) = apply_bar_transition(Some(&state), &older);
+        assert!(has_illegal_transition(Some(&state), &next, &flags));
+    }
+
+    #[test]
+    fn rejects_illegal_minor_reason_invariant() {
+        let prev = StructureState {
+            trend: "bullish".to_string(),
+            phase: "extension".to_string(),
+            objective: "buy_side".to_string(),
+            swing_high: 110.0,
+            swing_low: 90.0,
+            last_bucket_start: DateTime::from_timestamp(120, 0).unwrap_or_else(Utc::now),
+            last_close: 100.0,
+            extension_count: 2,
+            pullback_count: 0,
+            inside_bars: 0,
+            outside_bars: 0,
+            last_transition_reason: "extension".to_string(),
+        };
+        let bad_next = StructureState {
+            trend: "bullish".to_string(),
+            phase: "extension".to_string(),
+            objective: "buy_side".to_string(),
+            swing_high: 111.0,
+            swing_low: 90.0,
+            last_bucket_start: DateTime::from_timestamp(180, 0).unwrap_or_else(Utc::now),
+            last_close: 111.0,
+            extension_count: 3,
+            pullback_count: 0,
+            inside_bars: 0,
+            outside_bars: 0,
+            last_transition_reason: "extension".to_string(),
+        };
+        let bad_flags = TransitionFlags {
+            emit_pullback: false,
+            emit_minor: true,
+            emit_major: true,
+            reason: "extension".to_string(),
+        };
+        assert!(has_illegal_transition(Some(&prev), &bad_next, &bad_flags));
     }
 }
