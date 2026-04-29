@@ -308,6 +308,9 @@ Notes:
 - `EXEC_BROKER_RETRY_BACKOFF_MS` default `200` (base backoff in milliseconds)
 - `EXEC_BROKER_RETRY_BACKOFF_CAP_MS` default `2000` (max exponential backoff cap in milliseconds)
 - `EXEC_BROKER_DEGRADED_COOLDOWN_MS` default `250` (post-terminal-failure cooldown to avoid retry storms)
+- `EXEC_COMMAND_STALE_AFTER_SECS` default `120` (reject command events that are too old relative to order update timeline)
+- `EXEC_COMMAND_DUPLICATE_WINDOW_SECS` default `300` (deterministic duplicate command rejection window)
+- `EXEC_RECONCILIATION_SLA_SECS` default `180` (SLA threshold for reconciliation-age breach context emission)
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 Notes:
@@ -316,3 +319,4 @@ Notes:
 - Broker adapter routing baseline supports submit/amend/cancel calls and broker ack/fill ingestion.
 - Adapter failures are now classified and persisted (`dns_resolution`, `connect_timeout`, `io_timeout`, `upstream_5xx`, `upstream_4xx`, `connect_error`, `request_error`).
 - Transient network classes and `5xx` receive bounded retry/backoff; terminal failures publish reconciliation issues with failure-class context.
+- Lifecycle hardening (`DEV-00041`) enforces valid status transitions, stale/duplicate command rejection, and reconciliation SLA breach context fields (`sla_seconds`, `age_seconds`).

@@ -171,6 +171,11 @@ Last updated: 2026-04-29
   - added persisted evaluation traces (`policy_hits`, `evaluation_trace`) for forensic diagnostics,
   - added schema migration `015_risk_policy_trace.sql`,
   - added stress/regression verification pack (`tests/dev-0040/run.sh`, `make test-dev-0040`).
+- Completed `DEV-00041` execution lifecycle controls and reconciliation SLA hardening:
+  - added strict lifecycle transition guardrails for command/ack status changes,
+  - added deterministic stale/duplicate command rejection controls,
+  - added reconciliation SLA breach context fields (`sla_seconds`, `age_seconds`) in issue events,
+  - added execution verification pack (`tests/dev-0041/run.sh`, `make test-dev-0041`).
 
 ### Current
 
@@ -197,13 +202,14 @@ Last updated: 2026-04-29
 - `DEV-00038` is closed with deterministic PIT-safe feature baseline and lineage persistence.
 - `DEV-00039` is closed with deterministic scored-signal baseline and explainability contract.
 - `DEV-00040` is closed with deterministic policy-trace metadata and stress-tested fail-closed interactions.
+- `DEV-00041` is closed with lifecycle transition safety and reconciliation SLA triage context.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
-2. Execute `DEV-00042` portfolio authoritative reconciliation and state invariants.
-3. Execute `DEV-00043` journal/audit evidence fabric and incident bundle export.
+1. Execute `DEV-00042` portfolio authoritative reconciliation and state invariants.
+2. Execute `DEV-00043` journal/audit evidence fabric and incident bundle export.
+3. Start control-panel refactor stream `DEV-00044` after second-chain closure.
 
 ### Risks/Blocks
 

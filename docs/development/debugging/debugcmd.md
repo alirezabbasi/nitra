@@ -868,3 +868,8 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 14:09:44 +0330 | `cat > infra/timescaledb/init/015_risk_policy_trace.sql` | Add DB migration for persisted risk policy trace fields/index. | Success |
 | 2026-04-29 14:09:44 +0330 | `cat > tests/dev-0040/run.sh` + `apply_patch` on `Makefile` | Add DEV-0040 verification pack and make target. | Success |
 | 2026-04-29 14:09:44 +0330 | `make test-dev-0040` + `make enforce-section-5-1` + `make session-bootstrap` | Execute DEV-00040 verification, policy gate, and context integrity checks. | Success |
+| 2026-04-29 14:19:31 +0330 | `sed/rg` reads on DEV-00041, execution-gateway runtime, env docs, and existing execution tests | Load lifecycle/SLA hardening scope and identify implementation touchpoints. | Success |
+| 2026-04-29 14:19:31 +0330 | `apply_patch` on `services/execution-gateway/src/main.rs` | Add lifecycle transition guards, stale/duplicate command rejection, and reconciliation SLA context logic. | Success |
+| 2026-04-29 14:19:31 +0330 | `cat > tests/dev-0041/run.sh` + `apply_patch` on `Makefile` | Add DEV-0041 verification pack and make target. | Success |
+| 2026-04-29 14:19:31 +0330 | `apply_patch` on execution env docs + compose | Add execution lifecycle/SLA env controls and documentation alignment. | Success |
+| 2026-04-29 14:19:31 +0330 | `make test-dev-0041` + `make enforce-section-5-1` + `make session-bootstrap` | Execute DEV-00041 verification, policy gate, and context integrity checks. | Success |

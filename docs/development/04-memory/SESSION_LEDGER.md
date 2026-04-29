@@ -1091,3 +1091,23 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` (pass)
 - Next recommended action:
   - start `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
+
+---
+
+## 2026-04-29 — Session Entry 035
+
+- Objective:
+  - execute `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
+- Work completed:
+  - added strict execution lifecycle transition guards for command and broker-ack status updates.
+  - added deterministic stale-command and duplicate-command rejection controls in execution command handling.
+  - added reconciliation SLA context emission (`reconciliation_sla_breach`, `sla_seconds`, `age_seconds`) for operator triage.
+  - added runtime config controls and env docs for command staleness/dup window and reconciliation SLA thresholds.
+  - added verification pack `tests/dev-0041/run.sh` and `make test-dev-0041`.
+  - synchronized ticket/kanban/active-focus/current-state/where-are-we to close `DEV-00041`.
+- Verification:
+  - `make test-dev-0041` (pass)
+  - `make enforce-section-5-1` (pass)
+  - `make session-bootstrap` (pass)
+- Next recommended action:
+  - start `DEV-00042` portfolio authoritative reconciliation and state invariants.

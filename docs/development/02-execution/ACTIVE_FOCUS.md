@@ -13,6 +13,6 @@ Execute second-chain deterministic hardening (`structure -> feature -> signal ->
 
 ## Immediate next slices
 
-1. `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
-2. `DEV-00042` portfolio authoritative reconciliation and state invariants.
-3. `DEV-00043` journal/audit evidence fabric and incident bundle export.
+1. `DEV-00042` portfolio authoritative reconciliation and state invariants.
+2. `DEV-00043` journal/audit evidence fabric and incident bundle export.
+3. Start control-panel refactor stream `DEV-00044` after second-chain closure.
