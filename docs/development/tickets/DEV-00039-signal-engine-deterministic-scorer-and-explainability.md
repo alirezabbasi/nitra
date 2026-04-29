@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -31,3 +31,20 @@ Build deterministic signal scorer that converts feature snapshots into explainab
 - Scorer determinism tests.
 - Explainability payload contract checks.
 - Calibration/backtest report artifacts.
+
+## Delivery Evidence
+
+- Implemented deterministic signal scorer baseline in:
+  - `services/inference-gateway/app.py`
+- Added scored-signal persistence contract:
+  - `infra/timescaledb/init/014_signal_score_log.sql`
+- Runtime wiring updated:
+  - `docker-compose.yml` signal env contract + runtime command
+  - `docker-compose.yml` risk input switched to `decision.signal_scored.v1`
+- Added verification pack:
+  - `tests/dev-0039/run.sh`
+  - `tests/dev-0039/unit/test_signal_logic.py`
+  - `make test-dev-0039`
+- Added LLD/env docs:
+  - `docs/design/ingestion/07-devdocs/04-lld-services/signal-engine.md`
+  - `docs/design/ingestion/07-devdocs/01-development-environment/ingestion-service-env.md`

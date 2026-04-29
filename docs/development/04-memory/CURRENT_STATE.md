@@ -159,6 +159,12 @@ Last updated: 2026-04-29
   - added persisted feature lineage contract in `feature_snapshot` with migration `013_feature_snapshot.sql`,
   - wired compose/topics/policy for `features.snapshot.v1` flow and service activation,
   - added executable verification pack (`tests/dev-0038/run.sh`, `make test-dev-0038`).
+- Completed `DEV-00039` signal-engine deterministic scorer and explainability baseline:
+  - added deterministic scored-signal runtime path in `services/inference-gateway/app.py`,
+  - added explainability payload contract (`reason_codes`, `feature_refs`) with pinned scorer/model/feature versions,
+  - added calibration harness (`run_calibration`) for reproducible score distribution validation,
+  - switched risk baseline input topic to `decision.signal_scored.v1`,
+  - added persistence migration `014_signal_score_log.sql` and test pack (`tests/dev-0039/run.sh`, `make test-dev-0039`).
 
 ### Current
 
@@ -183,13 +189,14 @@ Last updated: 2026-04-29
 - `DEV-00036` is closed with canonical contract baseline and replay determinism checks.
 - `DEV-00037` is closed with deterministic transition guards and replay ordering protection.
 - `DEV-00038` is closed with deterministic PIT-safe feature baseline and lineage persistence.
+- `DEV-00039` is closed with deterministic scored-signal baseline and explainability contract.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00039` signal-engine deterministic scorer and explainability baseline.
-2. Execute `DEV-00040` risk policy expansion and decision traceability hardening.
-3. Execute `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
+1. Execute `DEV-00040` risk policy expansion and decision traceability hardening.
+2. Execute `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
+3. Execute `DEV-00042` portfolio authoritative reconciliation and state invariants.
 
 ### Risks/Blocks
 

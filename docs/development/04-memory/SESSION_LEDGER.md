@@ -1050,3 +1050,24 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` (pass)
 - Next recommended action:
   - start `DEV-00039` signal-engine deterministic scorer and explainability baseline.
+
+---
+
+## 2026-04-29 — Session Entry 033
+
+- Objective:
+  - execute `DEV-00039` signal-engine deterministic scorer and explainability baseline.
+- Work completed:
+  - implemented deterministic scorer baseline in `services/inference-gateway/app.py` producing `decision.signal_scored.v1` payloads.
+  - added explainability contract (`reason_codes`, `feature_refs`) and strict scorer/model/config version pinning.
+  - added calibration harness (`run_calibration`) for deterministic distribution checks.
+  - switched `risk-engine` default input to `decision.signal_scored.v1` in compose.
+  - added signal decision persistence migration `infra/timescaledb/init/014_signal_score_log.sql`.
+  - added LLD/env docs and verification pack `tests/dev-0039` + `make test-dev-0039`.
+  - synchronized ticket/kanban/active-focus/current-state/where-are-we to close `DEV-00039`.
+- Verification:
+  - `make test-dev-0039` (pass)
+  - `make enforce-section-5-1` (pass)
+  - `make session-bootstrap` (pass)
+- Next recommended action:
+  - start `DEV-00040` risk policy expansion and decision traceability hardening.

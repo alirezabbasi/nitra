@@ -13,6 +13,6 @@ Execute second-chain deterministic hardening (`structure -> feature -> signal ->
 
 ## Immediate next slices
 
-1. `DEV-00039` signal-engine deterministic scorer and explainability baseline.
-2. `DEV-00040` risk policy expansion and decision traceability hardening.
-3. `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
+1. `DEV-00040` risk policy expansion and decision traceability hardening.
+2. `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
+3. `DEV-00042` portfolio authoritative reconciliation and state invariants.

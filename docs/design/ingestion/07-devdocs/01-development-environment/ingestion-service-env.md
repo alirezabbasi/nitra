@@ -227,10 +227,28 @@ Notes:
 - Feature lineage contract persists source topic/partition/offset and window metadata in `feature_snapshot.lineage`.
 - Output contract topic: `features.snapshot.v1`.
 
+## signal-engine (inference-gateway baseline)
+
+- `KAFKA_BROKERS` default `kafka:9092`
+- `SIGNAL_INPUT_TOPIC` default `features.snapshot.v1`
+- `SIGNAL_OUTPUT_TOPIC` default `decision.signal_scored.v1`
+- `SIGNAL_GROUP_ID` default `nitra-signal-engine-v1`
+- `SIGNAL_SCORER_CONFIG_VERSION` default `dev-00039.v1`
+- `SIGNAL_MODEL_VERSION` default `deterministic-linear-v1`
+- `SIGNAL_SCORE_THRESHOLD_BUY` default `0.62`
+- `SIGNAL_SCORE_THRESHOLD_SELL` default `-0.62`
+- `SIGNAL_CONFIDENCE_CAP` default `0.99`
+- `DATABASE_URL` required (compose sets from `POSTGRES_*`)
+
+Notes:
+- `DEV-00039` baseline emits deterministic scored signal payloads on `decision.signal_scored.v1`.
+- Explainability contract includes `reason_codes`, `feature_refs`, and pinned scorer/model versions.
+- Calibration harness is implemented in-service (`run_calibration`) for reproducible distribution checks.
+
 ## risk-engine
 
 - `KAFKA_BROKERS` default `kafka:9092`
-- `RISK_INPUT_TOPIC` default `structure.snapshot.v1` (bootstrap baseline input; can be switched to `decision.signal_scored.v1`)
+- `RISK_INPUT_TOPIC` default `decision.signal_scored.v1`
 - `RISK_CHECKED_TOPIC` default `decision.risk_checked.v1`
 - `RISK_VIOLATION_TOPIC` default `ops.policy_violation.v1`
 - `RISK_GROUP_ID` default `nitra-risk-engine-v1`

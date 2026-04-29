@@ -15,6 +15,7 @@
 - `chart-ui`
 - `charting`
 - `feature-service`
+- `signal-engine`
 
 ## Per-Service Documentation Standard
 
@@ -36,3 +37,4 @@ Service-specific details should be maintained in subject docs under `docs/02-dat
 - `chart-ui-service.md`: charting web service boundaries, runtime topology, and proxy/data-flow contract.
 - `charting-service.md`: implemented `charting` service contract for direct OHLCV candlestick rendering from TimescaleDB.
 - `feature-service.md`: deterministic feature baseline, PIT/no-lookahead guardrails, and lineage contract.
+- `signal-engine.md`: deterministic scoring baseline, explainability payload contract, and calibration harness.

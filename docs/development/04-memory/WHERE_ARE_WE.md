@@ -50,6 +50,7 @@ Last updated: 2026-04-29
 - `DEV-00036` completed: canonical second-chain schema contracts and replay-determinism verification gates delivered (`dev-0036`).
 - `DEV-00037` completed: structure-engine deterministic hardening delivered with illegal-transition guards, out-of-order replay protection, and persisted transition-reason state.
 - `DEV-00038` completed: feature-service deterministic baseline delivered with PIT-safe transforms, lineage persistence contract, and reproducibility checks.
+- `DEV-00039` completed: deterministic signal scorer baseline delivered with explainability reason codes, calibration harness, and pinned scorer/model versions.
 
 ## Current
 
@@ -75,12 +76,13 @@ Last updated: 2026-04-29
 - `DEV-00036` is closed with contract/schema baselines and deterministic replay equivalence tests.
 - `DEV-00037` is closed with production deterministic transition guards and replay ordering safety.
 - `DEV-00038` is closed with deterministic feature baseline and no-lookahead lineage contract.
+- `DEV-00039` is closed with deterministic scored-signal contract and explainability payload baseline.
 
 ## Next
 
-1. Execute `DEV-00039` signal-engine deterministic scorer and explainability baseline.
-2. Continue with `DEV-00040` risk policy expansion and decision traceability hardening.
-3. Continue with `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
+1. Execute `DEV-00040` risk policy expansion and decision traceability hardening.
+2. Continue with `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
+3. Continue with `DEV-00042` portfolio authoritative reconciliation and state invariants.
 
 ## Risks/Blocks
 
