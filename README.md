@@ -1,45 +1,43 @@
-# NITRA | AI-Native Trading Infrastructure That Stays Deterministic Under Real Market Pressure
+# NITRA
 
-NITRA is a Docker-first, multi-service trading platform focused on one hard promise:
-**reliable market-data continuity and deterministic execution pipelines**, even when parts of the system fail or restart.
+![NITRA Banner](assets/nitra.png)
 
-It combines real-time ingestion, canonical normalization, bar aggregation, gap detection, replay/backfill orchestration, and charting/observability into one cohesive runtime.
+**AI-native trading infrastructure built for deterministic behavior under real market pressure.**
 
-## Why NITRA
+NITRA is a production-oriented, Docker-first platform that combines multi-venue ingestion, deterministic decision pipelines, operator control surfaces, and recovery-first operations in one cohesive system.
 
-Most trading stacks are either fast but fragile, or robust but slow to evolve.  
-NITRA is designed to deliver both:
+## What NITRA Delivers
 
-- Deterministic core services in Rust for critical ingestion/replay paths
-- Coverage-first design (rolling 90-day `1m` continuity as a first-class operational target)
-- Multi-venue ingestion with normalized contracts (`oanda`, `capital`, `coinbase`)
-- Recovery-oriented architecture (gap detection -> backfill -> replay)
-- Built-in observability (Prometheus, Grafana, runtime health/status endpoints)
-- Developer speed via Docker Compose and explicit service boundaries
+- Deterministic core runtime for ingestion, replay, risk, execution, and portfolio flows
+- Coverage-first data continuity (gap detection -> backfill -> replay)
+- Multi-venue market ingestion and canonical normalization
+- Native control-panel service with role-aware operations and charting workbench
+- Built-in observability and auditability for operational confidence
+- CI-ready quality gates and migration controls for safe iteration
 
-## What You Get Out of the Box
+## Core Capabilities
 
-- **Market ingestion pipeline** from raw venue events to canonical persisted entities
-- **Time-series storage** in TimescaleDB (`raw_tick`, `ohlcv_bar`, gap/backfill lifecycle tables)
-- **Backfill/replay control loop** to close missing ranges deterministically
-- **Charting service** for hot/history bars, ticks, and operator backfill/coverage probes
-- **Experiment and storage stack** with MLflow + MinIO + Redis + Kafka
-- **Policy/test gates** for architecture/runtime contract enforcement
+- **Market Data Plane**
+  - Ingestion connectors and normalization pipeline
+  - Canonical market entities and time-series persistence
+  - Startup and continuous coverage auditing
+- **Deterministic Decision Plane**
+  - Structure -> feature -> signal -> risk -> execution -> portfolio chain
+  - Policy-traceable decisions and lifecycle-safe execution controls
+  - Reconciliation and drift evidence contracts
+- **Operations Plane**
+  - Control panel domains: overview, ingestion, risk, execution, charting, ops, research, config
+  - Role-based privileged actions with audit trails
+  - Incident/runbook and deprecation-ready rollout workflows
 
-## Runtime Architecture (High-Level)
+## Technology Baseline
 
-```text
-market-ingestion-{oanda,capital,coinbase}
-  -> market-normalization
-  -> bar-aggregation
-  -> gap-detection
-  -> backfill-worker
-  -> replay-controller
-  -> TimescaleDB (ohlcv_bar + lifecycle tables)
-
-charting -> reads TimescaleDB + exposes coverage/backfill APIs
-prometheus/grafana -> observability
-```
+- Rust for deterministic core services
+- Python for probabilistic/AI and supporting services
+- TypeScript/JS frontend for control-panel UI shell
+- Kafka/Redpanda-style event backbone
+- TimescaleDB/Postgres for hot time-series and state contracts
+- MinIO + MLflow + Redis + Prometheus + Grafana for platform operations
 
 ## Quick Start
 
@@ -49,61 +47,44 @@ make up
 make ps
 ```
 
-Useful day-1 commands:
+Useful commands:
 
 ```bash
 make logs
-make charting-logs
-make kafka-topics
 make db
+make enforce-section-5-1
+make session-bootstrap
 ```
 
-Open local services:
+## Verification and Quality Gates
 
-- Charting: `http://localhost:8110`
-- Grafana: `http://localhost:3000`
-- Prometheus: `http://localhost:9090`
-- MLflow: `http://localhost:5000`
+Primary quality-gate commands:
 
-## Key Operator Endpoints
+```bash
+make test-dev-0050
+make test-dev-0051
+scripts/ci/control_panel_refactor_quality_gate.sh
+```
 
-Charting service exposes practical operational APIs:
+These validate backend/frontend contracts, charting cutover safety, and CI readiness.
 
-- `GET /health`
-- `GET /api/v1/markets/available`
-- `GET /api/v1/bars/hot`
-- `GET /api/v1/bars/history`
-- `GET /api/v1/ticks/hot`
-- `POST /api/v1/backfill/90d`
-- `POST /api/v1/backfill/window`
-- `GET /api/v1/coverage/status`
-- `GET /api/v1/coverage/metrics`
+## Project Structure
 
-## Engineering Principles
+- `services/` runtime services (ingestion, deterministic engines, control-panel, charting legacy bridge)
+- `infra/` infrastructure bootstrap and schema initialization
+- `docs/design/` architecture and LLD source of truth
+- `docs/development/` execution board, ticket history, memory, debugging logs
+- `tests/` story/epic verification packs and regression gates
 
-- **Determinism over guesswork** in core data/recovery logic
-- **Contracts over tribal knowledge** (schema/topic/API discipline)
-- **Observability before optimization** (status, metrics, lifecycle tables)
-- **Recovery as a feature** (gap detection and missing-only backfill)
-- **Small, traceable delivery** with docs/tests updated alongside code
+## Documentation Entrypoints
 
-## Documentation Map
+- [Docs Home](docs/README.md)
+- [Global Ruleset](docs/ruleset.md)
+- [Ingestion Ruleset](docs/design/ingestion/ruleset.md)
+- [Kanban](docs/development/02-execution/KANBAN.md)
+- [Current State](docs/development/04-memory/CURRENT_STATE.md)
 
-Start here for architecture and execution truth:
+## Safety Notice
 
-- [Project docs entrypoint](docs/README.md)
-- [Global ruleset](docs/ruleset.md)
-- [Ingestion domain ruleset](docs/design/ingestion/ruleset.md)
-- [Execution board](docs/development/02-execution/KANBAN.md)
-- [Current state memory](docs/development/04-memory/CURRENT_STATE.md)
-- [Knowledgebase (RCA + playbooks)](docs/knowledgebase/README.md)
-
-## Current Stage
-
-NITRA is in active development with production-oriented architecture constraints.
-Core ingestion and deterministic recovery loops are implemented and continuously hardened.
-
-## Important Safety Note
-
-This repository provides infrastructure for trading-system engineering and research.  
-It is **not financial advice**, not a promise of profitability, and not a substitute for risk controls, compliance, or staged rollout practices.
+NITRA is infrastructure software for trading-system engineering.
+It is **not** financial advice and does not replace risk/compliance controls required for live trading.
