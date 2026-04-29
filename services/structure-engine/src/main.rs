@@ -685,4 +685,37 @@ mod tests {
 
         assert!(flags4.emit_major);
     }
+
+    #[test]
+    fn replay_sequence_is_deterministic() {
+        let sequence = vec![
+            mk_bar(100.0, 101.0, 99.0, 1),
+            mk_bar(105.0, 106.0, 100.0, 2),
+            mk_bar(103.0, 104.0, 102.0, 3),
+            mk_bar(109.0, 110.0, 106.0, 4),
+        ];
+
+        let run_once = |bars: &Vec<BarInput>| {
+            let mut state: Option<StructureState> = None;
+            let mut reasons = Vec::new();
+            for bar in bars {
+                let (next, flags) = apply_bar_transition(state.as_ref(), bar);
+                reasons.push(flags.reason);
+                state = Some(next);
+            }
+            (state.expect("final state"), reasons)
+        };
+
+        let (state_a, reasons_a) = run_once(&sequence);
+        let (state_b, reasons_b) = run_once(&sequence);
+
+        assert_eq!(state_a.trend, state_b.trend);
+        assert_eq!(state_a.phase, state_b.phase);
+        assert_eq!(state_a.objective, state_b.objective);
+        assert_eq!(state_a.extension_count, state_b.extension_count);
+        assert_eq!(state_a.pullback_count, state_b.pullback_count);
+        assert_eq!(state_a.inside_bars, state_b.inside_bars);
+        assert_eq!(state_a.outside_bars, state_b.outside_bars);
+        assert_eq!(reasons_a, reasons_b);
+    }
 }

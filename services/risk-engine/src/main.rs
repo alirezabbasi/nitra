@@ -759,6 +759,23 @@ mod tests {
     }
 
     #[test]
+    fn risk_policy_evaluation_is_deterministic() {
+        let input = mk_input("buy", 0.7, 1250.0);
+        let state = base_state();
+        let portfolio = base_portfolio();
+        let policy = base_policy();
+
+        let d1 = evaluate_policy(&input, &state, &portfolio, &policy);
+        let d2 = evaluate_policy(&input, &state, &portfolio, &policy);
+
+        assert_eq!(d1.approved, d2.approved);
+        assert_eq!(d1.reason, d2.reason);
+        assert_eq!(d1.violations, d2.violations);
+        assert_eq!(d1.side, d2.side);
+        assert_eq!(d1.accepted_notional, d2.accepted_notional);
+    }
+
+    #[test]
     fn rejects_on_notional_cap() {
         let input = mk_input("buy", 0.9, 250000.0);
         let decision = evaluate_policy(&input, &base_state(), &base_portfolio(), &base_policy());
