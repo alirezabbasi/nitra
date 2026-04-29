@@ -25,11 +25,25 @@ struct FillEvent {
 struct PortfolioConfig {
     account_id: String,
     default_equity: f64,
+    max_gross_exposure_notional: f64,
+    max_abs_net_exposure_notional: f64,
+    min_equity: f64,
 }
 
 #[derive(Clone, Debug)]
 struct JournalOrder {
     side: String,
+}
+
+#[derive(Clone, Debug)]
+struct ReconciliationResult {
+    consistent: bool,
+    reasons: Vec<String>,
+    computed_gross_exposure: f64,
+    computed_net_exposure: f64,
+    account_gross_exposure: f64,
+    account_net_exposure: f64,
+    equity: f64,
 }
 
 fn env_or(name: &str, default: &str) -> String {
@@ -150,6 +164,26 @@ async fn ensure_portfolio_tables(conn: &Client) -> Result<(), tokio_postgres::Er
 
         CREATE INDEX IF NOT EXISTS idx_portfolio_fill_log_symbol_ts
           ON portfolio_fill_log (account_id, venue, canonical_symbol, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS portfolio_reconciliation_log (
+          reconciliation_id UUID PRIMARY KEY,
+          account_id TEXT NOT NULL,
+          venue TEXT NOT NULL,
+          canonical_symbol TEXT NOT NULL,
+          timeframe TEXT NOT NULL,
+          consistent BOOLEAN NOT NULL,
+          reasons JSONB NOT NULL DEFAULT '[]'::jsonb,
+          computed_gross_exposure DOUBLE PRECISION NOT NULL,
+          computed_net_exposure DOUBLE PRECISION NOT NULL,
+          account_gross_exposure DOUBLE PRECISION NOT NULL,
+          account_net_exposure DOUBLE PRECISION NOT NULL,
+          equity DOUBLE PRECISION NOT NULL,
+          event_ts TIMESTAMPTZ NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_portfolio_reconciliation_log_ts
+          ON portfolio_reconciliation_log (account_id, created_at DESC);
         ",
     )
     .await
@@ -291,6 +325,103 @@ async fn apply_fill(
     Ok((gross_exposure, net_exposure))
 }
 
+async fn reconcile_account_state(
+    conn: &Client,
+    cfg: &PortfolioConfig,
+) -> Result<ReconciliationResult, tokio_postgres::Error> {
+    let pos = conn
+        .query_one(
+            "
+            SELECT
+              COALESCE(SUM(ABS(net_position_notional)), 0) AS computed_gross_exposure,
+              COALESCE(SUM(net_position_notional), 0) AS computed_net_exposure
+            FROM portfolio_position_state
+            WHERE account_id = $1
+            ",
+            &[&cfg.account_id],
+        )
+        .await?;
+    let acct = conn
+        .query_one(
+            "
+            SELECT gross_exposure_notional, net_exposure_notional, equity
+            FROM portfolio_account_state
+            WHERE account_id = $1
+            ",
+            &[&cfg.account_id],
+        )
+        .await?;
+
+    let computed_gross_exposure = pos.get::<_, f64>(0);
+    let computed_net_exposure = pos.get::<_, f64>(1);
+    let account_gross_exposure = acct.get::<_, f64>(0);
+    let account_net_exposure = acct.get::<_, f64>(1);
+    let equity = acct.get::<_, f64>(2);
+
+    let mut reasons = Vec::new();
+    if (computed_gross_exposure - account_gross_exposure).abs() > 1e-9 {
+        reasons.push("gross_exposure_mismatch".to_string());
+    }
+    if (computed_net_exposure - account_net_exposure).abs() > 1e-9 {
+        reasons.push("net_exposure_mismatch".to_string());
+    }
+    if computed_gross_exposure > cfg.max_gross_exposure_notional {
+        reasons.push("gross_exposure_limit_breach".to_string());
+    }
+    if computed_net_exposure.abs() > cfg.max_abs_net_exposure_notional {
+        reasons.push("net_exposure_limit_breach".to_string());
+    }
+    if equity < cfg.min_equity {
+        reasons.push("min_equity_breach".to_string());
+    }
+
+    Ok(ReconciliationResult {
+        consistent: reasons.is_empty(),
+        reasons,
+        computed_gross_exposure,
+        computed_net_exposure,
+        account_gross_exposure,
+        account_net_exposure,
+        equity,
+    })
+}
+
+async fn persist_reconciliation_result(
+    conn: &Client,
+    cfg: &PortfolioConfig,
+    fill: &FillEvent,
+    result: &ReconciliationResult,
+) -> Result<(), tokio_postgres::Error> {
+    conn.execute(
+        "
+        INSERT INTO portfolio_reconciliation_log (
+          reconciliation_id, account_id, venue, canonical_symbol, timeframe,
+          consistent, reasons, computed_gross_exposure, computed_net_exposure,
+          account_gross_exposure, account_net_exposure, equity, event_ts
+        ) VALUES (
+          $1::uuid,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13
+        )
+        ",
+        &[
+            &Uuid::new_v4(),
+            &cfg.account_id,
+            &fill.venue,
+            &fill.canonical_symbol,
+            &fill.timeframe,
+            &result.consistent,
+            &json!(result.reasons),
+            &result.computed_gross_exposure,
+            &result.computed_net_exposure,
+            &result.account_gross_exposure,
+            &result.account_net_exposure,
+            &result.equity,
+            &fill.event_ts,
+        ],
+    )
+    .await?;
+    Ok(())
+}
+
 async fn publish_snapshot(
     producer: &FutureProducer,
     topic: &str,
@@ -360,6 +491,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let brokers = env_or("KAFKA_BROKERS", "kafka:9092");
     let input_fill_topic = env_or("PORTFOLIO_INPUT_FILL_TOPIC", "exec.fill_received.v1");
     let snapshot_topic = env_or("PORTFOLIO_SNAPSHOT_TOPIC", "portfolio.snapshot.v1");
+    let drift_topic = env_or("PORTFOLIO_DRIFT_TOPIC", "exec.reconciliation_issue.v1");
     let group_id = env_or("PORTFOLIO_GROUP_ID", "nitra-portfolio-engine-v1");
     let db_dsn = env_or(
         "DATABASE_URL",
@@ -369,6 +501,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cfg = PortfolioConfig {
         account_id: env_or("PORTFOLIO_ACCOUNT_ID", "paper"),
         default_equity: env_f64_or("PORTFOLIO_DEFAULT_EQUITY", 100000.0).max(1.0),
+        max_gross_exposure_notional: env_f64_or("PORTFOLIO_MAX_GROSS_EXPOSURE_NOTIONAL", 1_000_000.0)
+            .max(1.0),
+        max_abs_net_exposure_notional: env_f64_or(
+            "PORTFOLIO_MAX_ABS_NET_EXPOSURE_NOTIONAL",
+            1_000_000.0,
+        )
+        .max(1.0),
+        min_equity: env_f64_or("PORTFOLIO_MIN_EQUITY", 1000.0).max(0.0),
     };
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
@@ -454,6 +594,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }),
                 )
                 .await?;
+
+                let reconciliation = reconcile_account_state(&conn, &cfg).await?;
+                persist_reconciliation_result(&conn, &cfg, &fill, &reconciliation).await?;
+                if !reconciliation.consistent {
+                    publish_snapshot(
+                        &producer,
+                        &drift_topic,
+                        &event_key,
+                        json!({
+                            "order_id": fill.order_id.to_string(),
+                            "venue": fill.venue,
+                            "canonical_symbol": fill.canonical_symbol,
+                            "issue": "portfolio_reconciliation_drift",
+                            "reasons": reconciliation.reasons,
+                            "computed_gross_exposure_notional": reconciliation.computed_gross_exposure,
+                            "computed_net_exposure_notional": reconciliation.computed_net_exposure,
+                            "account_gross_exposure_notional": reconciliation.account_gross_exposure,
+                            "account_net_exposure_notional": reconciliation.account_net_exposure,
+                            "equity": reconciliation.equity,
+                            "event_ts": fill.event_ts.to_rfc3339(),
+                        }),
+                    )
+                    .await?;
+                }
             }
         }
 
@@ -490,5 +654,31 @@ mod tests {
         assert_eq!(parsed.venue, "coinbase");
         assert_eq!(parsed.canonical_symbol, "BTCUSD");
         assert_eq!(parsed.filled_notional, 500.0);
+    }
+
+    #[test]
+    fn reconciliation_detects_drift_reasons() {
+        let cfg = PortfolioConfig {
+            account_id: "paper".to_string(),
+            default_equity: 100000.0,
+            max_gross_exposure_notional: 1000.0,
+            max_abs_net_exposure_notional: 1000.0,
+            min_equity: 500.0,
+        };
+        let result = ReconciliationResult {
+            consistent: false,
+            reasons: vec![
+                "gross_exposure_mismatch".to_string(),
+                "min_equity_breach".to_string(),
+            ],
+            computed_gross_exposure: 2000.0,
+            computed_net_exposure: 1500.0,
+            account_gross_exposure: 1000.0,
+            account_net_exposure: 900.0,
+            equity: 100.0,
+        };
+        assert!(!result.consistent);
+        assert!(result.reasons.iter().any(|r| r == "gross_exposure_mismatch"));
+        assert!(result.equity < cfg.min_equity);
     }
 }
