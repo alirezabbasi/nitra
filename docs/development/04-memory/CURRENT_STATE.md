@@ -176,6 +176,12 @@ Last updated: 2026-04-29
   - added deterministic stale/duplicate command rejection controls,
   - added reconciliation SLA breach context fields (`sla_seconds`, `age_seconds`) in issue events,
   - added execution verification pack (`tests/dev-0041/run.sh`, `make test-dev-0041`).
+- Completed `DEV-00042` portfolio authoritative reconciliation and state invariants:
+  - added deterministic reconciliation checks between computed position aggregates and account-state aggregates,
+  - added invariant breach taxonomy (gross/net exposure mismatch, limit breaches, min-equity breach),
+  - added persisted reconciliation evidence contract `portfolio_reconciliation_log` via migration `016_portfolio_reconciliation_log.sql`,
+  - added drift issue emission contract (`portfolio_reconciliation_drift`) for actionable operator triage,
+  - added verification pack (`tests/dev-0042/run.sh`, `make test-dev-0042`).
 
 ### Current
 
@@ -203,13 +209,14 @@ Last updated: 2026-04-29
 - `DEV-00039` is closed with deterministic scored-signal baseline and explainability contract.
 - `DEV-00040` is closed with deterministic policy-trace metadata and stress-tested fail-closed interactions.
 - `DEV-00041` is closed with lifecycle transition safety and reconciliation SLA triage context.
+- `DEV-00042` is closed with authoritative reconciliation invariants and drift evidence emission.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00042` portfolio authoritative reconciliation and state invariants.
-2. Execute `DEV-00043` journal/audit evidence fabric and incident bundle export.
-3. Start control-panel refactor stream `DEV-00044` after second-chain closure.
+1. Execute `DEV-00043` journal/audit evidence fabric and incident bundle export.
+2. Start control-panel refactor stream `DEV-00044` after second-chain closure.
+3. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
 
 ### Risks/Blocks
 

@@ -53,6 +53,7 @@ Last updated: 2026-04-29
 - `DEV-00039` completed: deterministic signal scorer baseline delivered with explainability reason codes, calibration harness, and pinned scorer/model versions.
 - `DEV-00040` completed: risk policy coverage expanded with canonical policy IDs, persisted evaluation traces, and stress-tested fail-closed interaction behavior.
 - `DEV-00041` completed: execution lifecycle hardening delivered with valid-transition guards, stale/duplicate command rejection, and reconciliation SLA context emission.
+- `DEV-00042` completed: portfolio authoritative reconciliation baseline delivered with invariant checks, drift taxonomy, and persisted reconciliation evidence.
 
 ## Current
 
@@ -81,12 +82,13 @@ Last updated: 2026-04-29
 - `DEV-00039` is closed with deterministic scored-signal contract and explainability payload baseline.
 - `DEV-00040` is closed with deterministic policy-trace metadata in risk events and persistence.
 - `DEV-00041` is closed with execution lifecycle guardrails and reconciliation SLA observability context.
+- `DEV-00042` is closed with authoritative portfolio reconciliation checks and drift alert emission.
 
 ## Next
 
-1. Execute `DEV-00042` portfolio authoritative reconciliation and state invariants.
-2. Continue with `DEV-00043` journal/audit evidence fabric and incident bundle export.
-3. Start control-panel refactor stream `DEV-00044` after second-chain closure.
+1. Execute `DEV-00043` journal/audit evidence fabric and incident bundle export.
+2. Start control-panel refactor stream `DEV-00044` after second-chain closure.
+3. Begin `DEV-00045` architecture and migration contract freeze for control-panel refactor.
 
 ## Risks/Blocks
 

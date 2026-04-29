@@ -1111,3 +1111,24 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` (pass)
 - Next recommended action:
   - start `DEV-00042` portfolio authoritative reconciliation and state invariants.
+
+---
+
+## 2026-04-29 — Session Entry 036
+
+- Objective:
+  - execute `DEV-00042` portfolio authoritative reconciliation and state invariants.
+- Work completed:
+  - added deterministic reconciliation pass in `portfolio-engine` comparing computed position aggregates against account-state aggregates.
+  - added invariant taxonomy for drift/break conditions (gross/net mismatch, exposure-limit breaches, min-equity breach).
+  - added reconciliation evidence persistence (`portfolio_reconciliation_log`) via migration `016_portfolio_reconciliation_log.sql`.
+  - added deterministic drift alert emission (`portfolio_reconciliation_drift`) with actionable diagnostics.
+  - added runtime controls and env documentation for reconciliation thresholds and drift topic routing.
+  - added verification pack `tests/dev-0042/run.sh` and make target `test-dev-0042`.
+  - synchronized ticket/kanban/active-focus/current-state/where-are-we to close `DEV-00042`.
+- Verification:
+  - `make test-dev-0042` (pass)
+  - `make enforce-section-5-1` (pass)
+  - `make session-bootstrap` (pass)
+- Next recommended action:
+  - execute `DEV-00043` journal/audit evidence fabric and incident bundle export.

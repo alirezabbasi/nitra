@@ -280,12 +280,18 @@ Notes:
 - `PORTFOLIO_GROUP_ID` default `nitra-portfolio-engine-v1`
 - `PORTFOLIO_ACCOUNT_ID` default `paper`
 - `PORTFOLIO_DEFAULT_EQUITY` default `100000`
+- `PORTFOLIO_MAX_GROSS_EXPOSURE_NOTIONAL` default `1000000`
+- `PORTFOLIO_MAX_ABS_NET_EXPOSURE_NOTIONAL` default `1000000`
+- `PORTFOLIO_MIN_EQUITY` default `1000`
+- `PORTFOLIO_DRIFT_TOPIC` default `exec.reconciliation_issue.v1`
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 Notes:
 - Baseline portfolio runtime is deterministic and replay-safe via `processed_message_ledger`.
 - Portfolio baseline persistence contracts: `portfolio_position_state`, `portfolio_account_state`, `portfolio_fill_log`.
 - Baseline portfolio snapshots are emitted on `portfolio.snapshot.v1` for downstream controls and observability.
+- Reconciliation hardening (`DEV-00042`) adds invariant checks and reconciliation evidence persistence in `portfolio_reconciliation_log`.
+- Drift conditions emit deterministic reconciliation issues on `PORTFOLIO_DRIFT_TOPIC`.
 
 ## execution-gateway
 

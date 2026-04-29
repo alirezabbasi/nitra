@@ -873,3 +873,7 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 14:19:31 +0330 | `cat > tests/dev-0041/run.sh` + `apply_patch` on `Makefile` | Add DEV-0041 verification pack and make target. | Success |
 | 2026-04-29 14:19:31 +0330 | `apply_patch` on execution env docs + compose | Add execution lifecycle/SLA env controls and documentation alignment. | Success |
 | 2026-04-29 14:19:31 +0330 | `make test-dev-0041` + `make enforce-section-5-1` + `make session-bootstrap` | Execute DEV-00041 verification, policy gate, and context integrity checks. | Success |
+| 2026-04-29 14:27:53 +0330 | `sed/rg` reads on DEV-00042, portfolio-engine runtime, migrations, env docs, and tests | Load reconciliation/invariant hardening scope and determine code/doc touchpoints. | Success |
+| 2026-04-29 14:27:53 +0330 | `apply_patch` on `services/portfolio-engine/src/main.rs` + `cat > infra/timescaledb/init/016_portfolio_reconciliation_log.sql` | Implement authoritative reconciliation logic, invariant drift taxonomy, evidence persistence, and migration. | Success |
+| 2026-04-29 14:27:53 +0330 | `cat > tests/dev-0042/run.sh` + `apply_patch` on `Makefile`/compose/env docs | Add DEV-0042 verification pack and runtime/env contract updates. | Success |
+| 2026-04-29 14:27:53 +0330 | `make test-dev-0042` + `make enforce-section-5-1` + `make session-bootstrap` | Execute DEV-00042 verification, policy gate, and context integrity checks. | Success |
