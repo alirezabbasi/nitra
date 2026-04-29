@@ -2,7 +2,7 @@
 
 ## Status
 
-Open
+Done (2026-04-29)
 
 ## Summary
 
@@ -47,6 +47,23 @@ Establish a full-featured, professional control panel for NITRA where all core c
 - Each child ticket has clear scope, deliverables, non-goals, and verification.
 - Kanban and active focus reference the control-panel program explicitly.
 
+## Delivery Evidence Map
+
+- `DEV-00025` done: shell/design-system baseline.
+- `DEV-00026` done: auth/RBAC/operator identity.
+- `DEV-00027` done: ingestion/data-quality operations center.
+- `DEV-00028` done: strategy/risk/portfolio center.
+- `DEV-00029` done: execution OMS/broker ops center.
+- `DEV-00030` done: charting workbench integration.
+- `DEV-00031` done: alerting/incidents/runbooks center.
+- `DEV-00032` done: research/backtesting/model-ops center.
+- `DEV-00033` done: config registry/change-control/governance center.
+- `DEV-00034` done: enterprise polish/performance/accessibility.
+
+Program-level outcome:
+- Unified control panel now covers all major operational and governance modules with RBAC, auditability, and chart-integrated workflow continuity.
+
 ## Verification
 
-- Documentation-only epic setup; no runtime changes in this ticket.
+- Documentation-only epic closure; no runtime code changes in this ticket.
+- Child-ticket verification packs completed (`tests/dev-00025` .. `tests/dev-00034`).

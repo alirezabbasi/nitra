@@ -12,6 +12,6 @@ Transition from ingestion-only completion into full-platform, HLD-aligned increm
 
 ## Immediate next slices
 
-1. `DEV-00024` control panel program closure and phased delivery evidence consolidation.
-2. Control-panel program hardening follow-up: run end-to-end operator UAT across all modules and collect runtime evidence.
-3. Capture live degraded-network evidence snapshots for execution adapter resilience policy validation.
+1. Control-panel hardening follow-up: run end-to-end operator UAT across all modules and collect runtime evidence.
+2. Capture live degraded-network evidence snapshots for execution adapter resilience policy validation.
+3. Expand reconciliation/runbook evidence capture for live adapter behavior.

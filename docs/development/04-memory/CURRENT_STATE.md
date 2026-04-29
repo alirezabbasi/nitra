@@ -128,6 +128,9 @@ Last updated: 2026-04-29
   - added explicit failure classification (`dns_resolution`, timeout/connect, `upstream_5xx`, etc.) in journal/audit metadata,
   - emitted reconciliation issues with network-failure context for terminal adapter failures,
   - added degraded-mode cooldown safeguard to reduce uncontrolled retry bursts.
+- Completed `DEV-00024` control-panel program epic closure:
+  - consolidated delivery evidence map across `DEV-00025..DEV-00034`,
+  - confirmed enterprise control-panel program scope is fully delivered and documented.
 
 ### Current
 
@@ -147,13 +150,14 @@ Last updated: 2026-04-29
 - `DEV-00032` closed with research/backtesting/model-ops center baseline in control panel.
 - `DEV-00033` closed with config/change-control/governance center baseline in control panel.
 - `DEV-00034` closed with enterprise polish/performance/accessibility baseline in control panel.
+- `DEV-00024` closed with consolidated child-ticket delivery evidence.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Close `DEV-00024` epic bookkeeping with consolidated evidence map.
-2. Run integrated operator UAT across control-panel modules and capture evidence checklist.
-3. Capture live degraded-network evidence for `DEV-00022` runbook closure artifacts.
+1. Run integrated operator UAT across control-panel modules and capture evidence checklist.
+2. Capture live degraded-network evidence for `DEV-00022` runbook closure artifacts.
+3. Expand reconciliation/runbook evidence capture for live adapter behavior.
 
 ### Risks/Blocks
 

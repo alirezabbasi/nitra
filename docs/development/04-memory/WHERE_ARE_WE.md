@@ -44,6 +44,7 @@ Last updated: 2026-04-29
 - `DEV-00033` completed: control-panel config/governance baseline implemented with typed registry, controlled proposal/approve/apply/rollback flows, and immutable change history.
 - `DEV-00034` completed: control-panel enterprise polish baseline implemented with command palette search, persisted operator layout/density preferences, keyboard/focus accessibility hardening, and bounded render slices.
 - `DEV-00022` completed: execution adapter network resilience hardening implemented with deterministic bounded retry/backoff, failure classification, degraded-mode cooldown guard, and reconciliation-context emission.
+- `DEV-00024` completed: control-panel program epic closed with consolidated evidence across `DEV-00025..DEV-00034`.
 
 ## Current
 
@@ -64,12 +65,13 @@ Last updated: 2026-04-29
 - `DEV-00032` is closed with research/backtesting/model-ops center baseline in control panel.
 - `DEV-00033` is closed with config registry/change-control/governance center baseline in control panel.
 - `DEV-00034` is closed with enterprise polish/performance/accessibility baseline in control panel.
+- `DEV-00024` is closed with full child-ticket delivery evidence map.
 
 ## Next
 
-1. Close `DEV-00024` epic bookkeeping with final evidence map across `DEV-00025..DEV-00034`.
-2. Run integrated operator UAT across all control-panel modules and capture runtime evidence snapshots.
-3. Capture live degraded-network evidence snapshots for `DEV-00022` runbook closure artifacts.
+1. Run integrated operator UAT across all control-panel modules and capture runtime evidence snapshots.
+2. Capture live degraded-network evidence snapshots for `DEV-00022` runbook closure artifacts.
+3. Expand reconciliation/runbook evidence capture for live adapter behavior.
 
 ## Risks/Blocks
 

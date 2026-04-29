@@ -5,7 +5,6 @@ Last updated: 2026-04-29
 ## Backlog
 
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
-- [ ] `DEV-00024` control panel program epic (professional admin console, black-and-white shadcn design language).
 
 ## In Progress
 
@@ -49,6 +48,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00033` control panel config registry/change-control/governance center (typed registry, proposal/approve/apply/rollback flow, immutable history + audit trail).
 - [x] `DEV-00034` control panel enterprise polish/performance/accessibility (command palette, persisted layout/density, focus/keyboard semantics, bounded render slices).
 - [x] `DEV-00022` execution adapter network resilience (deterministic retry/backoff, failure-classified terminal outcomes, degraded-mode safeguards, reconciliation context).
+- [x] `DEV-00024` control panel program epic (closed with delivery evidence map across `DEV-00025..DEV-00034`).
 
 ## Blocked
 
