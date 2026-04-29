@@ -15,7 +15,7 @@ echo "[dev-0046] checking control-panel backend foundation..."
 [[ -f services/control-panel/Dockerfile ]] || fail "missing control-panel Dockerfile"
 
 rg -n 'FastAPI\(title="nitra-control-panel"\)' services/control-panel/app/main.py >/dev/null || fail "missing control-panel app bootstrap"
-rg -n 'load_legacy_app|app\.mount\("", load_legacy_app\(LEGACY_PATH\)\)' services/control-panel/app/main.py >/dev/null || fail "missing legacy compatibility bridge"
+rg -n 'LEGACY_APP|app\.mount\("", LEGACY_APP\)' services/control-panel/app/main.py >/dev/null || fail "missing legacy compatibility bridge"
 rg -n '^  control-panel:' docker-compose.yml >/dev/null || fail "missing control-panel compose service"
 
 python -m py_compile services/control-panel/app/main.py services/control-panel/app/api/routers/health.py
