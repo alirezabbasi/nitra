@@ -13,6 +13,5 @@ Execute control-panel refactor program (`DEV-00044..DEV-00051`) with contract-fi
 
 ## Immediate next slices
 
-1. Expand reconciliation/runbook evidence capture for live adapter behavior.
-2. Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
-3. Prepare next roadmap slice after control-panel refactor epic closure.
+1. Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
+2. Prepare next roadmap slice after control-panel refactor epic closure.

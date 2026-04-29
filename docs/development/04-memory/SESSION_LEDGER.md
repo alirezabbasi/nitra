@@ -1295,3 +1295,21 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - expand reconciliation/runbook evidence capture for live adapter behavior.
+
+## 2026-04-29 — Session Entry 021
+
+- Objective:
+  - expand reconciliation/runbook evidence capture for live adapter behavior.
+- Work completed:
+  - added runbook-linked reconciliation evidence contract `control_panel_reconciliation_evidence` in `services/charting/app.py` and migration `infra/timescaledb/init/018_control_panel_reconciliation_evidence.sql`.
+  - added `capture_runbook_reconciliation_evidence` helper to snapshot `execution_command_log`, execution-domain `audit_event_log`, and `incident_evidence_bundle` using optional `order_id`/`correlation_id` runbook inputs.
+  - extended `POST /api/v1/control-panel/ops/runbook/execute` payload/response with `order_id`, `correlation_id`, `lookback_minutes`, and `evidence_summary`.
+  - extended ops metrics with `evidence_snapshots_24h` and exposed recent runbook evidence summaries.
+  - added verification pack `tests/dev-0052/run.sh` and make target `test-dev-0052`.
+  - synchronized kanban and memory state for closure and next-slice focus.
+- Verification:
+  - `make test-dev-0052` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - run post-cutover observability threshold validation under sustained runtime load.

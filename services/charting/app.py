@@ -642,6 +642,180 @@ def ensure_control_panel_ops_tables(conn: psycopg.Connection) -> None:
               ON control_panel_runbook_execution (created_at DESC)
             """
         )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_reconciliation_evidence (
+              evidence_id UUID PRIMARY KEY,
+              execution_id UUID REFERENCES control_panel_runbook_execution(execution_id) ON DELETE CASCADE,
+              incident_id UUID REFERENCES control_panel_incident(incident_id) ON DELETE SET NULL,
+              order_id UUID,
+              correlation_id UUID,
+              source TEXT NOT NULL,
+              evidence JSONB NOT NULL DEFAULT '{}'::jsonb,
+              captured_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_control_panel_reconciliation_evidence_execution_ts
+              ON control_panel_reconciliation_evidence (execution_id, captured_at DESC)
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_control_panel_reconciliation_evidence_order_ts
+              ON control_panel_reconciliation_evidence (order_id, captured_at DESC)
+            """
+        )
+
+
+def capture_runbook_reconciliation_evidence(
+    conn: psycopg.Connection,
+    execution_id: str,
+    incident_id: str | None,
+    order_id: str | None,
+    correlation_id: str | None,
+    lookback_minutes: int,
+) -> dict:
+    ensure_control_panel_ops_tables(conn)
+    lookback = max(5, min(720, int(lookback_minutes)))
+    summary = {
+        "command_log_count": 0,
+        "reconciliation_issue_count": 0,
+        "incident_bundle_count": 0,
+        "adapter_failure_classes": [],
+        "lookback_minutes": lookback,
+    }
+    with conn.cursor() as cur:
+        if order_id:
+            cur.execute(
+                """
+                SELECT COALESCE(
+                  jsonb_agg(to_jsonb(x) ORDER BY x.created_at DESC),
+                  '[]'::jsonb
+                )
+                FROM (
+                  SELECT command_id, order_id, action, accepted, reason, payload, created_at
+                  FROM execution_command_log
+                  WHERE order_id = %s::uuid
+                    AND created_at >= now() - (%s || ' minutes')::interval
+                  ORDER BY created_at DESC
+                  LIMIT 50
+                ) x
+                """,
+                (order_id, str(lookback)),
+            )
+            command_rows = cur.fetchone()[0] or []
+            summary["command_log_count"] = len(command_rows)
+            cur.execute(
+                """
+                INSERT INTO control_panel_reconciliation_evidence (
+                  evidence_id, execution_id, incident_id, order_id, correlation_id, source, evidence
+                ) VALUES (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s::uuid, 'execution_command_log', %s::jsonb)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    execution_id,
+                    incident_id,
+                    order_id,
+                    correlation_id,
+                    json.dumps({"rows": command_rows}),
+                ),
+            )
+
+        if correlation_id:
+            cur.execute(
+                """
+                SELECT COALESCE(
+                  jsonb_agg(to_jsonb(x) ORDER BY x.created_at DESC),
+                  '[]'::jsonb
+                )
+                FROM (
+                  SELECT audit_id, service_name, event_domain, event_type, correlation_id, venue, canonical_symbol, payload, created_at
+                  FROM audit_event_log
+                  WHERE correlation_id = %s::uuid
+                    AND event_domain = 'execution'
+                    AND created_at >= now() - (%s || ' minutes')::interval
+                  ORDER BY created_at DESC
+                  LIMIT 50
+                ) x
+                """,
+                (correlation_id, str(lookback)),
+            )
+            issue_rows = cur.fetchone()[0] or []
+            summary["reconciliation_issue_count"] = len(issue_rows)
+            cur.execute(
+                """
+                INSERT INTO control_panel_reconciliation_evidence (
+                  evidence_id, execution_id, incident_id, order_id, correlation_id, source, evidence
+                ) VALUES (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s::uuid, 'audit_event_log', %s::jsonb)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    execution_id,
+                    incident_id,
+                    order_id,
+                    correlation_id,
+                    json.dumps({"rows": issue_rows}),
+                ),
+            )
+
+            cur.execute(
+                """
+                SELECT COALESCE(
+                  jsonb_agg(to_jsonb(x) ORDER BY x.exported_at DESC),
+                  '[]'::jsonb
+                )
+                FROM (
+                  SELECT bundle_id, exported_at, taxonomy_version, correlation_id, order_id, venue, canonical_symbol, lineage, artifacts
+                  FROM incident_evidence_bundle
+                  WHERE correlation_id = %s::uuid
+                    AND exported_at >= now() - (%s || ' minutes')::interval
+                  ORDER BY exported_at DESC
+                  LIMIT 10
+                ) x
+                """,
+                (correlation_id, str(lookback)),
+            )
+            bundle_rows = cur.fetchone()[0] or []
+            summary["incident_bundle_count"] = len(bundle_rows)
+            cur.execute(
+                """
+                INSERT INTO control_panel_reconciliation_evidence (
+                  evidence_id, execution_id, incident_id, order_id, correlation_id, source, evidence
+                ) VALUES (%s::uuid, %s::uuid, %s::uuid, %s::uuid, %s::uuid, 'incident_evidence_bundle', %s::jsonb)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    execution_id,
+                    incident_id,
+                    order_id,
+                    correlation_id,
+                    json.dumps({"rows": bundle_rows}),
+                ),
+            )
+
+        cur.execute(
+            """
+            SELECT COALESCE(
+              jsonb_agg(DISTINCT cls),
+              '[]'::jsonb
+            )
+            FROM (
+              SELECT payload->>'failure_class' AS cls
+              FROM execution_command_log
+              WHERE payload ? 'failure_class'
+                AND payload->>'failure_class' IS NOT NULL
+                AND payload->>'failure_class' <> ''
+                AND (%s::uuid IS NULL OR order_id = %s::uuid)
+                AND created_at >= now() - (%s || ' minutes')::interval
+            ) classes
+            """,
+            (order_id, order_id, str(lookback)),
+        )
+        summary["adapter_failure_classes"] = cur.fetchone()[0] or []
+    return summary
 
 
 def ensure_control_panel_research_tables(conn: psycopg.Connection) -> None:
@@ -1436,6 +1610,7 @@ def control_panel_ops(
         "incidents_open": 0,
         "sla_breached_open_alerts": 0,
         "runbooks_24h": 0,
+        "evidence_snapshots_24h": 0,
         "mttr_minutes_7d": 0.0,
     }
     alert_rows: list[dict] = []
@@ -1477,6 +1652,14 @@ def control_panel_ops(
                     """
                 )
                 metrics["runbooks_24h"] = int(cur.fetchone()[0] or 0)
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM control_panel_reconciliation_evidence
+                    WHERE captured_at >= now() - interval '24 hours'
+                    """
+                )
+                metrics["evidence_snapshots_24h"] = int(cur.fetchone()[0] or 0)
 
                 cur.execute(
                     """
@@ -1537,7 +1720,7 @@ def control_panel_ops(
 
                 cur.execute(
                     """
-                    SELECT execution_id, incident_id, runbook_code, action, status, triggered_by, created_at
+                    SELECT execution_id, incident_id, runbook_code, action, status, triggered_by, created_at, output
                     FROM control_panel_runbook_execution
                     ORDER BY created_at DESC
                     LIMIT %s
@@ -1554,6 +1737,7 @@ def control_panel_ops(
                             "status": str(row[4]),
                             "triggered_by": str(row[5]),
                             "created_at": row[6].isoformat() if row[6] else None,
+                            "evidence_summary": (row[7] or {}).get("evidence_summary", {}) if isinstance(row[7], dict) else {},
                         }
                     )
     except Exception:
@@ -1744,21 +1928,45 @@ def control_panel_ops_runbook_execute(
     runbook_code = str(payload.get("runbook_code", "")).strip().upper()
     action = str(payload.get("action", "")).strip().lower() or "execute"
     incident_id_raw = str(payload.get("incident_id", "")).strip()
+    order_id_raw = str(payload.get("order_id", "")).strip()
+    correlation_id_raw = str(payload.get("correlation_id", "")).strip()
+    lookback_minutes = int(payload.get("lookback_minutes", 120))
     justification = str(payload.get("justification", "")).strip()
     if len(runbook_code) < 4:
         raise HTTPException(status_code=400, detail="runbook_code is required")
     if len(justification) < 12:
         raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
     incident_id = None
+    order_id = None
+    correlation_id = None
     if incident_id_raw:
         try:
             incident_id = str(uuid.UUID(incident_id_raw))
         except Exception as exc:
             raise HTTPException(status_code=400, detail="invalid incident_id uuid") from exc
+    if order_id_raw:
+        try:
+            order_id = str(uuid.UUID(order_id_raw))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="invalid order_id uuid") from exc
+    if correlation_id_raw:
+        try:
+            correlation_id = str(uuid.UUID(correlation_id_raw))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail="invalid correlation_id uuid") from exc
 
     execution_id = str(uuid.uuid4())
+    evidence_summary = {}
     with psycopg.connect(db_url()) as conn:
         ensure_control_panel_ops_tables(conn)
+        evidence_summary = capture_runbook_reconciliation_evidence(
+            conn=conn,
+            execution_id=execution_id,
+            incident_id=incident_id,
+            order_id=order_id,
+            correlation_id=correlation_id,
+            lookback_minutes=lookback_minutes,
+        )
         with conn.cursor() as cur:
             cur.execute(
                 """
@@ -1777,6 +1985,9 @@ def control_panel_ops_runbook_execute(
                         {
                             "summary": "Runbook execution recorded by control panel baseline",
                             "operator_note": str(payload.get("operator_note", "")).strip(),
+                            "linked_order_id": order_id,
+                            "linked_correlation_id": correlation_id,
+                            "evidence_summary": evidence_summary,
                         }
                     ),
                 ),
@@ -1818,6 +2029,9 @@ def control_panel_ops_runbook_execute(
                 "runbook_code": runbook_code,
                 "action": action,
                 "justification": justification,
+                "order_id": order_id,
+                "correlation_id": correlation_id,
+                "evidence_summary": evidence_summary,
             },
         )
         conn.commit()
@@ -1829,6 +2043,7 @@ def control_panel_ops_runbook_execute(
         "runbook_code": runbook_code,
         "action": action,
         "triggered_by": session["user_id"],
+        "evidence_summary": evidence_summary,
     }
 
 

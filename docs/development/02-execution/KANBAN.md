@@ -4,8 +4,8 @@ Last updated: 2026-04-29
 
 ## Backlog
 
-- [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
 - [x] `DEV-00043` journal/audit evidence fabric and incident bundle export.
+- [ ] Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
 
 ## In Progress
 
@@ -65,6 +65,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening (source/dist frontend boundary + extracted css/js modules + `dev-0049` pack).
 - [x] `DEV-00050` control-panel refactor quality gates and CI readiness (aggregate backend/frontend/compat gates + CI-ready command + `dev-0050` pack).
 - [x] `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure (native charting cutover + rollout/rollback runbook + deprecation report + `dev-0051` pack).
+- [x] `DEV-00052` reconciliation/runbook evidence capture expansion for live adapter behavior (runbook-linked adapter evidence snapshots + reconciliation evidence contract + `dev-0052` pack).
 
 ## Blocked
 

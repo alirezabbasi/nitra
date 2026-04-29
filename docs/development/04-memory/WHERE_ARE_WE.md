@@ -93,12 +93,12 @@ Last updated: 2026-04-29
 - `DEV-00049` is closed with control-panel frontend app-shell modularization and source/dist pipeline hardening.
 - `DEV-00050` is closed with control-panel backend/frontend/compatibility aggregate quality gates and CI-ready enforcement command.
 - `DEV-00051` is closed with control-panel native charting cutover, legacy alias retirement, and published rollout/deprecation closure artifacts.
+- `DEV-00052` is closed with live-adapter reconciliation/runbook evidence capture expansion and verification gate coverage.
 
 ## Next
 
-1. Expand reconciliation/runbook evidence capture for live adapter behavior.
-2. Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
-3. Prepare next roadmap slice after control-panel refactor epic closure.
+1. Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
+2. Prepare next roadmap slice after control-panel refactor epic closure.
 
 ## Risks/Blocks
 
