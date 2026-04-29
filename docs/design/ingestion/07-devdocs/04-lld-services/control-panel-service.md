@@ -158,3 +158,9 @@ Rollback policy:
 - Docker-first runtime remains mandatory.
 - Health, metrics, and structured logs must expose both control-panel and charting module posture.
 - RBAC and audit logging must remain centralized and mandatory for privileged actions.
+
+## DEV-00046 Foundation Snapshot
+
+- Runtime service key in compose: `control-panel`.
+- Backend bootstrap entrypoint: `services/control-panel/app/main.py`.
+- Compatibility mode: legacy charting app mounted behind new control-panel boundary until domain/router extraction is complete.

@@ -893,3 +893,9 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 14:51:58 +0330 | `tests/dev-0045/run.sh` | Execute DEV-00045 architecture-contract verification pack. | Success |
 | 2026-04-29 14:51:58 +0330 | `make enforce-section-5-1` | Validate policy gates after DEV-00045 updates. | Success |
 | 2026-04-29 14:51:58 +0330 | `make session-bootstrap` | Validate session context integrity after DEV-00045 tracking updates. | Success |
+| 2026-04-29 16:19:39 +0330 | `apply_patch` on `docker-compose.yml` | Rename compose app service from `charting` to `control-panel` and point build to new backend foundation Dockerfile. | Success |
+| 2026-04-29 16:19:39 +0330 | `tests/dev-0046/run.sh` | Execute DEV-00046 backend foundation verification pack. | Success |
+| 2026-04-29 16:19:39 +0330 | `make enforce-section-5-1` | Run policy gates after adding `services/control-panel` foundation. | Failed (`POLICY_ERROR:untracked_service services/control-panel not declared`) |
+| 2026-04-29 16:19:39 +0330 | `apply_patch` on `policy/technology-allocation.yaml` | Register `services/control-panel` under `operator_ui` policy scope to satisfy service tracking gate. | Success |
+| 2026-04-29 16:19:39 +0330 | `make enforce-section-5-1` | Re-run policy gates after policy manifest update. | Success |
+| 2026-04-29 16:19:39 +0330 | `make session-bootstrap` | Validate session context/status integrity after DEV-00046 updates. | Success |

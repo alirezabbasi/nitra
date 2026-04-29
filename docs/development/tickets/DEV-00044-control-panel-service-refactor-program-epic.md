@@ -60,3 +60,4 @@ Current implementation quality is functionally rich but structurally fragile:
 - Target service LLD baseline exists at `docs/design/ingestion/07-devdocs/04-lld-services/control-panel-service.md`.
 - Program baseline verification pack added at `tests/dev-0044/run.sh` with `make test-dev-0044`.
 - `DEV-00045` completed: architecture freeze, migration map, and compatibility matrix contracts published.
+- `DEV-00046` completed: backend modular foundation created with compose service-boundary rename (`charting` -> `control-panel`) and legacy bridge startup path.

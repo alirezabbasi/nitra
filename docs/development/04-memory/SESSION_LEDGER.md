@@ -1183,3 +1183,22 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - execute `DEV-00046` backend modularization foundation and service rename.
+
+## 2026-04-29 — Session Entry 015
+
+- Objective:
+  - execute `DEV-00046` control-panel backend modularization foundation and service rename.
+- Work completed:
+  - created `services/control-panel` backend foundation with modular package skeleton.
+  - added `app/main.py` FastAPI bootstrap and legacy compatibility mount to preserve existing behavior.
+  - added foundational router (`health` + config endpoint) and control-panel Dockerfile/requirements.
+  - updated compose service boundary from `charting` to `control-panel`.
+  - registered `services/control-panel` in technology allocation policy manifest for gate compliance.
+  - added verification pack `tests/dev-0046/run.sh` and `make test-dev-0046` target.
+  - synchronized ticket/kanban/focus/memory/debug artifacts.
+- Verification:
+  - `tests/dev-0046/run.sh` passes.
+  - `make enforce-section-5-1` passes (after policy manifest update).
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute `DEV-00047` domain router split and service-layer extraction.

@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-29)
+Done (2026-04-29)
 
 ## Summary
 
@@ -35,3 +35,13 @@ Create backend modular skeleton and rename service boundary from charting-first 
 
 - Service boot smoke test.
 - Compose integration test for renamed service wiring.
+
+## Delivery Notes
+
+- Added backend modular foundation under `services/control-panel/app/`:
+  - `main.py` FastAPI bootstrap with compatibility bridge mount.
+  - `api/routers/health.py` foundational health/config router.
+- Added `services/control-panel/Dockerfile` and `requirements.txt`.
+- Updated compose service boundary from `charting` to `control-panel` using new Dockerfile path.
+- Preserved legacy startup compatibility by loading legacy charting app as mounted bridge.
+- Added verification pack `tests/dev-0046/run.sh` and `make test-dev-0046`.
