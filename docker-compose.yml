@@ -128,11 +128,11 @@ services:
     depends_on:
       - prometheus
 
-  charting:
+  control-panel:
     build:
-      context: ./services/charting
-      dockerfile: Dockerfile
-    container_name: charting
+      context: .
+      dockerfile: services/control-panel/Dockerfile
+    container_name: control-panel
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
       CHARTING_TIMEFRAME: ${CHARTING_TIMEFRAME}
@@ -154,8 +154,6 @@ services:
     depends_on:
       timescaledb:
         condition: service_healthy
-    volumes:
-      - ./services/charting:/app
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=3).read()"]
       interval: 15s

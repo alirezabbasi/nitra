@@ -259,7 +259,8 @@
       "current_runtime": "python",
       "owner_status": "blocked",
       "repo_paths": [
-        "services/charting"
+        "services/charting",
+        "services/control-panel"
       ],
       "migration": {
         "rust_target": "N/A",
