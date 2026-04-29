@@ -1221,3 +1221,21 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - execute `DEV-00048` charting module extraction and compatibility bridge.
+
+## 2026-04-29 — Session Entry 017
+
+- Objective:
+  - execute `DEV-00048` control-panel charting module extraction and compatibility bridge.
+- Work completed:
+  - added extracted charting router `services/control-panel/app/api/routers/charting.py` with dedicated charting endpoint ownership.
+  - added charting service-layer proxy bridge `services/control-panel/app/services/charting/legacy_proxy.py`.
+  - preserved legacy charting endpoint URLs with deprecation/sunset/successor headers for compatibility-safe migration.
+  - wired charting router into `services/control-panel/app/main.py` and hardened legacy app path resolution in `app/core/legacy_bridge.py`.
+  - added verification pack `tests/dev-0048/run.sh` and make target `test-dev-0048`.
+  - synchronized ticket/kanban/active-focus/current-state tracking artifacts.
+- Verification:
+  - `make test-dev-0048` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute `DEV-00049` frontend app-shell restructure and UI architecture hardening.

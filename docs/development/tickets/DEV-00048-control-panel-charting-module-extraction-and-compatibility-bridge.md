@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-29)
+Done (2026-04-29)
 
 ## Summary
 
@@ -25,3 +25,16 @@ Extract charting-specific APIs and adapter logic into a dedicated charting modul
 
 - Chart endpoint parity tests (`bars`, `history`, `ticks`, backfill/coverage).
 - Integration test: control-panel -> charting workbench handoff.
+
+## Delivery Notes
+
+- Added dedicated charting router:
+  - `services/control-panel/app/api/routers/charting.py`
+- Added charting service-layer compatibility proxy:
+  - `services/control-panel/app/services/charting/legacy_proxy.py`
+- Wired extracted charting module into control-panel bootstrap:
+  - `services/control-panel/app/main.py`
+- Added compatibility aliases with deprecation headers for legacy charting paths while preserving old URLs.
+- Hardened legacy bridge path resolution to load legacy charting app from repository `services/charting/app.py` with optional environment override:
+  - `services/control-panel/app/core/legacy_bridge.py`
+- Added verification pack `tests/dev-0048/run.sh` and `make test-dev-0048`.

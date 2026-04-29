@@ -89,12 +89,13 @@ Last updated: 2026-04-29
 - `DEV-00045` is closed with target architecture freeze and migration compatibility contract artifacts.
 - `DEV-00046` is closed with backend foundation skeleton and `control-panel` compose service cutover.
 - `DEV-00047` is closed with control-panel domain router split and service-layer proxy extraction.
+- `DEV-00048` is closed with control-panel charting module extraction and compatibility/deprecation bridge.
 
 ## Next
 
-1. Execute `DEV-00048` control-panel charting module extraction and compatibility bridge.
-2. Execute `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
-3. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
+1. Execute `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
+2. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
+3. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
 
 ## Risks/Blocks
 

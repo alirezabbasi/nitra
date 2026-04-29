@@ -187,6 +187,10 @@ Last updated: 2026-04-29
   - added audit taxonomy versioning control via `EXEC_AUDIT_TAXONOMY_VERSION`,
   - added lineage/correlation propagation and bundle auto-export hooks on rejected/terminal execution outcomes,
   - added verification pack (`tests/dev-0043/run.sh`, `make test-dev-0043`).
+- Completed `DEV-00048` control-panel charting module extraction and compatibility bridge:
+  - added dedicated charting router and charting proxy module under `services/control-panel`,
+  - preserved legacy charting endpoints with explicit deprecation/sunset successor headers,
+  - added `dev-0048` verification pack and make target.
 
 ### Current
 
@@ -220,13 +224,14 @@ Last updated: 2026-04-29
 - `DEV-00045` is closed with architecture/migration contract freeze artifacts (`control-panel-service` LLD expansion + migration map + compatibility matrix).
 - `DEV-00046` is closed with backend modularization foundation (`services/control-panel`) and compose service-boundary rename.
 - `DEV-00047` is closed with domain router split and service-layer proxy extraction for control-panel APIs.
+- `DEV-00048` is closed with charting module extraction and compatibility/deprecation bridge coverage.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00048` control-panel charting module extraction and compatibility bridge.
-2. Execute `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
-3. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
+1. Execute `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
+2. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
+3. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
 
 ### Risks/Blocks
 

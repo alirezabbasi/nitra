@@ -905,3 +905,16 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 16:36:57 +0330 | `apply_patch` on `tests/dev-0046/run.sh` | Update legacy bridge assertion from `load_legacy_app(...)` to `LEGACY_APP` mount contract. | Success |
 | 2026-04-29 16:36:57 +0330 | `make enforce-section-5-1` | Validate policy gates after DEV-00047 changes. | Success |
 | 2026-04-29 16:36:57 +0330 | `make session-bootstrap` | Validate memory/status integrity after DEV-00047 updates. | Success |
+| 2026-04-29 17:42:01 +0330 | `rg --files -g 'ruleset.md' -g 'docs/ruleset.md'` + `pwd` | Locate authoritative ruleset and confirm repository root before session bootstrap. | Success |
+| 2026-04-29 17:42:01 +0330 | `cat docs/ruleset.md` | Reload global master ruleset before planning/coding. | Success |
+| 2026-04-29 17:42:01 +0330 | `ls/find/sed` on required Rule-11 artifacts (`docs/README.md`, HLDs, LLD README, `CURRENT_STATE.md`, `KANBAN.md`, ingestion `ruleset.md`) | Execute mandatory session context reload for bootstrap compliance. | Success |
+| 2026-04-29 17:42:01 +0330 | `tail -n 80 docs/development/debugging/debugcmd.md` + `cat >> .../debugcmd.md` | Validate command-log format and append current bootstrap command evidence. | Success |
+| 2026-04-29 17:42:01 +0330 | `make session-bootstrap` | Run mandatory repository session bootstrap validation and context read-order checks. | Success |
+| 2026-04-29 17:45:56 +0330 | `sed/ls/rg` on rulesets and `DEV-00048` ticket | Reload mandatory rules/context and confirm DEV-00048 scope before implementation. | Success |
+| 2026-04-29 17:45:56 +0330 | `find/rg/sed` on `services/control-panel` + `services/charting/app.py` | Map current control-panel router split and charting endpoint ownership for extraction plan. | Success |
+| 2026-04-29 17:45:56 +0330 | `apply_patch` on `services/control-panel/app/core/legacy_bridge.py` | Harden legacy bridge path resolution with repo-charting default and env override. | Success |
+| 2026-04-29 17:45:56 +0330 | `cat > services/control-panel/app/services/charting/legacy_proxy.py` + `cat > .../api/routers/charting.py` + `apply_patch` on `main.py` | Add extracted charting module router and compatibility/deprecation proxy bridge routes. | Success |
+| 2026-04-29 17:45:56 +0330 | `cat > tests/dev-0048/run.sh` + `chmod +x` | Add DEV-00048 verification pack. | Failed (missing `tests/dev-0048/` directory) |
+| 2026-04-29 17:45:56 +0330 | `mkdir -p tests/dev-0048` + recreate `run.sh` + `apply_patch` on `Makefile` | Fix test-pack path issue and register `make test-dev-0048` target. | Success |
+| 2026-04-29 17:45:56 +0330 | `make test-dev-0048 && make enforce-section-5-1 && make session-bootstrap` | Execute DEV-00048 verification and policy/session gates. | Success |
+| 2026-04-29 17:45:56 +0330 | `apply_patch`/`cat >>` on ticket + kanban + active focus + memory files | Synchronize DEV-00048 closure and next-slice tracking in project docs. | Success |

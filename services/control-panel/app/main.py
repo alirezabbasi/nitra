@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from app.api.routers.auth_session import router as auth_session_router
+from app.api.routers.charting import router as charting_router
 from app.api.routers.config import router as config_router
 from app.api.routers.execution import router as execution_router
 from app.api.routers.health import router as health_router
@@ -25,6 +26,7 @@ app.include_router(ops_router)
 app.include_router(research_router)
 app.include_router(config_router)
 app.include_router(search_router)
+app.include_router(charting_router)
 
 # Keep legacy app mounted during migration for parity on non-extracted routes.
 app.mount("", LEGACY_APP)
