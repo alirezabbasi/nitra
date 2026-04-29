@@ -1029,3 +1029,24 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` (pass)
 - Next recommended action:
   - start `DEV-00038` feature-service deterministic baseline and point-in-time integrity.
+
+---
+
+## 2026-04-29 — Session Entry 032
+
+- Objective:
+  - execute `DEV-00038` feature-service deterministic baseline and point-in-time integrity.
+- Work completed:
+  - implemented Python `feature-service` baseline (`services/feature-service/app.py`) with deterministic feature vector computation from structure snapshots.
+  - enforced no-lookahead baseline contract (current snapshot + previous persisted state only).
+  - added lineage-aware persistence contract migration (`infra/timescaledb/init/013_feature_snapshot.sql`).
+  - wired runtime activation in compose/policy/topics (`docker-compose.yml`, `policy/technology-allocation.yaml`, `infra/kafka/topics.csv`).
+  - added service/env and LLD docs (`ingestion-service-env.md`, `feature-service.md`, service LLD README updates).
+  - added verification pack `tests/dev-0038/run.sh` + unit tests under `tests/dev-0038/unit` and make target `test-dev-0038`.
+  - synchronized ticket/kanban/active-focus/current-state/where-are-we to close `DEV-00038`.
+- Verification:
+  - `make test-dev-0038` (pass)
+  - `make enforce-section-5-1` (pass)
+  - `make session-bootstrap` (pass)
+- Next recommended action:
+  - start `DEV-00039` signal-engine deterministic scorer and explainability baseline.

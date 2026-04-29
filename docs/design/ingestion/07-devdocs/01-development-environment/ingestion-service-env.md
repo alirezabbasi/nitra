@@ -212,6 +212,21 @@ Notes:
 - Structure state is persisted in `structure_state` (single source of truth per `venue + symbol + timeframe`).
 - Baseline transitions emit snapshots on every bar and emit pullback/minor/major confirmations from deterministic state transitions.
 
+## feature-service
+
+- `KAFKA_BROKERS` default `kafka:9092`
+- `FEATURE_INPUT_TOPIC` default `structure.snapshot.v1`
+- `FEATURE_OUTPUT_TOPIC` default `features.snapshot.v1`
+- `FEATURE_GROUP_ID` default `nitra-feature-service-v1`
+- `FEATURE_SET_VERSION` default `dev-00038.v1`
+- `DATABASE_URL` required (compose sets from `POSTGRES_*`)
+
+Notes:
+- Baseline `DEV-00038` implementation computes deterministic PIT-safe feature vectors from structure snapshots.
+- No-lookahead contract: only current snapshot payload + previously persisted state may be used.
+- Feature lineage contract persists source topic/partition/offset and window metadata in `feature_snapshot.lineage`.
+- Output contract topic: `features.snapshot.v1`.
+
 ## risk-engine
 
 - `KAFKA_BROKERS` default `kafka:9092`

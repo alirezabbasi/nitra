@@ -153,6 +153,12 @@ Last updated: 2026-04-29
   - added explicit out-of-order/duplicate replay bar protection (`bucket_start` monotonic guard),
   - persisted transition reason codes in `structure_state.last_transition_reason` with migration `012_structure_transition_reason.sql`,
   - added executable hardening verification pack (`tests/dev-0037/run.sh`, `make test-dev-0037`).
+- Completed `DEV-00038` feature-service deterministic baseline and PIT integrity:
+  - added Python `feature-service` baseline runtime with deterministic feature transforms from structure snapshots,
+  - enforced no-lookahead baseline contract via previous-state-only feature computation path,
+  - added persisted feature lineage contract in `feature_snapshot` with migration `013_feature_snapshot.sql`,
+  - wired compose/topics/policy for `features.snapshot.v1` flow and service activation,
+  - added executable verification pack (`tests/dev-0038/run.sh`, `make test-dev-0038`).
 
 ### Current
 
@@ -176,13 +182,14 @@ Last updated: 2026-04-29
 - `DEV-00035` is closed with deterministic hardening sequence and acceptance gates fully defined.
 - `DEV-00036` is closed with canonical contract baseline and replay determinism checks.
 - `DEV-00037` is closed with deterministic transition guards and replay ordering protection.
+- `DEV-00038` is closed with deterministic PIT-safe feature baseline and lineage persistence.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00038` feature-service deterministic baseline with point-in-time integrity.
-2. Execute `DEV-00039` signal-engine deterministic scorer and explainability baseline.
-3. Execute `DEV-00040` risk policy expansion and decision traceability hardening.
+1. Execute `DEV-00039` signal-engine deterministic scorer and explainability baseline.
+2. Execute `DEV-00040` risk policy expansion and decision traceability hardening.
+3. Execute `DEV-00041` execution lifecycle controls and reconciliation SLA hardening.
 
 ### Risks/Blocks
 

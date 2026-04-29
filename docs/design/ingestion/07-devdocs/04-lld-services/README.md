@@ -14,6 +14,7 @@
 - `query_api`
 - `chart-ui`
 - `charting`
+- `feature-service`
 
 ## Per-Service Documentation Standard
 
@@ -34,3 +35,4 @@ Service-specific details should be maintained in subject docs under `docs/02-dat
 - `rust-codebase-skeleton.md`: end-to-end map of workspace layout, shared crates, service entrypoints, core function locations, and HTTP endpoints.
 - `chart-ui-service.md`: charting web service boundaries, runtime topology, and proxy/data-flow contract.
 - `charting-service.md`: implemented `charting` service contract for direct OHLCV candlestick rendering from TimescaleDB.
+- `feature-service.md`: deterministic feature baseline, PIT/no-lookahead guardrails, and lineage contract.
