@@ -3,9 +3,8 @@ import importlib.util
 import os
 
 ROOT = Path(__file__).resolve().parents[2]
-REPO_ROOT = ROOT.parents[1]
 LEGACY_PATH = ROOT / "legacy" / "app.py"
-LEGACY_CHARTING_PATH = REPO_ROOT / "charting" / "app.py"
+LEGACY_CHARTING_PATH = ROOT / "charting" / "app.py"
 
 
 def resolve_legacy_path() -> Path:

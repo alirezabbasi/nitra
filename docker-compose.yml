@@ -88,7 +88,10 @@ services:
       "
 
   mlflow:
-    image: ghcr.io/mlflow/mlflow:v3.11.1
+    build:
+      context: .
+      dockerfile: docker/mlflow/Dockerfile
+    image: nitra-mlflow:latest
     container_name: mlflow
     depends_on:
       timescaledb:

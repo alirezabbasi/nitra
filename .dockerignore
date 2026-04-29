@@ -1,0 +1,21 @@
+# Runtime state and mounted data (must never be in build context)
+.runtime-data/
+
+# VCS and editor metadata
+.git/
+.gitignore
+
+# Python/Rust/Node build artifacts
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/target/
+**/node_modules/
+
+# Local env and logs
+.env
+*.log
+
+# Temporary files
+tmp/
+*.tmp

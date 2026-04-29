@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -221,6 +222,8 @@ def main() -> int:
             }
         )
     )
+    while True:
+        time.sleep(30)
     return 0
 
 
