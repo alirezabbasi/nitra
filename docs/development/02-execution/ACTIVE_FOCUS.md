@@ -2,17 +2,17 @@
 
 ## Objective
 
-Execute a production-grade control-panel service refactor to eliminate monolithic FastAPI/HTML architecture while preserving current operator workflows.
+Execute second-chain deterministic hardening (`structure -> feature -> signal -> risk -> execution -> portfolio -> journal`) with contract-first sequencing.
 
 ## Current constraints
 
 - Preserve Docker-first runtime simplicity.
 - Keep deterministic boundaries strict (LLM advisory only).
 - Maintain traceable, small-step delivery with tests and docs.
-- Keep API/UI compatibility during phased migration.
+- Enforce replay determinism and fail-closed schema contracts across chain boundaries.
 
 ## Immediate next slices
 
-1. `DEV-00044` control-panel service refactor program kickoff and architecture freeze.
-2. `DEV-00045` target architecture and migration contract publication.
-3. `DEV-00046` backend modularization foundation and service boundary rename.
+1. `DEV-00036` second-chain contracts and replay determinism.
+2. `DEV-00037` structure-engine production deterministic hardening.
+3. `DEV-00038` feature-service deterministic baseline and point-in-time integrity.

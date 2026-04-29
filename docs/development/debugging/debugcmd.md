@@ -834,3 +834,8 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 10:03:21 +0330 | `apply_patch` on `docs/development/04-memory/WHERE_ARE_WE.md` | Add registration outcome and new next actions. | Success |
 | 2026-04-29 10:03:21 +0330 | `apply_patch` on `docs/development/04-memory/CURRENT_STATE.md` | Add second-chain ticket-registration state and next actions. | Success |
 | 2026-04-29 10:03:21 +0330 | `make session-bootstrap` | Validate required context artifacts after planning updates. | Success |
+| 2026-04-29 12:58:16 +0330 | `git status --short` + `git diff --stat` | Inspect pending workspace changes before checkpoint commit. | Success |
+| 2026-04-29 12:58:16 +0330 | `git add -A && git commit -m "chore: checkpoint control-panel refactor and second-chain planning updates"` | Create clean checkpoint commit before starting DEV-00035 execution. | Success |
+| 2026-04-29 12:58:16 +0330 | `sed/rg` reads on `DEV-00035`, `KANBAN`, `ACTIVE_FOCUS`, `WHERE_ARE_WE`, `CURRENT_STATE`, `SESSION_LEDGER` | Re-validate scope and determine required state synchronization edits for DEV-00035 closure. | Success |
+| 2026-04-29 12:58:16 +0330 | `apply_patch` on `DEV-00035`, `KANBAN`, `ACTIVE_FOCUS`, `WHERE_ARE_WE`, `CURRENT_STATE` | Mark DEV-00035 done and align execution/memory tracking to start DEV-00036 next. | Success |
+| 2026-04-29 12:58:16 +0330 | `cat >> docs/development/04-memory/SESSION_LEDGER.md` | Append Session Entry 029 for DEV-00035 completion bookkeeping. | Success |

@@ -46,6 +46,7 @@ Last updated: 2026-04-29
 - `DEV-00022` completed: execution adapter network resilience hardening implemented with deterministic bounded retry/backoff, failure classification, degraded-mode cooldown guard, and reconciliation-context emission.
 - `DEV-00024` completed: control-panel program epic closed with consolidated evidence across `DEV-00025..DEV-00034`.
 - Registered second-chain strengthening ticket set `DEV-00035..DEV-00043` to prioritize hardening of `structure -> feature -> signal -> risk -> execution -> portfolio -> journal`.
+- `DEV-00035` completed: second-chain hardening program finalized with ordered implementation tickets `DEV-00036..DEV-00043` and deterministic acceptance gates.
 
 ## Current
 
@@ -67,12 +68,13 @@ Last updated: 2026-04-29
 - `DEV-00033` is closed with config registry/change-control/governance center baseline in control panel.
 - `DEV-00034` is closed with enterprise polish/performance/accessibility baseline in control panel.
 - `DEV-00024` is closed with full child-ticket delivery evidence map.
+- `DEV-00035` is closed with second-chain hardening sequence and verification gates defined.
 
 ## Next
 
-1. Run integrated operator UAT across all control-panel modules and capture runtime evidence snapshots.
-2. Start `DEV-00035`/`DEV-00036` to freeze contracts and determinism gates for second-chain services.
-3. Execute `DEV-00037` as first production hardening runtime slice after contract freeze.
+1. Start `DEV-00036` to freeze cross-chain contracts and replay determinism gates.
+2. Execute `DEV-00037` as first production runtime hardening slice after contract freeze.
+3. Continue with `DEV-00038` feature-service deterministic baseline and point-in-time integrity.
 
 ## Risks/Blocks
 

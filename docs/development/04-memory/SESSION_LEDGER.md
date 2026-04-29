@@ -974,3 +974,19 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap`
 - Next recommended action:
   - begin implementation with `DEV-00035` kickoff and `DEV-00036` contract freeze.
+
+---
+
+## 2026-04-29 — Session Entry 029
+
+- Objective:
+  - complete `DEV-00035` second-chain hardening program epic and prepare execution handoff.
+- Work completed:
+  - marked `DEV-00035` status as done and added explicit delivery evidence.
+  - confirmed `DEV-00036..DEV-00043` are present, ordered, and implementation-ready with deterministic acceptance/verification criteria.
+  - synchronized execution/memory artifacts (`KANBAN`, `ACTIVE_FOCUS`, `WHERE_ARE_WE`, `CURRENT_STATE`) to make second-chain hardening the active priority.
+  - updated immediate next slices to begin with `DEV-00036` contract freeze.
+- Verification:
+  - documentation consistency checks by cross-reading ticket, kanban, active focus, and memory sources.
+- Next recommended action:
+  - begin `DEV-00036` implementation with schema/contract tests and replay-equivalence harness.

@@ -13,7 +13,6 @@ Last updated: 2026-04-29
 - [ ] `DEV-00050` control-panel refactor quality gates and CI readiness.
 - [ ] `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
 - [ ] Expand reconciliation/runbook evidence capture for live adapter behavior.
-- [ ] `DEV-00035` second-chain hardening program epic (`structure -> feature -> signal -> risk -> execution -> portfolio -> journal`).
 - [ ] `DEV-00036` second-chain contracts and replay determinism.
 - [ ] `DEV-00037` structure-engine production deterministic hardening.
 - [ ] `DEV-00038` feature service deterministic baseline and point-in-time integrity.
@@ -66,6 +65,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00034` control panel enterprise polish/performance/accessibility (command palette, persisted layout/density, focus/keyboard semantics, bounded render slices).
 - [x] `DEV-00022` execution adapter network resilience (deterministic retry/backoff, failure-classified terminal outcomes, degraded-mode safeguards, reconciliation context).
 - [x] `DEV-00024` control panel program epic (closed with delivery evidence map across `DEV-00025..DEV-00034`).
+- [x] `DEV-00035` second-chain hardening program epic (delivery program + deterministic ticket sequence `DEV-00036..DEV-00043` finalized).
 
 ## Blocked
 
