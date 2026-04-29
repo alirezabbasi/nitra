@@ -88,12 +88,13 @@ Last updated: 2026-04-29
 - `DEV-00044` is in progress with program decomposition baseline and executable ticket-readiness gate.
 - `DEV-00045` is closed with target architecture freeze and migration compatibility contract artifacts.
 - `DEV-00046` is closed with backend foundation skeleton and `control-panel` compose service cutover.
+- `DEV-00047` is closed with control-panel domain router split and service-layer proxy extraction.
 
 ## Next
 
-1. Execute `DEV-00047` control-panel domain router split and service-layer extraction.
-2. Execute `DEV-00048` control-panel charting module extraction and compatibility bridge.
-3. Execute `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
+1. Execute `DEV-00048` control-panel charting module extraction and compatibility bridge.
+2. Execute `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
+3. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
 
 ## Risks/Blocks
 

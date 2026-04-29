@@ -164,3 +164,11 @@ Rollback policy:
 - Runtime service key in compose: `control-panel`.
 - Backend bootstrap entrypoint: `services/control-panel/app/main.py`.
 - Compatibility mode: legacy charting app mounted behind new control-panel boundary until domain/router extraction is complete.
+
+## DEV-00047 Domain Split Snapshot
+
+- Domain routers extracted under `services/control-panel/app/api/routers/` for:
+  - `auth_session`, `overview`, `ingestion`, `risk_portfolio`, `execution`, `ops`, `research`, `config`, `search`.
+- Service layer bridge introduced at `services/control-panel/app/services/control_panel/legacy_proxy.py`.
+- Shared legacy loader centralized at `services/control-panel/app/core/legacy_bridge.py`.
+- Compatibility preserved by router-first dispatch with legacy fallback mount for non-extracted paths.

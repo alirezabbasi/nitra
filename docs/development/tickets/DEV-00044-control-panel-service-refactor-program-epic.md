@@ -61,3 +61,4 @@ Current implementation quality is functionally rich but structurally fragile:
 - Program baseline verification pack added at `tests/dev-0044/run.sh` with `make test-dev-0044`.
 - `DEV-00045` completed: architecture freeze, migration map, and compatibility matrix contracts published.
 - `DEV-00046` completed: backend modular foundation created with compose service-boundary rename (`charting` -> `control-panel`) and legacy bridge startup path.
+- `DEV-00047` completed: control-panel domain routers extracted with service-layer proxy bridge and compatibility fallback retained.

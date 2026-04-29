@@ -4,7 +4,6 @@ Last updated: 2026-04-29
 
 ## Backlog
 
-- [ ] `DEV-00047` control-panel domain router split and service-layer extraction.
 - [ ] `DEV-00048` control-panel charting module extraction and compatibility bridge.
 - [ ] `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
 - [ ] `DEV-00050` control-panel refactor quality gates and CI readiness.
@@ -65,6 +64,7 @@ Last updated: 2026-04-29
 - [x] `DEV-00042` portfolio authoritative reconciliation and state invariants (reconciliation invariants, drift taxonomy, persistence evidence, `dev-0042` pack).
 - [x] `DEV-00045` control-panel target architecture and migration contract freeze (LLD architecture freeze, migration map, compatibility matrix, `dev-0045` pack).
 - [x] `DEV-00046` control-panel backend modularization foundation and service rename (new `services/control-panel` skeleton, compose service rename, legacy bridge, `dev-0046` pack).
+- [x] `DEV-00047` control-panel domain router split and service-layer extraction (domain routers + service proxy bridge + `dev-0047` pack).
 
 ## Blocked
 

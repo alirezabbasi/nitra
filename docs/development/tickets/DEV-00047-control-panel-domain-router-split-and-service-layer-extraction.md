@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed (2026-04-29)
+Done (2026-04-29)
 
 ## Summary
 
@@ -26,3 +26,14 @@ Extract control-panel APIs from monolithic route handlers into domain routers wi
 
 - API regression tests for each domain endpoint group.
 - Role/permission contract tests.
+
+## Delivery Notes
+
+- Added domain routers under `services/control-panel/app/api/routers/`:
+  - `auth_session.py`, `overview.py`, `ingestion.py`, `risk_portfolio.py`, `execution.py`, `ops.py`, `research.py`, `config.py`, `search.py`.
+- Added service-layer extraction bridge:
+  - `services/control-panel/app/services/control_panel/legacy_proxy.py`.
+- Added centralized legacy bridge loader:
+  - `services/control-panel/app/core/legacy_bridge.py`.
+- Updated `services/control-panel/app/main.py` router composition to mount extracted domain routers first, with legacy app retained for compatibility fallback.
+- Added verification pack `tests/dev-0047/run.sh` and `make test-dev-0047`.

@@ -899,3 +899,9 @@ For every future development/debugging session, append new entries to this file 
 | 2026-04-29 16:19:39 +0330 | `apply_patch` on `policy/technology-allocation.yaml` | Register `services/control-panel` under `operator_ui` policy scope to satisfy service tracking gate. | Success |
 | 2026-04-29 16:19:39 +0330 | `make enforce-section-5-1` | Re-run policy gates after policy manifest update. | Success |
 | 2026-04-29 16:19:39 +0330 | `make session-bootstrap` | Validate session context/status integrity after DEV-00046 updates. | Success |
+| 2026-04-29 16:36:57 +0330 | `apply_patch` on `services/control-panel/app/main.py` + `app/api/routers/*.py` + `app/services/control_panel/legacy_proxy.py` + `app/core/legacy_bridge.py` | Extract DEV-00047 domain routers and service-layer proxy bridge while preserving legacy fallback compatibility. | Success |
+| 2026-04-29 16:36:57 +0330 | `tests/dev-0047/run.sh` | Run DEV-00047 router split/service extraction verification pack. | Success |
+| 2026-04-29 16:36:57 +0330 | `tests/dev-0046/run.sh` | Re-run DEV-00046 regression after main-router refactor. | Failed (compatibility bridge assertion outdated) |
+| 2026-04-29 16:36:57 +0330 | `apply_patch` on `tests/dev-0046/run.sh` | Update legacy bridge assertion from `load_legacy_app(...)` to `LEGACY_APP` mount contract. | Success |
+| 2026-04-29 16:36:57 +0330 | `make enforce-section-5-1` | Validate policy gates after DEV-00047 changes. | Success |
+| 2026-04-29 16:36:57 +0330 | `make session-bootstrap` | Validate memory/status integrity after DEV-00047 updates. | Success |

@@ -219,13 +219,14 @@ Last updated: 2026-04-29
 - `DEV-00044` is in progress as the control-panel refactor program epic with executable baseline gate (`dev-0044`).
 - `DEV-00045` is closed with architecture/migration contract freeze artifacts (`control-panel-service` LLD expansion + migration map + compatibility matrix).
 - `DEV-00046` is closed with backend modularization foundation (`services/control-panel`) and compose service-boundary rename.
+- `DEV-00047` is closed with domain router split and service-layer proxy extraction for control-panel APIs.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00047` control-panel domain router split and service-layer extraction.
-2. Execute `DEV-00048` control-panel charting module extraction and compatibility bridge.
-3. Execute `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
+1. Execute `DEV-00048` control-panel charting module extraction and compatibility bridge.
+2. Execute `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
+3. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
 
 ### Risks/Blocks
 

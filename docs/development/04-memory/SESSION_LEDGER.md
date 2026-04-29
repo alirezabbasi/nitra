@@ -1202,3 +1202,22 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - execute `DEV-00047` domain router split and service-layer extraction.
+
+## 2026-04-29 — Session Entry 016
+
+- Objective:
+  - execute `DEV-00047` control-panel domain router split and service-layer extraction.
+- Work completed:
+  - extracted control-panel domain routers into `services/control-panel/app/api/routers/` (`auth_session`, `overview`, `ingestion`, `risk_portfolio`, `execution`, `ops`, `research`, `config`, `search`).
+  - added centralized legacy loader (`app/core/legacy_bridge.py`) and service-layer proxy bridge (`app/services/control_panel/legacy_proxy.py`).
+  - updated router composition in `app/main.py` to route extracted domains first and keep mounted legacy fallback for compatibility.
+  - added verification pack `tests/dev-0047/run.sh` and make target `test-dev-0047`.
+  - updated `tests/dev-0046/run.sh` compatibility assertion to match `LEGACY_APP` mount contract.
+  - synchronized ticket/kanban/focus/memory/debug artifacts.
+- Verification:
+  - `tests/dev-0047/run.sh` passes.
+  - `tests/dev-0046/run.sh` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute `DEV-00048` charting module extraction and compatibility bridge.
