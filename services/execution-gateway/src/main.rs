@@ -8,6 +8,7 @@ use rdkafka::Message;
 use reqwest::Client as HttpClient;
 use reqwest::StatusCode;
 use serde_json::{json, Value};
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -65,6 +66,16 @@ struct ExecConfig {
     broker_retry_backoff_ms: u64,
     broker_retry_backoff_cap_ms: u64,
     broker_degraded_cooldown_ms: u64,
+    command_stale_after_secs: i64,
+    command_duplicate_window_secs: i64,
+    reconciliation_sla_secs: i64,
+}
+
+#[derive(Clone, Debug)]
+struct OrderJournalState {
+    status: String,
+    updated_at: DateTime<Utc>,
+    state_version: i32,
 }
 
 fn env_or(name: &str, default: &str) -> String {
@@ -464,6 +475,83 @@ async fn load_order_intent(
         notional: r.get::<_, f64>(5),
         event_ts: r.get::<_, DateTime<Utc>>(6),
     }))
+}
+
+async fn load_order_state(
+    conn: &Client,
+    order_id: Uuid,
+) -> Result<Option<OrderJournalState>, tokio_postgres::Error> {
+    let row = conn
+        .query_opt(
+            "
+            SELECT status, updated_at, state_version
+            FROM execution_order_journal
+            WHERE order_id = $1::uuid
+            ",
+            &[&order_id],
+        )
+        .await?;
+
+    Ok(row.map(|r| OrderJournalState {
+        status: r.get::<_, String>(0),
+        updated_at: r.get::<_, DateTime<Utc>>(1),
+        state_version: r.get::<_, i32>(2),
+    }))
+}
+
+async fn is_duplicate_command(
+    conn: &Client,
+    command: &ExecOrderCommand,
+    window_secs: i64,
+) -> Result<bool, tokio_postgres::Error> {
+    let row = conn
+        .query_opt(
+            "
+            SELECT 1
+            FROM execution_command_log
+            WHERE order_id = $1::uuid
+              AND action = $2
+              AND payload->>'new_notional' IS NOT DISTINCT FROM $3
+              AND created_at >= now() - ($4::text || ' seconds')::interval
+            LIMIT 1
+            ",
+            &[
+                &command.order_id,
+                &command.action,
+                &command.new_notional.map(|v| v.to_string()),
+                &window_secs,
+            ],
+        )
+        .await?;
+    Ok(row.is_some())
+}
+
+fn is_valid_lifecycle_transition(current: &str, next: &str) -> bool {
+    let mut map: HashMap<&str, HashSet<&str>> = HashMap::new();
+    map.insert(
+        "submitted",
+        HashSet::from([
+            "filled",
+            "rejected",
+            "cancelled",
+            "amend_requested",
+            "cancel_requested",
+        ]),
+    );
+    map.insert(
+        "amend_requested",
+        HashSet::from(["submitted", "filled", "rejected", "cancelled"]),
+    );
+    map.insert(
+        "cancel_requested",
+        HashSet::from(["cancelled", "filled", "rejected"]),
+    );
+    map.insert("rejected_by_risk", HashSet::new());
+    map.insert("rejected_by_broker", HashSet::new());
+    map.insert("filled", HashSet::new());
+    map.insert("rejected", HashSet::new());
+    map.insert("cancelled", HashSet::new());
+    map.get(current).map(|v| v.contains(next)).unwrap_or(false)
 }
 
 async fn insert_command_log(
@@ -1002,6 +1090,26 @@ async fn handle_intent(
             .await?;
         }
     }
+    if is_submitted {
+        let age_secs = (now - intent.event_ts).num_seconds().max(0);
+        if age_secs > cfg.reconciliation_sla_secs {
+            publish_event(
+                producer,
+                reconciliation_topic,
+                &event_key,
+                json!({
+                    "order_id": order_id.to_string(),
+                    "venue": intent.venue,
+                    "canonical_symbol": intent.canonical_symbol,
+                    "issue": "reconciliation_sla_breach",
+                    "sla_seconds": cfg.reconciliation_sla_secs,
+                    "age_seconds": age_secs,
+                    "event_ts": now.to_rfc3339(),
+                }),
+            )
+            .await?;
+        }
+    }
 
     if cfg.dry_run && is_submitted {
         let fill_ts = now + chrono::Duration::seconds(1);
@@ -1080,6 +1188,36 @@ async fn handle_order_command(
         insert_command_log(conn, &command, false, Some("unknown_order_id"), json!({})).await?;
         return Ok(());
     };
+    let Some(state) = load_order_state(conn, command.order_id).await? else {
+        insert_command_log(conn, &command, false, Some("missing_order_state"), json!({})).await?;
+        return Ok(());
+    };
+
+    if command.event_ts
+        < state.updated_at - chrono::Duration::seconds(cfg.command_stale_after_secs.max(0))
+    {
+        insert_command_log(
+            conn,
+            &command,
+            false,
+            Some("stale_command"),
+            json!({"state_status": state.status, "state_version": state.state_version}),
+        )
+        .await?;
+        return Ok(());
+    }
+
+    if is_duplicate_command(conn, &command, cfg.command_duplicate_window_secs.max(1)).await? {
+        insert_command_log(
+            conn,
+            &command,
+            false,
+            Some("duplicate_command"),
+            json!({"state_status": state.status, "state_version": state.state_version}),
+        )
+        .await?;
+        return Ok(());
+    }
 
     let response = if command.action == "amend" {
         adapter_amend(http, cfg, &command).await
@@ -1109,6 +1247,17 @@ async fn handle_order_command(
         } else {
             "amend_requested"
         };
+        if !is_valid_lifecycle_transition(&state.status, journal_status) {
+            insert_command_log(
+                conn,
+                &command,
+                false,
+                Some("invalid_lifecycle_transition"),
+                json!({"from_status": state.status, "to_status": journal_status, "state_version": state.state_version}),
+            )
+            .await?;
+            return Ok(());
+        }
 
         persist_order_journal(
             conn,
@@ -1196,13 +1345,14 @@ async fn handle_order_command(
 async fn handle_broker_ack(
     conn: &Client,
     producer: &FutureProducer,
+    cfg: &ExecConfig,
     service_name: &str,
     order_updated_topic: &str,
     fill_received_topic: &str,
     reconciliation_topic: &str,
     ack: BrokerAck,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let Some((venue, symbol, timeframe)) = update_order_journal_from_ack(conn, &ack).await? else {
+    let Some(state) = load_order_state(conn, ack.order_id).await? else {
         insert_audit_event(
             conn,
             service_name,
@@ -1218,6 +1368,24 @@ async fn handle_broker_ack(
             }),
         )
         .await?;
+        return Ok(());
+    };
+    if !is_valid_lifecycle_transition(&state.status, &ack.status) {
+        insert_audit_event(
+            conn,
+            service_name,
+            "execution",
+            "invalid_lifecycle_transition",
+            Some(ack.order_id),
+            None,
+            None,
+            json!({"from_status": state.status, "to_status": ack.status, "state_version": state.state_version}),
+        )
+        .await?;
+        return Ok(());
+    }
+
+    let Some((venue, symbol, timeframe)) = update_order_journal_from_ack(conn, &ack).await? else {
         return Ok(());
     };
 
@@ -1258,6 +1426,7 @@ async fn handle_broker_ack(
     }
 
     if ack.status == "rejected" || ack.status == "cancelled" {
+        let age_secs = (ack.event_ts - state.updated_at).num_seconds().max(0);
         publish_event(
             producer,
             reconciliation_topic,
@@ -1269,6 +1438,8 @@ async fn handle_broker_ack(
                 "issue": "broker_terminal_status",
                 "status": ack.status,
                 "reason": ack.reason,
+                "sla_seconds": cfg.reconciliation_sla_secs,
+                "age_seconds": age_secs,
                 "event_ts": ack.event_ts.to_rfc3339(),
             }),
         )
@@ -1337,6 +1508,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         broker_retry_backoff_ms: env_u64_or("EXEC_BROKER_RETRY_BACKOFF_MS", 200),
         broker_retry_backoff_cap_ms: env_u64_or("EXEC_BROKER_RETRY_BACKOFF_CAP_MS", 2000),
         broker_degraded_cooldown_ms: env_u64_or("EXEC_BROKER_DEGRADED_COOLDOWN_MS", 250),
+        command_stale_after_secs: env_i64_or("EXEC_COMMAND_STALE_AFTER_SECS", 120),
+        command_duplicate_window_secs: env_i64_or("EXEC_COMMAND_DUPLICATE_WINDOW_SECS", 300),
+        reconciliation_sla_secs: env_i64_or("EXEC_RECONCILIATION_SLA_SECS", 180),
     };
 
     let http = HttpClient::builder()
@@ -1434,6 +1608,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 handle_broker_ack(
                     &conn,
                     &producer,
+                    &exec_cfg,
                     service_name,
                     &order_updated_topic,
                     &fill_received_topic,
@@ -1545,10 +1720,21 @@ mod tests {
             broker_retry_backoff_ms: 100,
             broker_retry_backoff_cap_ms: 250,
             broker_degraded_cooldown_ms: 10,
+            command_stale_after_secs: 120,
+            command_duplicate_window_secs: 300,
+            reconciliation_sla_secs: 180,
         };
         assert_eq!(attempt_backoff_ms(&cfg, 1), 100);
         assert_eq!(attempt_backoff_ms(&cfg, 2), 200);
         assert_eq!(attempt_backoff_ms(&cfg, 3), 250);
         assert_eq!(attempt_backoff_ms(&cfg, 5), 250);
+    }
+
+    #[test]
+    fn lifecycle_transition_guard_blocks_invalid_paths() {
+        assert!(is_valid_lifecycle_transition("submitted", "filled"));
+        assert!(is_valid_lifecycle_transition("submitted", "cancel_requested"));
+        assert!(!is_valid_lifecycle_transition("filled", "submitted"));
+        assert!(!is_valid_lifecycle_transition("cancelled", "amend_requested"));
     }
 }
