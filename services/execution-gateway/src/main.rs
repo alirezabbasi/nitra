@@ -24,6 +24,8 @@ struct ExecIntent {
     side: String,
     notional: f64,
     event_ts: DateTime<Utc>,
+    lineage: Value,
+    upstream_correlation_id: Option<Uuid>,
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +71,7 @@ struct ExecConfig {
     command_stale_after_secs: i64,
     command_duplicate_window_secs: i64,
     reconciliation_sla_secs: i64,
+    audit_taxonomy_version: String,
 }
 
 #[derive(Clone, Debug)]
@@ -163,6 +166,15 @@ fn parse_exec_intent(payload: &Value) -> Option<ExecIntent> {
 
     let event_ts =
         parse_ts(payload.get("event_ts").and_then(|v| v.as_str())).unwrap_or_else(Utc::now);
+    let lineage = payload
+        .get("lineage")
+        .cloned()
+        .or_else(|| payload.pointer("/signal/feature_refs/lineage").cloned())
+        .unwrap_or_else(|| json!({}));
+    let upstream_correlation_id = payload
+        .get("correlation_id")
+        .and_then(|v| v.as_str())
+        .and_then(|v| Uuid::parse_str(v).ok());
 
     if venue.is_empty() || canonical_symbol.is_empty() {
         return None;
@@ -176,6 +188,8 @@ fn parse_exec_intent(payload: &Value) -> Option<ExecIntent> {
         side,
         notional,
         event_ts,
+        lineage,
+        upstream_correlation_id,
     })
 }
 
@@ -355,9 +369,77 @@ async fn ensure_execution_tables(conn: &Client) -> Result<(), tokio_postgres::Er
 
         CREATE INDEX IF NOT EXISTS idx_audit_event_log_domain_ts
           ON audit_event_log (event_domain, created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS incident_evidence_bundle (
+          bundle_id UUID PRIMARY KEY,
+          exported_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          taxonomy_version TEXT NOT NULL,
+          correlation_id UUID NOT NULL,
+          order_id UUID NOT NULL,
+          venue TEXT,
+          canonical_symbol TEXT,
+          lineage JSONB NOT NULL DEFAULT '{}'::jsonb,
+          artifacts JSONB NOT NULL DEFAULT '{}'::jsonb
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_incident_evidence_bundle_corr_ts
+          ON incident_evidence_bundle (correlation_id, exported_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_incident_evidence_bundle_order_ts
+          ON incident_evidence_bundle (order_id, exported_at DESC);
         ",
     )
     .await
+}
+
+async fn export_incident_bundle(
+    conn: &Client,
+    taxonomy_version: &str,
+    correlation_id: Uuid,
+    order_id: Uuid,
+    venue: &str,
+    canonical_symbol: &str,
+    lineage: &Value,
+) -> Result<(), tokio_postgres::Error> {
+    conn.execute(
+        "
+        INSERT INTO incident_evidence_bundle (
+          bundle_id, taxonomy_version, correlation_id, order_id,
+          venue, canonical_symbol, lineage, artifacts
+        )
+        SELECT
+          $1::uuid, $2, $3::uuid, $4::uuid, $5, $6, $7::jsonb,
+          jsonb_build_object(
+            'order_journal', COALESCE((
+              SELECT to_jsonb(j)
+              FROM execution_order_journal j
+              WHERE j.order_id = $4::uuid
+            ), '{}'::jsonb),
+            'command_log', COALESCE((
+              SELECT jsonb_agg(to_jsonb(c) ORDER BY c.created_at ASC)
+              FROM execution_command_log c
+              WHERE c.order_id = $4::uuid
+            ), '[]'::jsonb),
+            'audit_events', COALESCE((
+              SELECT jsonb_agg(to_jsonb(a) ORDER BY a.created_at ASC)
+              FROM audit_event_log a
+              WHERE a.correlation_id = $3::uuid
+                 OR a.correlation_id = $4::uuid
+            ), '[]'::jsonb)
+          )
+        ",
+        &[
+            &Uuid::new_v4(),
+            &taxonomy_version,
+            &correlation_id,
+            &order_id,
+            &venue,
+            &canonical_symbol,
+            &lineage,
+        ],
+    )
+    .await?;
+    Ok(())
 }
 
 async fn persist_order_journal(
@@ -474,6 +556,8 @@ async fn load_order_intent(
         side: r.get::<_, String>(4),
         notional: r.get::<_, f64>(5),
         event_ts: r.get::<_, DateTime<Utc>>(6),
+        lineage: json!({}),
+        upstream_correlation_id: Some(order_id),
     }))
 }
 
@@ -951,6 +1035,7 @@ async fn handle_intent(
     intent: ExecIntent,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let order_id = Uuid::new_v4();
+    let correlation_id = intent.upstream_correlation_id.unwrap_or(order_id);
     let event_key = format!(
         "{}:{}:{}",
         intent.venue, intent.canonical_symbol, intent.timeframe
@@ -975,10 +1060,27 @@ async fn handle_intent(
             service_name,
             "execution",
             "order_rejected",
-            Some(order_id),
+            Some(correlation_id),
             Some(&intent.venue),
             Some(&intent.canonical_symbol),
-            json!({"reason": "not_approved_or_hold", "notional": intent.notional}),
+            json!({
+                "taxonomy_version": cfg.audit_taxonomy_version,
+                "reason": "not_approved_or_hold",
+                "notional": intent.notional,
+                "order_id": order_id.to_string(),
+                "root_correlation_id": correlation_id.to_string(),
+                "lineage": intent.lineage.clone(),
+            }),
+        )
+        .await?;
+        export_incident_bundle(
+            conn,
+            &cfg.audit_taxonomy_version,
+            correlation_id,
+            order_id,
+            &intent.venue,
+            &intent.canonical_symbol,
+            &intent.lineage,
         )
         .await?;
 
@@ -1056,16 +1158,20 @@ async fn handle_intent(
         } else {
             "order_submit_rejected"
         },
-        Some(order_id),
+        Some(correlation_id),
         Some(&intent.venue),
         Some(&intent.canonical_symbol),
         json!({
+            "taxonomy_version": cfg.audit_taxonomy_version,
             "side": intent.side,
             "notional": intent.notional,
             "broker_order_id": submit_response.broker_order_id,
             "reason": submit_response.reason,
             "failure_class": submit_response.failure_class,
             "attempts": submit_response.attempts,
+            "order_id": order_id.to_string(),
+            "root_correlation_id": correlation_id.to_string(),
+            "lineage": intent.lineage.clone(),
         }),
     )
     .await?;
@@ -1089,6 +1195,16 @@ async fn handle_intent(
             )
             .await?;
         }
+        export_incident_bundle(
+            conn,
+            &cfg.audit_taxonomy_version,
+            correlation_id,
+            order_id,
+            &intent.venue,
+            &intent.canonical_symbol,
+            &intent.lineage,
+        )
+        .await?;
     }
     if is_submitted {
         let age_secs = (now - intent.event_ts).num_seconds().max(0);
@@ -1307,6 +1423,7 @@ async fn handle_order_command(
         Some(&intent.venue),
         Some(&intent.canonical_symbol),
         json!({
+            "taxonomy_version": cfg.audit_taxonomy_version,
             "action": command.action,
             "accepted": accepted,
             "reason": response.reason,
@@ -1362,6 +1479,7 @@ async fn handle_broker_ack(
             None,
             None,
             json!({
+                "taxonomy_version": cfg.audit_taxonomy_version,
                 "status": ack.status,
                 "broker_order_id": ack.broker_order_id,
                 "reason": ack.reason,
@@ -1455,6 +1573,7 @@ async fn handle_broker_ack(
         Some(&venue),
         Some(&symbol),
         json!({
+            "taxonomy_version": cfg.audit_taxonomy_version,
             "status": ack.status,
             "broker_order_id": ack.broker_order_id,
             "reason": ack.reason,
@@ -1462,6 +1581,18 @@ async fn handle_broker_ack(
         }),
     )
     .await?;
+    if ack.status == "rejected" || ack.status == "cancelled" {
+        export_incident_bundle(
+            conn,
+            &cfg.audit_taxonomy_version,
+            ack.order_id,
+            ack.order_id,
+            &venue,
+            &symbol,
+            &json!({}),
+        )
+        .await?;
+    }
 
     Ok(())
 }
@@ -1511,6 +1642,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         command_stale_after_secs: env_i64_or("EXEC_COMMAND_STALE_AFTER_SECS", 120),
         command_duplicate_window_secs: env_i64_or("EXEC_COMMAND_DUPLICATE_WINDOW_SECS", 300),
         reconciliation_sla_secs: env_i64_or("EXEC_RECONCILIATION_SLA_SECS", 180),
+        audit_taxonomy_version: env_or("EXEC_AUDIT_TAXONOMY_VERSION", "execution.audit.v1"),
     };
 
     let http = HttpClient::builder()
@@ -1723,6 +1855,7 @@ mod tests {
             command_stale_after_secs: 120,
             command_duplicate_window_secs: 300,
             reconciliation_sla_secs: 180,
+            audit_taxonomy_version: "execution.audit.v1".to_string(),
         };
         assert_eq!(attempt_backoff_ms(&cfg, 1), 100);
         assert_eq!(attempt_backoff_ms(&cfg, 2), 200);
@@ -1736,5 +1869,28 @@ mod tests {
         assert!(is_valid_lifecycle_transition("submitted", "cancel_requested"));
         assert!(!is_valid_lifecycle_transition("filled", "submitted"));
         assert!(!is_valid_lifecycle_transition("cancelled", "amend_requested"));
+    }
+
+    #[test]
+    fn parse_intent_lineage_and_correlation() {
+        let corr = Uuid::new_v4();
+        let payload = json!({
+            "venue": "coinbase",
+            "canonical_symbol": "BTCUSD",
+            "timeframe": "1m",
+            "event_ts": "2026-04-28T00:00:00Z",
+            "correlation_id": corr.to_string(),
+            "lineage": {
+                "bar_ref": {"topic":"bar.1m","partition":0,"offset":12}
+            },
+            "risk": {
+                "approved": true,
+                "side": "buy",
+                "accepted_notional": 1000.0
+            }
+        });
+        let parsed = parse_exec_intent(&payload).expect("intent");
+        assert_eq!(parsed.upstream_correlation_id, Some(corr));
+        assert_eq!(parsed.lineage["bar_ref"]["topic"], "bar.1m");
     }
 }
