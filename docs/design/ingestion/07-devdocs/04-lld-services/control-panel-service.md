@@ -64,33 +64,23 @@ services/control-panel/
 ```text
 services/control-panel/frontend/
   src/
+    control-panel.html
     app/
-      shell/
-      routes/
+      control-panel.js
     modules/
-      overview/
-      ingestion/
-      risk-portfolio/
-      execution/
-      charting/
-      ops/
-      research/
-      config/
+      README.md
     components/
-      layout/
-      tables/
-      forms/
-      feedback/
+      format.js
     services/
-      api-client/
-      auth/
-      search/
+      api-client.js
     state/
-      session/
-      preferences/
+      preferences.js
     styles/
-      tokens.css
-      theme.css
+      control-panel.css
+  dist/
+    control-panel.html
+    app/control-panel.js
+    styles/control-panel.css
 ```
 
 ### Frontend Module Ownership (Frozen)
@@ -172,3 +162,13 @@ Rollback policy:
 - Service layer bridge introduced at `services/control-panel/app/services/control_panel/legacy_proxy.py`.
 - Shared legacy loader centralized at `services/control-panel/app/core/legacy_bridge.py`.
 - Compatibility preserved by router-first dispatch with legacy fallback mount for non-extracted paths.
+
+## DEV-00049 Frontend Shell Snapshot
+
+- Frontend single-file runtime has been split into source-managed assets under `services/control-panel/frontend/src`.
+- Runtime artifact path is now `services/control-panel/frontend/dist`, built via:
+  - `scripts/frontend/build_control_panel_frontend.sh`
+- Control-panel service now serves:
+  - `/control-panel` -> `frontend/dist/control-panel.html`
+  - `/control-panel-assets/*` -> `frontend/dist/*`
+- Legacy charting mount remains for non-extracted routes and full-chart embed continuity.

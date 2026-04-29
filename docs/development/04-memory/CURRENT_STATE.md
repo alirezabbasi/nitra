@@ -191,6 +191,10 @@ Last updated: 2026-04-29
   - added dedicated charting router and charting proxy module under `services/control-panel`,
   - preserved legacy charting endpoints with explicit deprecation/sunset successor headers,
   - added `dev-0048` verification pack and make target.
+- Completed `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening:
+  - extracted monolithic control-panel HTML inline CSS/JS into modular frontend source structure under `services/control-panel/frontend/src`,
+  - added reproducible `src -> dist` build/sync script and runtime `frontend/dist` artifact contract,
+  - updated control-panel service to serve `/control-panel` and `/control-panel-assets` from native frontend dist path.
 
 ### Current
 
@@ -225,13 +229,14 @@ Last updated: 2026-04-29
 - `DEV-00046` is closed with backend modularization foundation (`services/control-panel`) and compose service-boundary rename.
 - `DEV-00047` is closed with domain router split and service-layer proxy extraction for control-panel APIs.
 - `DEV-00048` is closed with charting module extraction and compatibility/deprecation bridge coverage.
+- `DEV-00049` is closed with frontend source/dist app-shell architecture hardening and native asset serving path.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
-2. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
-3. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
+1. Execute `DEV-00050` control-panel refactor quality gates and CI readiness.
+2. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
+3. Expand reconciliation/runbook evidence capture for live adapter behavior.
 
 ### Risks/Blocks
 

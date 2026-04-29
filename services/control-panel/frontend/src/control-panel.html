@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NITRA Control Panel</title>
+    <link rel="stylesheet" href="/control-panel-assets/styles/control-panel.css" />
+  </head>
+  <body>
+    <a href="#mainContent" class="skip-link">Skip to main content</a>
+    <div class="layout" id="appLayout">
+      <aside class="sidebar">
+        <div class="brand">NITRA <span>CONTROL</span></div>
+        <div class="section-label">Core Operations</div>
+        <button class="nav-item active" data-section="overview">Overview</button>
+        <button class="nav-item" data-section="ingestion">Ingestion & Data</button>
+        <button class="nav-item" data-section="risk">Risk & Portfolio</button>
+        <button class="nav-item" data-section="execution">Execution OMS</button>
+        <button class="nav-item" data-section="charting">Charting Workbench</button>
+        <div class="section-label">Governance</div>
+        <button class="nav-item" data-section="ops">Alerts & Incidents</button>
+        <button class="nav-item" data-section="research">Research & Models</button>
+        <button class="nav-item" data-section="config">Config Registry</button>
+      </aside>
+
+      <main class="main" id="mainContent" tabindex="-1">
+        <div class="topbar">
+          <div>
+            <h1 class="title">Operations Overview</h1>
+            <div class="subtitle">Professional black-and-white admin shell baseline (DEV-00025)</div>
+          </div>
+          <div class="topbar-right">
+            <div class="session-pill" id="sessionPill">Unauthenticated</div>
+            <button class="btn" id="densityBtn" aria-label="Toggle compact density">Density</button>
+            <button class="btn" id="paletteBtn" aria-label="Open command palette">Search</button>
+            <button class="btn" id="refreshBtn">Refresh</button>
+          </div>
+        </div>
+
+        <section class="grid" id="metricsGrid"></section>
+
+        <section class="workspace" id="workspace-overview">
+          <article class="card">
+            <div><strong>Module Health</strong></div>
+            <div class="muted">Live service posture surfaced for control-panel modules</div>
+            <table class="table" id="moduleTable">
+              <thead><tr><th>Module</th><th>Status</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+
+          <article class="card">
+            <div><strong>Instrument Profile</strong></div>
+            <div class="muted">Charting is integrated as a control-panel sub-module</div>
+            <p style="margin: 10px 0 6px"><strong>BTCUSD / Coinbase</strong></p>
+            <div class="quick-actions">
+              <button class="btn" onclick="window.location.href='/?venue=coinbase&symbol=BTCUSD&timeframe=1m'">Full Chart</button>
+              <button class="btn">Open Order Blotter</button>
+              <button class="btn">Risk Snapshot</button>
+              <button class="btn">Backfill Window</button>
+            </div>
+          </article>
+        </section>
+
+        <section class="workspace hidden" id="workspace-ingestion">
+          <article class="card">
+            <div><strong>Ingestion Continuity</strong></div>
+            <div class="muted">Connector health, coverage status, and recovery queues</div>
+            <section class="grid" id="ingestionMetrics" style="margin-top:10px"></section>
+            <table class="table" id="connectorTable">
+              <thead><tr><th>Venue</th><th>Symbol</th><th>Status</th><th>Updated</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Safe Recovery</strong></div>
+              <div class="small">Controlled backfill window (max 7 days, operator role required)</div>
+              <div class="form-row">
+                <input id="bfVenue" value="coinbase" placeholder="venue" />
+                <input id="bfSymbol" value="BTCUSD" placeholder="symbol" />
+                <input id="bfFrom" placeholder="from_ts ISO" />
+                <input id="bfTo" placeholder="to_ts ISO" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto; margin-top:8px">
+                <input id="bfJustification" placeholder="justification (required)" />
+                <button class="btn" id="backfillBtn">Submit Window</button>
+              </div>
+              <div class="small" id="bfResult" style="margin-top:8px">No action submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Backfill Queue (Recent)</strong></div>
+              <table class="table" id="backfillTable">
+                <thead><tr><th>Status</th><th>Market</th><th>Attempts</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Replay Audit (Recent)</strong></div>
+              <table class="table" id="replayTable">
+                <thead><tr><th>Status</th><th>Market</th><th>Started</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
+
+        <section class="workspace hidden" id="workspace-risk">
+          <article class="card">
+            <div><strong>Risk & Portfolio Live State</strong></div>
+            <div class="muted">Policy pressure, exposure posture, and violation forensics</div>
+            <section class="grid" id="riskMetrics" style="margin-top:10px"></section>
+            <table class="table" id="strategyTable">
+              <thead><tr><th>Market</th><th>Decisions (24h)</th><th>Avg Confidence</th><th>Violations</th><th>Status</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Risk Limits Editor</strong></div>
+              <div class="small">Requires `risk_manager` or `admin`, justification required</div>
+              <div class="form-row">
+                <input id="rlMinConfidence" placeholder="min_confidence" />
+                <input id="rlMaxNotional" placeholder="max_notional" />
+                <input id="rlMaxDrawdown" placeholder="max_drawdown_pct" />
+                <input id="rlMaxSymbolExposure" placeholder="max_symbol_exposure_notional" />
+              </div>
+              <div class="form-row">
+                <input id="rlMaxPortfolioGross" placeholder="max_portfolio_gross_exposure_notional" />
+                <input id="rlMinAvailableEquity" placeholder="min_available_equity" />
+                <input id="rlJustification" placeholder="justification" />
+                <button class="btn" id="riskLimitsBtn">Apply Limits</button>
+              </div>
+              <div class="small" id="riskLimitsResult" style="margin-top:8px">No update submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Kill Switch Control</strong></div>
+              <div class="form-row">
+                <input id="ksScope" value="global" placeholder="scope: global|market" />
+                <input id="ksVenue" placeholder="venue (market scope)" />
+                <input id="ksSymbol" placeholder="symbol (market scope)" />
+                <input id="ksEnabled" value="true" placeholder="enabled true|false" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="ksJustification" placeholder="justification" />
+                <button class="btn" id="killSwitchBtn">Set Kill Switch</button>
+              </div>
+              <div class="small" id="killSwitchResult" style="margin-top:8px">No action submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Symbol Exposure Snapshot</strong></div>
+              <table class="table" id="exposureTable">
+                <thead><tr><th>Market</th><th>Exposure</th><th>Drawdown%</th><th>Kill Switch</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Recent Violations</strong></div>
+              <table class="table" id="violationsTable">
+                <thead><tr><th>Market</th><th>Reason</th><th>Violations</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
+
+        <section class="workspace hidden" id="workspace-execution">
+          <article class="card">
+            <div><strong>Execution OMS Live State</strong></div>
+            <div class="muted">Order lifecycle, reconciliation exceptions, and broker diagnostics</div>
+            <section class="grid" id="executionMetrics" style="margin-top:10px"></section>
+            <table class="table" id="ordersTable">
+              <thead><tr><th>Order</th><th>Market</th><th>Side</th><th>Status</th><th>Notional</th><th>Updated</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Order Command</strong></div>
+              <div class="small">Role-gated amend/cancel with mandatory justification</div>
+              <div class="form-row">
+                <input id="exOrderId" placeholder="order_id uuid" />
+                <input id="exAction" value="cancel" placeholder="action: amend|cancel" />
+                <input id="exNotional" placeholder="new_notional (amend)" />
+                <input id="exJustification" placeholder="justification" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto; margin-top:8px">
+                <div class="small">Commands are audited and reflected in execution journal state.</div>
+                <button class="btn" id="executionCmdBtn">Submit Command</button>
+              </div>
+              <div class="small" id="executionCmdResult" style="margin-top:8px">No command submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Command Log (Recent)</strong></div>
+              <table class="table" id="commandsTable">
+                <thead><tr><th>Action</th><th>Order</th><th>Accepted</th><th>Created</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Reconciliation Queue</strong></div>
+              <table class="table" id="reconciliationTable">
+                <thead><tr><th>Order</th><th>Market</th><th>Status</th><th>Updated</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Broker Diagnostics (24h)</strong></div>
+              <table class="table" id="brokerDiagTable">
+                <thead><tr><th>Event Type</th><th>Count</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
+
+        <section class="workspace hidden" id="workspace-charting">
+          <article class="card">
+            <div><strong>Instrument Workbench</strong></div>
+            <div class="small">Deep-linkable chart context with risk/execution overlays</div>
+            <div class="form-row" style="margin-top:10px">
+              <input id="cwVenue" value="coinbase" placeholder="venue" />
+              <input id="cwSymbol" value="BTCUSD" placeholder="symbol" />
+              <input id="cwTimeframe" value="1m" placeholder="timeframe" />
+              <button class="btn" id="cwLoadBtn">Load Profile</button>
+            </div>
+            <div class="grid" id="cwMetrics" style="margin-top:10px"></div>
+            <table class="table" id="cwProfileTable">
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Live Chart</strong></div>
+              <div class="small" id="cwLinkLabel" style="margin: 8px 0;">No chart loaded.</div>
+              <iframe id="cwFrame" title="Chart Workbench" style="width:100%; min-height:460px; border:1px solid var(--border); border-radius:8px; background:#0d0d0d;"></iframe>
+            </article>
+            <article class="card">
+              <div><strong>Context Handoff</strong></div>
+              <div class="small">Use Chart buttons from ingestion/risk/execution rows for one-click pivots.</div>
+            </article>
+          </article>
+        </section>
+        <section class="workspace hidden" id="workspace-ops">
+          <article class="card">
+            <div><strong>Alert Inbox</strong></div>
+            <div class="muted">Severity, ownership, and SLA posture in one queue</div>
+            <section class="grid" id="opsMetrics" style="margin-top:10px"></section>
+            <table class="table" id="alertTable">
+              <thead><tr><th>Alert</th><th>Severity</th><th>Status</th><th>Owner</th><th>SLA Due</th><th>Action</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Create Alert</strong></div>
+              <div class="form-row">
+                <input id="oaSource" value="execution-gateway" placeholder="source" />
+                <input id="oaSeverity" value="warning" placeholder="severity" />
+                <input id="oaTitle" value="Broker ack latency above SLA" placeholder="title" />
+                <input id="oaSlaMinutes" value="30" placeholder="sla_minutes" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto; margin-top:8px">
+                <input id="oaSignalRef" placeholder="signal_ref (optional)" />
+                <button class="btn" id="opsAlertBtn">Create Alert</button>
+              </div>
+              <div class="small" id="opsAlertResult" style="margin-top:8px">No alert created.</div>
+            </article>
+            <article class="card">
+              <div><strong>Incident Workspace</strong></div>
+              <table class="table" id="incidentTable">
+                <thead><tr><th>Incident</th><th>Severity</th><th>Status</th><th>Owner</th><th>Opened</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Runbook Launcher</strong></div>
+              <div class="small">Operator role required, every execution is audited</div>
+              <div class="form-row">
+                <input id="rbIncidentId" placeholder="incident_id (optional)" />
+                <input id="rbCode" value="RB-NET-001" placeholder="runbook_code" />
+                <input id="rbAction" value="execute" placeholder="action" />
+                <input id="rbJustification" placeholder="justification" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto; margin-top:8px">
+                <input id="rbNote" placeholder="operator note (optional)" />
+                <button class="btn" id="runbookBtn">Execute Runbook</button>
+              </div>
+              <div class="small" id="runbookResult" style="margin-top:8px">No runbook action submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Runbook History (Recent)</strong></div>
+              <table class="table" id="runbookTable">
+                <thead><tr><th>Runbook</th><th>Action</th><th>Status</th><th>Incident</th><th>Created</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
+        <section class="workspace hidden" id="workspace-research">
+          <article class="card">
+            <div><strong>Dataset Registry & Lineage</strong></div>
+            <div class="muted">Traceable research datasets sourced from deterministic market history</div>
+            <section class="grid" id="researchMetrics" style="margin-top:10px"></section>
+            <table class="table" id="datasetTable">
+              <thead><tr><th>Dataset</th><th>Market</th><th>Rows</th><th>Status</th><th>Lineage</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Backtest Launcher</strong></div>
+              <div class="small">Operator role required, launch events are auditable</div>
+              <div class="form-row">
+                <input id="btDatasetId" placeholder="dataset_id uuid" />
+                <input id="btStrategyCode" value="STRAT-MOMO-01" placeholder="strategy_code" />
+                <input id="btModelVersion" value="v1.0.0" placeholder="model_version" />
+                <input id="btJustification" placeholder="justification" />
+              </div>
+              <div class="small" id="btResult" style="margin-top:8px">No backtest submitted.</div>
+              <button class="btn" id="backtestBtn" style="margin-top:8px">Launch Backtest</button>
+            </article>
+            <article class="card">
+              <div><strong>Backtest History</strong></div>
+              <table class="table" id="backtestTable">
+                <thead><tr><th>Run</th><th>Strategy</th><th>Status</th><th>PnL</th><th>Sharpe</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Model Promotion Gate</strong></div>
+              <div class="small">Risk-manager role required for stage/gate mutation</div>
+              <div class="form-row">
+                <input id="mpModelName" value="alpha-ensemble" placeholder="model_name" />
+                <input id="mpModelVersion" value="v1.0.0" placeholder="model_version" />
+                <input id="mpStage" value="staging" placeholder="stage" />
+                <input id="mpGateStatus" value="ready" placeholder="gate_status" />
+              </div>
+              <div class="form-row">
+                <input id="mpReadinessScore" value="0.82" placeholder="readiness_score 0..1" />
+                <input id="mpExperimentRef" value="mlflow://exp/42/run/abc" placeholder="experiment_ref" />
+                <input id="mpJustification" placeholder="justification" />
+                <button class="btn" id="promoteBtn">Update Model Gate</button>
+              </div>
+              <div class="small" id="promoteResult" style="margin-top:8px">No model promotion action submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Model Registry</strong></div>
+              <table class="table" id="modelTable">
+                <thead><tr><th>Model</th><th>Version</th><th>Stage</th><th>Gate</th><th>Readiness</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
+        <section class="workspace hidden" id="workspace-config">
+          <article class="card">
+            <div><strong>Config Registry</strong></div>
+            <div class="muted">Typed, environment-aware configuration with governance controls</div>
+            <div class="form-row" style="margin-top:8px; grid-template-columns: 1fr auto;">
+              <input id="cfgEnvironment" value="dev" placeholder="environment dev|paper|prod" />
+              <button class="btn" id="cfgLoadBtn">Load Environment</button>
+            </div>
+            <section class="grid" id="configMetrics" style="margin-top:10px"></section>
+            <table class="table" id="configTable">
+              <thead><tr><th>Key</th><th>Value</th><th>Type</th><th>Risk</th><th>Min Role</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </article>
+          <article class="stack">
+            <article class="card">
+              <div><strong>Change Proposal</strong></div>
+              <div class="form-row">
+                <input id="cpConfigKey" placeholder="config_key" />
+                <input id="cpProposedValue" placeholder='proposed_value (json literal, e.g. 120000 or \"GTC\")' />
+                <input id="cpJustification" placeholder="justification" />
+                <button class="btn" id="cpProposeBtn">Propose</button>
+              </div>
+              <div class="small" id="cpResult" style="margin-top:8px">No proposal submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Change Control</strong></div>
+              <div class="form-row">
+                <input id="ccChangeId" placeholder="change_id uuid" />
+                <input id="ccJustification" placeholder="justification" />
+                <button class="btn" id="ccApproveBtn">Approve</button>
+                <button class="btn" id="ccApplyBtn">Apply</button>
+              </div>
+              <div class="form-row">
+                <input id="ccRollbackJustification" placeholder="rollback justification" />
+                <button class="btn" id="ccRollbackBtn">Rollback</button>
+              </div>
+              <div class="small" id="ccResult" style="margin-top:8px">No control action submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Pending/Recent Changes</strong></div>
+              <table class="table" id="changeTable">
+                <thead><tr><th>Change</th><th>Key</th><th>Env</th><th>Status</th><th>Requested</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Immutable History</strong></div>
+              <table class="table" id="configHistoryTable">
+                <thead><tr><th>Action</th><th>Actor</th><th>Change</th><th>Created</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+          </article>
+        </section>
+      </main>
+    </div>
+    <section class="modal hidden" id="paletteModal" aria-modal="true" role="dialog" aria-labelledby="paletteTitle">
+      <article class="modal-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <strong id="paletteTitle">Command Palette</strong>
+          <button class="btn mini" id="paletteCloseBtn">Close</button>
+        </div>
+        <label for="paletteInput" class="sr-only">Search</label>
+        <input id="paletteInput" placeholder="Search markets, config keys, models... (Ctrl/Cmd + K)" style="width:100%; margin-top:10px; background:#0f0f0f; color:#fff; border:1px solid #2a2a2a; border-radius:8px; padding:10px;" />
+        <table class="table" style="margin-top:10px;">
+          <thead><tr><th>Type</th><th>Label</th><th>Section</th></tr></thead>
+          <tbody id="paletteResults"></tbody>
+        </table>
+      </article>
+    </section>
+    <script type="module" src="/control-panel-assets/app/control-panel.js"></script>
+  </body>
+</html>

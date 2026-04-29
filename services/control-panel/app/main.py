@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routers.auth_session import router as auth_session_router
 from app.api.routers.charting import router as charting_router
@@ -16,6 +20,19 @@ from app.core.legacy_bridge import LEGACY_APP
 
 
 app = FastAPI(title="nitra-control-panel")
+FRONTEND_DIST_DIR = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+app.mount(
+    "/control-panel-assets",
+    StaticFiles(directory=str(FRONTEND_DIST_DIR)),
+    name="control-panel-assets",
+)
+
+
+@app.get("/control-panel")
+def control_panel() -> FileResponse:
+    return FileResponse(str(FRONTEND_DIST_DIR / "control-panel.html"))
+
+
 app.include_router(health_router)
 app.include_router(auth_session_router)
 app.include_router(overview_router)

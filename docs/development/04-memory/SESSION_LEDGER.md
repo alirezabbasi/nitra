@@ -1239,3 +1239,22 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - execute `DEV-00049` frontend app-shell restructure and UI architecture hardening.
+
+## 2026-04-29 — Session Entry 018
+
+- Objective:
+  - execute `DEV-00049` control-panel frontend app-shell restructure and UI architecture hardening.
+- Work completed:
+  - extracted `services/charting/static/control-panel.html` inline CSS/JS into `services/control-panel/frontend/src/styles/control-panel.css` and `src/app/control-panel.js`.
+  - added frontend module support files under `src/services`, `src/state`, and `src/components`.
+  - introduced reproducible frontend build/sync pipeline (`scripts/frontend/build_control_panel_frontend.sh`) and generated runtime assets under `services/control-panel/frontend/dist`.
+  - updated `services/control-panel/app/main.py` to serve `/control-panel` and `/control-panel-assets` from native control-panel frontend dist path.
+  - updated `services/control-panel/Dockerfile` to include `frontend/dist` in runtime image.
+  - added verification pack `tests/dev-0049/run.sh` and make target `test-dev-0049`.
+  - synchronized ticket/kanban/active-focus/current-state/where-are-we/LLD tracking artifacts.
+- Verification:
+  - `make test-dev-0049` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute `DEV-00050` control-panel refactor quality gates and CI readiness.
