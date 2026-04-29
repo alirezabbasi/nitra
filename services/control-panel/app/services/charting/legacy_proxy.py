@@ -14,9 +14,12 @@ def _with_deprecation_headers(response: Response, replacement: str) -> Response:
 
 
 async def proxy_charting(request: Request) -> Response:
-    return await proxy_to_legacy(request)
+    proxied = await proxy_to_legacy(request)
+    proxied.headers["X-Nitra-Compat"] = "native"
+    return proxied
 
 
 async def proxy_charting_alias(request: Request, *, replacement: str) -> Response:
     proxied = await proxy_to_legacy(request)
+    proxied.headers["X-Nitra-Compat"] = "legacy"
     return _with_deprecation_headers(proxied, replacement)

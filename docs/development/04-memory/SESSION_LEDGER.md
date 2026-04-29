@@ -1276,3 +1276,22 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - execute `DEV-00051` rollout/cutover/deprecation closure.
+
+## 2026-04-29 — Session Entry 020
+
+- Objective:
+  - execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
+- Work completed:
+  - retired legacy charting alias routes from `services/control-panel/app/api/routers/charting.py` and finalized `/api/v1/charting/*` canonical family.
+  - added native cutover observability status via `services/control-panel/app/api/routers/health.py` (`/api/v1/config` + `/api/v1/control-panel/migration/status`).
+  - updated charting proxy response headers to emit `X-Nitra-Compat` values (`native`/`legacy`).
+  - added rollout/cutover runbook and deprecation closure report in devops docs.
+  - added verification pack `tests/dev-0051/run.sh` and make target `test-dev-0051`.
+  - updated `dev-0050` gates to post-cutover route expectations and synchronized tracking docs.
+- Verification:
+  - `make test-dev-0051` passes.
+  - `make test-dev-0050` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - expand reconciliation/runbook evidence capture for live adapter behavior.

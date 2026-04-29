@@ -92,12 +92,13 @@ Last updated: 2026-04-29
 - `DEV-00048` is closed with control-panel charting module extraction and compatibility/deprecation bridge.
 - `DEV-00049` is closed with control-panel frontend app-shell modularization and source/dist pipeline hardening.
 - `DEV-00050` is closed with control-panel backend/frontend/compatibility aggregate quality gates and CI-ready enforcement command.
+- `DEV-00051` is closed with control-panel native charting cutover, legacy alias retirement, and published rollout/deprecation closure artifacts.
 
 ## Next
 
-1. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
-2. Expand reconciliation/runbook evidence capture for live adapter behavior.
-3. Re-validate control-panel migration deprecation timeline and shim retirement plan.
+1. Expand reconciliation/runbook evidence capture for live adapter behavior.
+2. Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
+3. Prepare next roadmap slice after control-panel refactor epic closure.
 
 ## Risks/Blocks
 

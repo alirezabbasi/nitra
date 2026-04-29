@@ -18,7 +18,6 @@ Defines deterministic, repository-local quality gates for control-panel refactor
 `tests/dev-0050/run.sh` enforces:
 
 - Compatibility contract checks
-  - `tests/dev-0048/run.sh`
   - `tests/dev-0049/run.sh`
 - Backend quality baseline
   - Python compile checks for `services/control-panel/app/*`
@@ -30,8 +29,8 @@ Defines deterministic, repository-local quality gates for control-panel refactor
     - `styles/control-panel.css`
     - `app/control-panel.js`
 - Route/contract smoke checks
-  - `tests/dev-0050/smoke_control_panel_routes.py`
-  - validates control-panel native, charting-native, and legacy compatibility endpoint presence.
+  - `tests/dev-0050/smoke_control_panel_routes.sh`
+  - validates control-panel native and charting-native endpoint presence.
 
 ## Determinism Expectations
 

@@ -21,8 +21,7 @@ check_pattern services/control-panel/app/main.py '@app\.get\("/control-panel"\)'
 check_pattern services/control-panel/app/api/routers/overview.py '@router\.get\("/api/v1/control-panel/overview"\)' 'GET /api/v1/control-panel/overview'
 check_pattern services/control-panel/app/api/routers/charting.py '@router\.get\("/api/v1/control-panel/charting/profile"\)' 'GET /api/v1/control-panel/charting/profile'
 check_pattern services/control-panel/app/api/routers/charting.py '@router\.get\("/api/v1/charting/bars/history"\)' 'GET /api/v1/charting/bars/history'
-check_pattern services/control-panel/app/api/routers/charting.py '@router\.get\("/api/v1/bars/history"\)' 'GET /api/v1/bars/history'
-check_pattern services/control-panel/app/api/routers/charting.py '@router\.post\("/api/v1/backfill/window"\)' 'POST /api/v1/backfill/window'
-check_pattern services/control-panel/app/api/routers/charting.py '@router\.get\("/api/v1/coverage/status"\)' 'GET /api/v1/coverage/status'
+check_pattern services/control-panel/app/api/routers/charting.py '@router\.post\("/api/v1/charting/backfill/window"\)' 'POST /api/v1/charting/backfill/window'
+check_pattern services/control-panel/app/api/routers/charting.py '@router\.get\("/api/v1/charting/coverage/status"\)' 'GET /api/v1/charting/coverage/status'
 
 echo "ROUTE_SMOKE_OK"

@@ -183,3 +183,13 @@ Rollback policy:
   - frontend build/parity checks (`src -> dist`),
   - compatibility contract regression (`dev-0048`, `dev-0049`),
   - native + compatibility route smoke checks.
+
+## DEV-00051 Cutover Snapshot
+
+- Control-panel charting migration is now in `cutover-closed` phase.
+- Legacy charting alias routes are retired; only `/api/v1/charting/*` remains canonical.
+- Migration state visibility endpoint added:
+  - `/api/v1/control-panel/migration/status`
+- Rollout and rollback operations are documented in:
+  - `docs/design/ingestion/06-devops/control-panel-rollout-cutover-runbook.md`
+  - `docs/design/ingestion/06-devops/control-panel-deprecation-closure-report.md`

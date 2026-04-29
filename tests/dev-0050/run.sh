@@ -12,7 +12,6 @@ fail() {
 echo "[dev-0050] running control-panel refactor quality gates..."
 
 # Compatibility contract checks from prior slices.
-tests/dev-0048/run.sh
 tests/dev-0049/run.sh
 
 # Backend lint/typecheck-equivalent baseline (deterministic, toolchain-free).

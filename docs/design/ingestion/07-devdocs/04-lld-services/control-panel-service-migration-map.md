@@ -64,3 +64,12 @@ Compatibility headers for shim routes are mandatory:
 3. Switch one domain at a time and monitor error/latency deltas.
 4. On critical regression, revert domain handler to prior compatibility path.
 5. Retire shims only after `DEV-00051` acceptance gate and documented sunset completion.
+
+## DEV-00051 Closure Update
+
+- Compatibility alias phase is closed.
+- Legacy charting alias routes are retired.
+- Canonical charting route family is now:
+  - `/api/v1/charting/*`
+- Migration status endpoint:
+  - `/api/v1/control-panel/migration/status`

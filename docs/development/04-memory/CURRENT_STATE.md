@@ -199,6 +199,10 @@ Last updated: 2026-04-29
   - added aggregate quality gate suite (`dev-0050`) covering backend/frontend/compatibility checks,
   - added CI-ready command wrapper for deterministic merge gating,
   - published DevOps-quality-gates documentation for reproducible enforcement.
+- Completed `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure:
+  - retired legacy charting alias endpoints and finalized native `/api/v1/charting/*` canonical route family,
+  - added migration status observability endpoint and native cutover status signaling,
+  - published rollout/rollback runbook and deprecation closure report with verification evidence.
 
 ### Current
 
@@ -235,13 +239,14 @@ Last updated: 2026-04-29
 - `DEV-00048` is closed with charting module extraction and compatibility/deprecation bridge coverage.
 - `DEV-00049` is closed with frontend source/dist app-shell architecture hardening and native asset serving path.
 - `DEV-00050` is closed with aggregate quality gate coverage and CI-readiness command path.
+- `DEV-00051` is closed with native charting cutover, shim retirement, and rollout/deprecation closure artifacts.
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 
 ### Next
 
-1. Execute `DEV-00051` control-panel refactor rollout, cutover, and deprecation closure.
-2. Expand reconciliation/runbook evidence capture for live adapter behavior.
-3. Re-validate control-panel migration deprecation timeline and shim retirement plan.
+1. Expand reconciliation/runbook evidence capture for live adapter behavior.
+2. Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
+3. Prepare next roadmap slice after control-panel refactor epic closure.
 
 ### Risks/Blocks
 

@@ -19,6 +19,8 @@ It implements `ruleset.md` requirements for:
 - `release-closure-gate.md`
 - `implementation-checklist.md`
 - `control-panel-refactor-quality-gates.md`
+- `control-panel-rollout-cutover-runbook.md`
+- `control-panel-deprecation-closure-report.md`
 
 ## Compliance Rule
 
