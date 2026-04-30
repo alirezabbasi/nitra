@@ -370,6 +370,14 @@ def control_panel_ingestion(
         "symbols_with_open_gaps": 0,
     }
     connector_health: list[dict] = []
+    failover_policies: list[dict] = []
+    failover_runtime: dict = {
+        "configured_enabled_venues": 0,
+        "configured_disabled_venues": 0,
+        "active_market_venues": [],
+        "degraded_market_venues": [],
+        "updated_at": None,
+    }
     backfill_recent: list[dict] = []
     replay_recent: list[dict] = []
     coverage_rows: list[dict] = []
@@ -391,6 +399,7 @@ def control_panel_ingestion(
         coverage_rows = list(coverage_payload.get("rows", []))
 
         with psycopg.connect(db_url()) as conn:
+            ensure_ingestion_failover_seed_data(conn)
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -454,6 +463,56 @@ def control_panel_ingestion(
                             "completed_at": completed_at.isoformat() if completed_at else None,
                         }
                     )
+                cur.execute(
+                    """
+                    SELECT
+                      venue,
+                      enabled,
+                      primary_endpoint,
+                      secondary_endpoints,
+                      failure_threshold,
+                      cooldown_seconds,
+                      reconnect_backoff_seconds,
+                      max_backoff_seconds,
+                      request_timeout_seconds,
+                      jitter_pct,
+                      updated_by,
+                      updated_at
+                    FROM control_panel_ingestion_failover_policy
+                    ORDER BY venue ASC
+                    """
+                )
+                for (
+                    venue,
+                    enabled,
+                    primary_endpoint,
+                    secondary_endpoints,
+                    failure_threshold,
+                    cooldown_seconds,
+                    reconnect_backoff_seconds,
+                    max_backoff_seconds,
+                    request_timeout_seconds,
+                    jitter_pct,
+                    updated_by,
+                    updated_at,
+                ) in cur.fetchall():
+                    failover_policies.append(
+                        {
+                            "venue": str(venue),
+                            "enabled": bool(enabled),
+                            "primary_endpoint": str(primary_endpoint),
+                            "secondary_endpoints": secondary_endpoints if isinstance(secondary_endpoints, list) else [],
+                            "failure_threshold": int(failure_threshold or 0),
+                            "cooldown_seconds": int(cooldown_seconds or 0),
+                            "reconnect_backoff_seconds": int(reconnect_backoff_seconds or 0),
+                            "max_backoff_seconds": int(max_backoff_seconds or 0),
+                            "request_timeout_seconds": int(request_timeout_seconds or 0),
+                            "jitter_pct": float(jitter_pct or 0.0),
+                            "updated_by": str(updated_by),
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                        }
+                    )
+                failover_runtime = ingestion_failover_runtime(conn)
 
                 cur.execute(
                     """
@@ -484,6 +543,8 @@ def control_panel_ingestion(
         "session": session,
         "metrics": metrics,
         "connector_health": connector_health,
+        "failover_policies": failover_policies,
+        "failover_runtime": failover_runtime,
         "coverage_rows": coverage_rows,
         "backfill_recent": backfill_recent,
         "replay_recent": replay_recent,
@@ -672,6 +733,140 @@ def control_panel_ingestion_backfill_window(
         pass
 
     return {"status": "accepted", "session": session, "result": result}
+
+
+@app.post("/api/v1/control-panel/ingestion/failover-policy")
+def control_panel_ingestion_failover_policy_update(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    venue = str(payload.get("venue", "")).strip().lower()
+    if venue not in VALID_VENUES:
+        raise HTTPException(status_code=400, detail="invalid venue")
+    primary_endpoint = str(payload.get("primary_endpoint", "")).strip()
+    if not primary_endpoint:
+        raise HTTPException(status_code=400, detail="primary_endpoint is required")
+    secondary_endpoints = parse_secondary_endpoints(payload.get("secondary_endpoints"))
+    enabled = bool(payload.get("enabled", True))
+    failure_threshold = int(payload.get("failure_threshold", 3))
+    cooldown_seconds = int(payload.get("cooldown_seconds", 60))
+    reconnect_backoff_seconds = int(payload.get("reconnect_backoff_seconds", 5))
+    max_backoff_seconds = int(payload.get("max_backoff_seconds", 120))
+    request_timeout_seconds = int(payload.get("request_timeout_seconds", VENUE_FETCH_TIMEOUT_SECS))
+    jitter_pct = float(payload.get("jitter_pct", 0.2))
+    justification = str(payload.get("justification", "")).strip()
+
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if failure_threshold < 1 or failure_threshold > 20:
+        raise HTTPException(status_code=400, detail="failure_threshold out of bounds")
+    if cooldown_seconds < 1 or cooldown_seconds > 3600:
+        raise HTTPException(status_code=400, detail="cooldown_seconds out of bounds")
+    if reconnect_backoff_seconds < 1 or reconnect_backoff_seconds > 600:
+        raise HTTPException(status_code=400, detail="reconnect_backoff_seconds out of bounds")
+    if max_backoff_seconds < reconnect_backoff_seconds or max_backoff_seconds > 7200:
+        raise HTTPException(status_code=400, detail="max_backoff_seconds out of bounds")
+    if request_timeout_seconds < 1 or request_timeout_seconds > 120:
+        raise HTTPException(status_code=400, detail="request_timeout_seconds out of bounds")
+    if jitter_pct < 0.0 or jitter_pct > 1.0:
+        raise HTTPException(status_code=400, detail="jitter_pct out of bounds")
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_ingestion_failover_seed_data(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_failover_policy (
+                  venue,
+                  enabled,
+                  primary_endpoint,
+                  secondary_endpoints,
+                  failure_threshold,
+                  cooldown_seconds,
+                  reconnect_backoff_seconds,
+                  max_backoff_seconds,
+                  request_timeout_seconds,
+                  jitter_pct,
+                  updated_by,
+                  updated_at
+                ) VALUES (
+                  %s,
+                  %s,
+                  %s,
+                  %s::jsonb,
+                  %s,
+                  %s,
+                  %s,
+                  %s,
+                  %s,
+                  %s,
+                  %s,
+                  now()
+                )
+                ON CONFLICT (venue) DO UPDATE
+                SET enabled = EXCLUDED.enabled,
+                    primary_endpoint = EXCLUDED.primary_endpoint,
+                    secondary_endpoints = EXCLUDED.secondary_endpoints,
+                    failure_threshold = EXCLUDED.failure_threshold,
+                    cooldown_seconds = EXCLUDED.cooldown_seconds,
+                    reconnect_backoff_seconds = EXCLUDED.reconnect_backoff_seconds,
+                    max_backoff_seconds = EXCLUDED.max_backoff_seconds,
+                    request_timeout_seconds = EXCLUDED.request_timeout_seconds,
+                    jitter_pct = EXCLUDED.jitter_pct,
+                    updated_by = EXCLUDED.updated_by,
+                    updated_at = now()
+                """,
+                (
+                    venue,
+                    enabled,
+                    primary_endpoint,
+                    json.dumps(secondary_endpoints),
+                    failure_threshold,
+                    cooldown_seconds,
+                    reconnect_backoff_seconds,
+                    max_backoff_seconds,
+                    request_timeout_seconds,
+                    jitter_pct,
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.failover_policy.update",
+            section="ingestion",
+            target=venue,
+            status="approved",
+            reason=None,
+            metadata={
+                "justification": justification,
+                "enabled": enabled,
+                "primary_endpoint": primary_endpoint,
+                "secondary_endpoints": secondary_endpoints,
+                "failure_threshold": failure_threshold,
+                "cooldown_seconds": cooldown_seconds,
+                "reconnect_backoff_seconds": reconnect_backoff_seconds,
+                "max_backoff_seconds": max_backoff_seconds,
+                "request_timeout_seconds": request_timeout_seconds,
+                "jitter_pct": jitter_pct,
+            },
+        )
+        conn.commit()
+
+    return {
+        "status": "accepted",
+        "session": session,
+        "result": {
+            "venue": venue,
+            "enabled": enabled,
+            "updated_by": str(session["user_id"]),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        },
+    }
 
 
 def ensure_control_panel_risk_limits_table(conn: psycopg.Connection) -> None:
@@ -1087,6 +1282,136 @@ def ensure_config_seed_data(conn: psycopg.Connection) -> None:
             ('alerts.sla_minutes_default', 'prod', '15'::jsonb, 'number', 'medium', 'risk_manager', 'ops_alerts.v1', 'seed')
             """
         )
+
+
+def ensure_control_panel_ingestion_failover_policy_table(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_ingestion_failover_policy (
+              venue TEXT PRIMARY KEY,
+              enabled BOOLEAN NOT NULL DEFAULT TRUE,
+              primary_endpoint TEXT NOT NULL,
+              secondary_endpoints JSONB NOT NULL DEFAULT '[]'::jsonb,
+              failure_threshold INTEGER NOT NULL DEFAULT 3,
+              cooldown_seconds INTEGER NOT NULL DEFAULT 60,
+              reconnect_backoff_seconds INTEGER NOT NULL DEFAULT 5,
+              max_backoff_seconds INTEGER NOT NULL DEFAULT 120,
+              request_timeout_seconds INTEGER NOT NULL DEFAULT 8,
+              jitter_pct DOUBLE PRECISION NOT NULL DEFAULT 0.2,
+              updated_by TEXT NOT NULL,
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+
+def ensure_ingestion_failover_seed_data(conn: psycopg.Connection) -> None:
+    ensure_control_panel_ingestion_failover_policy_table(conn)
+    defaults = {
+        "oanda": {
+            "primary_endpoint": OANDA_REST_URL,
+            "secondary_endpoints": [],
+            "request_timeout_seconds": VENUE_FETCH_TIMEOUT_SECS,
+        },
+        "capital": {
+            "primary_endpoint": env("CAPITAL_API_URL", "https://api-capital.backend-capital.com"),
+            "secondary_endpoints": [],
+            "request_timeout_seconds": VENUE_FETCH_TIMEOUT_SECS,
+        },
+        "coinbase": {
+            "primary_endpoint": COINBASE_REST_URL,
+            "secondary_endpoints": [COINBASE_PUBLIC_REST_URL] if COINBASE_PUBLIC_REST_URL else [],
+            "request_timeout_seconds": VENUE_FETCH_TIMEOUT_SECS,
+        },
+    }
+    with conn.cursor() as cur:
+        for venue, cfg in defaults.items():
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_failover_policy (
+                  venue,
+                  enabled,
+                  primary_endpoint,
+                  secondary_endpoints,
+                  failure_threshold,
+                  cooldown_seconds,
+                  reconnect_backoff_seconds,
+                  max_backoff_seconds,
+                  request_timeout_seconds,
+                  jitter_pct,
+                  updated_by
+                ) VALUES (
+                  %s,
+                  TRUE,
+                  %s,
+                  %s::jsonb,
+                  3,
+                  60,
+                  5,
+                  120,
+                  %s,
+                  0.2,
+                  'seed'
+                )
+                ON CONFLICT (venue) DO NOTHING
+                """,
+                (
+                    venue,
+                    str(cfg["primary_endpoint"]),
+                    json.dumps(cfg["secondary_endpoints"]),
+                    int(cfg["request_timeout_seconds"]),
+                ),
+            )
+
+
+def parse_secondary_endpoints(raw: object) -> list[str]:
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        return [item.strip() for item in raw.split(",") if item.strip()]
+    if isinstance(raw, list):
+        return [str(item).strip() for item in raw if str(item).strip()]
+    raise HTTPException(status_code=400, detail="secondary_endpoints must be string or list")
+
+
+def ingestion_failover_runtime(conn: psycopg.Connection) -> dict:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              COUNT(*) FILTER (WHERE enabled = TRUE),
+              COUNT(*) FILTER (WHERE enabled = FALSE),
+              COALESCE(MAX(updated_at), now())
+            FROM control_panel_ingestion_failover_policy
+            """
+        )
+        enabled_count, disabled_count, updated_at = cur.fetchone()
+        cur.execute(
+            """
+            SELECT venue, enabled, ingest_enabled
+            FROM venue_market
+            LIMIT 1000
+            """
+        )
+        market_rows = cur.fetchall()
+
+    active_market_venues: set[str] = set()
+    degraded_market_venues: set[str] = set()
+    for venue, enabled, ingest_enabled in market_rows:
+        venue_name = str(venue).lower()
+        if bool(enabled) and bool(ingest_enabled):
+            active_market_venues.add(venue_name)
+        else:
+            degraded_market_venues.add(venue_name)
+
+    return {
+        "configured_enabled_venues": int(enabled_count or 0),
+        "configured_disabled_venues": int(disabled_count or 0),
+        "active_market_venues": sorted(active_market_venues),
+        "degraded_market_venues": sorted(degraded_market_venues),
+        "updated_at": updated_at.isoformat() if updated_at else None,
+    }
 
 
 def validate_typed_config(value_type: str, value: object) -> bool:

@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress (2026-05-01)
+Done (2026-05-01)
 
 ## Goal
 
@@ -23,10 +23,17 @@ Define and deliver: Control Panel (P0) - feeds operations module (health/failove
 
 ## Verification
 
-- Run the relevant `make test-*` target(s) for this scope.
+- `make test-dev-0068`
 - `make enforce-section-5-1`
 - `make session-bootstrap`
 
-## Notes
+## Delivered Artifacts
 
-- This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+- `services/control-panel/app/api/routers/ingestion.py`
+  - failover policy proxy route
+- `services/control-panel/frontend/src/control-panel.html`
+  - ingestion failover policy controls section
+- `services/control-panel/frontend/src/app/control-panel.js`
+  - failover policy runtime rendering and guarded submission flow
+- `services/control-panel/frontend/dist/*`
+  - synced runtime assets via `scripts/frontend/build_control_panel_frontend.sh`

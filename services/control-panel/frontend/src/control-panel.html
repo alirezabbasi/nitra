@@ -90,6 +90,34 @@
               <div class="small" id="bfResult" style="margin-top:8px">No action submitted.</div>
             </article>
             <article class="card">
+              <div><strong>Connector Failover Policy</strong></div>
+              <div class="small">Per-venue failover contract with guarded update controls.</div>
+              <div id="failoverPolicyMetrics" style="margin-top:8px"></div>
+              <table class="table" id="failoverPolicyTable">
+                <thead><tr><th>Venue</th><th>Enabled</th><th>Primary</th><th>Secondary</th><th>Failures</th><th>Cooldown</th><th>Backoff</th><th>Timeout</th><th>Jitter</th><th>Updated By</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="form-row" style="margin-top:8px">
+                <input id="fpVenue" value="coinbase" placeholder="venue" />
+                <input id="fpEnabled" value="true" placeholder="enabled true|false" />
+                <input id="fpPrimary" placeholder="primary endpoint" />
+                <input id="fpSecondary" placeholder="secondary endpoints (csv)" />
+              </div>
+              <div class="form-row">
+                <input id="fpFailureThreshold" value="3" placeholder="failure_threshold" />
+                <input id="fpCooldown" value="60" placeholder="cooldown_seconds" />
+                <input id="fpReconnectBackoff" value="5" placeholder="reconnect_backoff_seconds" />
+                <input id="fpMaxBackoff" value="120" placeholder="max_backoff_seconds" />
+                <input id="fpRequestTimeout" value="8" placeholder="request_timeout_seconds" />
+                <input id="fpJitterPct" value="0.2" placeholder="jitter_pct" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="fpJustification" placeholder="justification (required)" />
+                <button class="btn" id="fpSubmitBtn">Update Policy</button>
+              </div>
+              <div class="small" id="fpResult" style="margin-top:8px">No failover policy update submitted.</div>
+            </article>
+            <article class="card">
               <div><strong>Backfill Queue (Recent)</strong></div>
               <table class="table" id="backfillTable">
                 <thead><tr><th>Status</th><th>Market</th><th>Attempts</th></tr></thead>

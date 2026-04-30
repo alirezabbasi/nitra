@@ -206,8 +206,8 @@ Last updated: 2026-05-01
 
 ### Current
 
-- `DEV-00068` is in progress as the first P0 feeds reliability implementation ticket.
-- `DEV-00124` is in progress as the paired control-panel feeds operations module kickoff.
+- `DEV-00068` is closed with failover policy contract delivery (policy table + update endpoint + audit integration + `dev-0068` gate).
+- `DEV-00124` is closed with control-panel feeds failover controls (runtime metrics, policy table, guarded policy-update form).
 - `DEV-00065` is closed with governance deliverables published: deterministic dependency map + Section 5 closure criteria contract + executable verification target (`test-dev-0065`).
 - `DEV-00013` closed with live runtime evidence and explicit surfaced error-state diagnostics.
 - `DEV-00014` closed with live adapter-check and coverage evidence.

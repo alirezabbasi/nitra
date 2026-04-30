@@ -24,6 +24,24 @@
 4. Emits periodic health snapshots.
 5. On session failure, emits degraded health and retries; it never substitutes mock prices.
 
+## Failover Policy Contract (DEV-00068)
+
+- Per-venue failover policy is operator-managed via control-panel contract:
+  - `GET /api/v1/control-panel/ingestion`
+    - includes `failover_policies` and `failover_runtime`.
+  - `POST /api/v1/control-panel/ingestion/failover-policy`
+    - guarded update path with RBAC + justification + audit trail.
+- Policy fields:
+  - `enabled`
+  - `primary_endpoint`
+  - `secondary_endpoints`
+  - `failure_threshold`
+  - `cooldown_seconds`
+  - `reconnect_backoff_seconds`
+  - `max_backoff_seconds`
+  - `request_timeout_seconds`
+  - `jitter_pct`
+
 ## Key Environment Variables
 
 Common:

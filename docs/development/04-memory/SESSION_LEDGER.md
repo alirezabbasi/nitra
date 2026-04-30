@@ -1602,3 +1602,22 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - implement `DEV-00068` failover policy contracts and deliver paired control-panel controls in `DEV-00124`.
+
+---
+
+## 2026-05-01 — Session Entry 026
+
+- Objective:
+  - implement and close paired P0 delivery for `DEV-00068` failover policy contract and `DEV-00124` control-panel feeds ops controls.
+- Work completed:
+  - implemented failover-policy persistence + runtime contract in `services/charting/app.py` (table bootstrap, seed policy rows, runtime projection, guarded update endpoint, and ingestion payload integration).
+  - added control-panel proxy route for failover-policy updates in `services/control-panel/app/api/routers/ingestion.py`.
+  - delivered control-panel ingestion UI controls in `services/control-panel/frontend/src/control-panel.html` and `services/control-panel/frontend/src/app/control-panel.js` (runtime metrics, policy grid, and guarded update form), then synced dist assets.
+  - documented contract and ops surface in `docs/design/ingestion/02-data-platform/broker-1-connector.md` and `docs/design/ingestion/07-devdocs/04-lld-services/control-panel-service.md`.
+  - added verification pack `tests/dev-0068/run.sh` and make target `test-dev-0068`; closed both tickets and synchronized Kanban/active-focus/current-state/where-are-we artifacts.
+- Verification:
+  - `make test-dev-0068` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - start next paired P0 slice (`DEV-00069` + `DEV-00125`) for feed health-state contracts and control-panel health operations controls.

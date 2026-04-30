@@ -2,7 +2,7 @@
 
 ## Status
 
-In Progress (2026-05-01)
+Done (2026-05-01)
 
 ## Goal
 
@@ -23,10 +23,14 @@ Define and deliver: Exchange/Broker Feeds - connector failover policy per venue 
 
 ## Verification
 
-- Run the relevant `make test-*` target(s) for this scope.
+- `make test-dev-0068`
 - `make enforce-section-5-1`
 - `make session-bootstrap`
 
-## Notes
+## Delivered Artifacts
 
-- This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+- `services/charting/app.py`
+  - failover policy persistence contract (`control_panel_ingestion_failover_policy`)
+  - ingestion module failover policy/runtime payload
+  - guarded update endpoint `POST /api/v1/control-panel/ingestion/failover-policy`
+- `docs/design/ingestion/02-data-platform/broker-1-connector.md` failover contract section.

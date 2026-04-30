@@ -193,3 +193,14 @@ Rollback policy:
 - Rollout and rollback operations are documented in:
   - `docs/design/ingestion/06-devops/control-panel-rollout-cutover-runbook.md`
   - `docs/design/ingestion/06-devops/control-panel-deprecation-closure-report.md`
+
+## DEV-00124 Feeds Ops Snapshot
+
+- Ingestion operations module includes connector failover policy controls.
+- Control-panel API contract:
+  - `GET /api/v1/control-panel/ingestion`
+    - returns connector status, recovery queues, and failover policy/runtime sections.
+  - `POST /api/v1/control-panel/ingestion/failover-policy`
+    - role-gated policy updates with justification and audit logging.
+- UI contract:
+  - ingestion workspace renders per-venue failover policy table + guarded update form.

@@ -123,6 +123,23 @@ const metricOrder = [
           tr.innerHTML = `<td>${row.status}</td><td>${row.venue}:${row.symbol}</td><td>${row.started_at || "-"}</td>`;
           replayBody.appendChild(tr);
         }
+
+        const policyMetrics = document.getElementById("failoverPolicyMetrics");
+        const runtime = data.failover_runtime || {};
+        policyMetrics.innerHTML = `
+          <div class="small">Configured Enabled Venues: <strong>${fmt(runtime.configured_enabled_venues)}</strong></div>
+          <div class="small">Configured Disabled Venues: <strong>${fmt(runtime.configured_disabled_venues)}</strong></div>
+          <div class="small">Active Market Venues: <strong>${(runtime.active_market_venues || []).join(", ") || "-"}</strong></div>
+          <div class="small">Degraded Market Venues: <strong>${(runtime.degraded_market_venues || []).join(", ") || "-"}</strong></div>
+        `;
+
+        const policyBody = document.querySelector("#failoverPolicyTable tbody");
+        policyBody.innerHTML = "";
+        for (const row of tableSlice(data.failover_policies || [], 20)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.venue}</td><td>${row.enabled ? "ON" : "OFF"}</td><td>${row.primary_endpoint}</td><td>${(row.secondary_endpoints || []).join(", ") || "-"}</td><td>${row.failure_threshold}</td><td>${row.cooldown_seconds}</td><td>${row.reconnect_backoff_seconds}/${row.max_backoff_seconds}</td><td>${row.request_timeout_seconds}</td><td>${fmt(row.jitter_pct)}</td><td>${row.updated_by}</td>`;
+          policyBody.appendChild(tr);
+        }
       }
 
       async function loadIngestion() {
@@ -157,6 +174,36 @@ const metricOrder = [
           return;
         }
         out.textContent = `Accepted: ${data.result?.status || "ok"} | missing_after=${data.result?.missing_after_fetch_count ?? "-"}`;
+        await loadIngestion();
+      }
+
+      async function submitFailoverPolicy() {
+        const payload = {
+          venue: document.getElementById("fpVenue").value.trim(),
+          enabled: document.getElementById("fpEnabled").value.trim().toLowerCase() === "true",
+          primary_endpoint: document.getElementById("fpPrimary").value.trim(),
+          secondary_endpoints: document.getElementById("fpSecondary").value.trim(),
+          failure_threshold: Number(document.getElementById("fpFailureThreshold").value || 3),
+          cooldown_seconds: Number(document.getElementById("fpCooldown").value || 60),
+          reconnect_backoff_seconds: Number(document.getElementById("fpReconnectBackoff").value || 5),
+          max_backoff_seconds: Number(document.getElementById("fpMaxBackoff").value || 120),
+          request_timeout_seconds: Number(document.getElementById("fpRequestTimeout").value || 8),
+          jitter_pct: Number(document.getElementById("fpJitterPct").value || 0.2),
+          justification: document.getElementById("fpJustification").value.trim(),
+        };
+        const out = document.getElementById("fpResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/failover-policy", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Updated venue=${data.result?.venue || "-"} by ${data.result?.updated_by || "-"}`;
         await loadIngestion();
       }
 
@@ -896,6 +943,7 @@ const metricOrder = [
         });
       });
       document.getElementById("backfillBtn").addEventListener("click", () => submitBackfillWindow().catch(console.error));
+      document.getElementById("fpSubmitBtn").addEventListener("click", () => submitFailoverPolicy().catch(console.error));
       document.getElementById("kpiLoadBtn").addEventListener("click", () => loadIngestionKpi().catch(console.error));
       document.getElementById("riskLimitsBtn").addEventListener("click", () => submitRiskLimits().catch(console.error));
       document.getElementById("killSwitchBtn").addEventListener("click", () => submitKillSwitch().catch(console.error));

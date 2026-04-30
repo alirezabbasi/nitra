@@ -120,8 +120,7 @@ Last updated: 2026-05-01
 
 ## In Progress
 
-- [ ] `DEV-00068` Exchange/Broker Feeds - connector failover policy per venue (endpoint rotation, retry tiers, circuit-open thresholds).
-- [ ] `DEV-00124` Control Panel (P0) - feeds operations module (health/failover/session/limit controls + guarded config).
+- [ ] (No active items)
 
 ## Done
 
@@ -187,6 +186,8 @@ Last updated: 2026-05-01
 - [x] `DEV-00063` control-panel post-cutover observability revalidation (live sustained-load evidence captured; route parity fix applied for `/api/v1/charting/markets/available`).
 - [x] `DEV-00064` next roadmap slice definition completed (feature-platform shadow-readiness ticket registered with acceptance criteria and verification target `test-dev-0064`).
 - [x] `DEV-00065` deterministic-first governance deliverables completed (dependency map + closure criteria artifacts + `test-dev-0065` verification target).
+- [x] `DEV-00068` connector failover policy contract delivered with operator-managed policy persistence + audit path (`/api/v1/control-panel/ingestion/failover-policy`, `test-dev-0068`).
+- [x] `DEV-00124` control-panel feeds ops failover controls delivered (policy table/runtime metrics + guarded update form in ingestion workspace).
 - [x] `DEV-00139` control-panel unified configuration registry super-scope retired (split into `DEV-00151` core + `DEV-00152` adoption rollout).
 - [x] `DEV-00149` execution idempotency/state-machine conformance standalone scope retired (merged into `DEV-00103`).
 - [x] `DEV-00150` MLflow lineage/comparison standalone scope retired (merged into `DEV-00095`).
