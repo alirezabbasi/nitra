@@ -56,6 +56,7 @@ Last updated: 2026-04-30
 - `DEV-00042` completed: portfolio authoritative reconciliation baseline delivered with invariant checks, drift taxonomy, and persisted reconciliation evidence.
 - `DEV-00043` completed: taxonomy-versioned execution audit payloads and incident evidence bundle export contract delivered with regression checks.
 - Converted the remaining roadmap backlog item into concrete ticket `DEV-00064` with acceptance criteria and `dev-0064` verification pack.
+- Decomposed all remaining HLD Section 5 architecture scope into atomic component tickets `DEV-00065..DEV-00122` and queued them in Kanban backlog.
 
 ## Current
 
@@ -97,12 +98,13 @@ Last updated: 2026-04-30
 - `DEV-00050` is closed with control-panel backend/frontend/compatibility aggregate quality gates and CI-ready enforcement command.
 - `DEV-00051` is closed with control-panel native charting cutover, legacy alias retirement, and published rollout/deprecation closure artifacts.
 - `DEV-00052` is closed with live-adapter reconciliation/runbook evidence capture expansion and verification gate coverage.
-- `DEV-00064` is registered as the next execution slice for deterministic feature-platform shadow readiness.
+- `DEV-00064` remains a completed roadmap-conversion artifact.
+- `DEV-00065..DEV-00122` now define the execution path required to reach full Section 5 architecture completion.
 
 ## Next
 
-1. Execute `DEV-00064` implementation scope in small, test-backed increments.
-2. Open the next child ticket after `DEV-00064` for runtime shadow observability wiring (without changing live decision path).
+1. Start `DEV-00065` governance dependency map and sequence the full `DEV-00066..DEV-00122` delivery path.
+2. Begin implementation with highest dependency blockers: Feature Platform (`DEV-00086..DEV-00090`) and Ray Serve online inference (`DEV-00096..DEV-00099`).
 
 ## Risks/Blocks
 

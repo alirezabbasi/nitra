@@ -1458,3 +1458,18 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - start implementing `DEV-00064` in small, test-backed slices.
+
+---
+
+## 2026-04-30 — Session Entry 017
+
+- Objective:
+  - decompose remaining HLD Section 5 architecture scope into atomic execution tickets and queue them in backlog.
+- Work completed:
+  - reviewed Section 5 architecture/component map in `docs/design/nitra_system_hld.md` and reconciled current completion posture from execution/memory artifacts.
+  - added component-oriented atomic backlog set `DEV-00065..DEV-00122` in Kanban to cover remaining gaps across feeds, data lake, Kafka, normalization/replay, structure, storage, Feast, research, Ray Serve inference, risk/portfolio, execution, AI/RAG, observability, platform topology, and security controls.
+  - updated active focus and memory next steps to sequence execution toward full Section 5 completion.
+- Verification:
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - start `DEV-00065` and dependency-order the full backlog execution path before implementation begins.

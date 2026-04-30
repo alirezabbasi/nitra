@@ -249,11 +249,12 @@ Last updated: 2026-04-30
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 - `DEV-00063` is closed with sustained-load observability evidence captured and route parity fix applied for `/api/v1/charting/markets/available`.
 - Roadmap conversion backlog item is closed by registering `DEV-00064` with explicit acceptance criteria and verification target (`test-dev-0064`).
+- Section 5 remaining architecture scope is decomposed into atomic component tickets `DEV-00065..DEV-00122` and added to backlog as the completion path to `100%`.
 
 ### Next
 
-1. Execute `DEV-00064` implementation slice (feature-platform contract/shadow readiness) in small test-backed steps.
-2. Create the next child ticket after `DEV-00064` for runtime shadow-observability wiring while preserving advisory-only boundaries.
+1. Start `DEV-00065` and finalize dependency-ordered execution for `DEV-00066..DEV-00122`.
+2. Execute highest-dependency architecture blockers first: Feature Platform (`DEV-00086..DEV-00090`) and Online Inference (`DEV-00096..DEV-00099`).
 
 ### Risks/Blocks
 
@@ -267,7 +268,7 @@ Last updated: 2026-04-30
 ## Program status
 
 - Overall project phase: transition from ingestion baseline to core deterministic engine implementation.
-- Active focus: project-wide roadmap alignment and next ticket batch definition.
+- Active focus: Section 5 full-completion execution across atomic component tickets (`DEV-00065..DEV-00122`).
 
 ## Architecture coverage (HLD Section 5)
 

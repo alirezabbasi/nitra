@@ -4,7 +4,64 @@ Last updated: 2026-04-30
 
 ## Backlog
 
-- [ ] (No backlog items)
+- [ ] `DEV-00065` Component: Program Governance - Section 5 final-completion program map, dependency graph, and closure criteria (`100%` exit contract).
+- [ ] `DEV-00066` Component: Program Governance - architecture traceability matrix linking every Section 5 component responsibility to code path, test gate, and runbook evidence.
+- [ ] `DEV-00067` Component: Program Governance - final readiness gate aggregator (`make test-section-5-complete`) with deterministic pass/fail summary.
+- [ ] `DEV-00068` Component: Exchange/Broker Feeds - connector failover policy per venue (endpoint rotation, retry tiers, circuit-open thresholds).
+- [ ] `DEV-00069` Component: Exchange/Broker Feeds - credential/session lifecycle hardening (token refresh, expiration guardrails, auth error classification).
+- [ ] `DEV-00070` Component: Exchange/Broker Feeds - inbound feed quality SLA metrics (latency, drop, sequence discontinuity, venue heartbeat).
+- [ ] `DEV-00071` Component: Raw Data Lake - canonical Parquet partitioning and object-key strategy for replay-grade raw archives.
+- [ ] `DEV-00072` Component: Raw Data Lake - replay manifest/index service for deterministic range selection and provenance checks.
+- [ ] `DEV-00073` Component: Raw Data Lake - retention/tiering/restore runbook with validation evidence for dev/staging/prod.
+- [ ] `DEV-00074` Component: Kafka Backbone - topic-level SLO and partition/retention right-sizing policy with enforcement checks.
+- [ ] `DEV-00075` Component: Kafka Backbone - consumer lag recovery automation and dead-letter replay workflow hardening.
+- [ ] `DEV-00076` Component: Kafka Backbone - schema compatibility CI gate for backward/forward validation across all runtime topics.
+- [ ] `DEV-00077` Component: Normalization/Replay - deterministic quarantine pipeline for malformed events with replay-safe re-ingest flow.
+- [ ] `DEV-00078` Component: Normalization/Replay - sequence/order integrity verifier across venue streams and normalized outputs.
+- [ ] `DEV-00079` Component: Normalization/Replay - full 90-day startup-coverage conformance harness with venue-session edge-case fixtures.
+- [ ] `DEV-00080` Component: Deterministic Structure Engine - rulebook-complete implementation audit (inside/outside/pullback/minor/major edge paths).
+- [ ] `DEV-00081` Component: Deterministic Structure Engine - state snapshot versioning and deterministic migration harness for long-horizon replay stability.
+- [ ] `DEV-00082` Component: Deterministic Structure Engine - structure regression benchmark pack (historical fixture library + invariants report).
+- [ ] `DEV-00083` Component: Time-Series Storage - continuous aggregate/materialization strategy for operational and research query workloads.
+- [ ] `DEV-00084` Component: Time-Series Storage - compression/retention policy rollout with deterministic restore verification.
+- [ ] `DEV-00085` Component: Time-Series Storage - schema/index performance hardening under sustained replay and live ingest concurrency.
+- [ ] `DEV-00086` Component: Feature Platform (Feast) - bootstrap feature repository and registry contracts aligned to existing feature-service outputs.
+- [ ] `DEV-00087` Component: Feature Platform (Feast) - online store integration and retrieval APIs for low-latency inference consumption.
+- [ ] `DEV-00088` Component: Feature Platform (Feast) - offline store and point-in-time dataset materialization pipeline.
+- [ ] `DEV-00089` Component: Feature Platform (Feast) - training-serving skew detection gates and parity assertions in CI.
+- [ ] `DEV-00090` Component: Feature Platform (Feast) - feature versioning/deprecation policy with backfill-safe migration workflow.
+- [ ] `DEV-00091` Component: Research/Backtesting - deterministic dataset builder pipeline with reproducible snapshot manifests.
+- [ ] `DEV-00092` Component: Research/Backtesting - walk-forward validator framework and baseline evaluation scenarios.
+- [ ] `DEV-00093` Component: Research/Backtesting - labeling framework contracts and quality validation for supervised pipelines.
+- [ ] `DEV-00094` Component: Research/Backtesting - experiment runner orchestration with standardized metric and artifact capture.
+- [ ] `DEV-00095` Component: Research/Backtesting - model promotion gate linking MLflow signatures, benchmark thresholds, and approval audit.
+- [ ] `DEV-00096` Component: Online Inference (Ray Serve) - baseline Ray Serve deployment integrating signal/regime/aggregation endpoints.
+- [ ] `DEV-00097` Component: Online Inference (Ray Serve) - model composition graph with independent autoscaling and timeout budgets.
+- [ ] `DEV-00098` Component: Online Inference (Ray Serve) - shadow-mode scoring parity harness versus current inference path.
+- [ ] `DEV-00099` Component: Online Inference (Ray Serve) - inference contract validator (request/response schema + version pin checks).
+- [ ] `DEV-00100` Component: Risk & Portfolio Control - full hard-limit coverage matrix (pre-trade, drawdown, concentration, liquidity, kill-switch scenarios).
+- [ ] `DEV-00101` Component: Risk & Portfolio Control - portfolio/risk reconciliation stress harness for rapid fill bursts and cross-symbol exposure shocks.
+- [ ] `DEV-00102` Component: Risk & Portfolio Control - fail-closed recovery choreography when risk service health is degraded or uncertain.
+- [ ] `DEV-00103` Component: Execution Layer - broker lifecycle conformance suite (submit/amend/cancel/partial/reject/expire/reconcile paths).
+- [ ] `DEV-00104` Component: Execution Layer - resilient retry/timeout policy tuning with venue-specific failure taxonomies and SLA evidence.
+- [ ] `DEV-00105` Component: Execution Layer - reconciliation autopilot for orphan orders/fills and deterministic conflict resolution.
+- [ ] `DEV-00106` Component: AI Reasoning & Memory - retrieval service baseline (document ingestion, chunking, indexing, relevance filters).
+- [ ] `DEV-00107` Component: AI Reasoning & Memory - vector-store contract rollout (pgvector-first schema/index and query path hardening).
+- [ ] `DEV-00108` Component: AI Reasoning & Memory - prompt/context builder with strict schema-bound output contracts and rejection handling.
+- [ ] `DEV-00109` Component: AI Reasoning & Memory - LLM analyst runtime with advisory-only enforcement and deterministic boundary checks.
+- [ ] `DEV-00110` Component: AI Reasoning & Memory - LLM critic/reviewer workflow for contradiction detection and policy-conformance scoring.
+- [ ] `DEV-00111` Component: AI Reasoning & Memory - seven-artifact governance completion pack (rulebook, scenarios, output schema, taxonomy, benchmark, prompt contract closures).
+- [ ] `DEV-00112` Component: Observability/Audit/Governance - OpenTelemetry end-to-end trace propagation across all runtime services.
+- [ ] `DEV-00113` Component: Observability/Audit/Governance - Prometheus metrics standardization and per-service SLO dashboard pack.
+- [ ] `DEV-00114` Component: Observability/Audit/Governance - alert routing + escalation policy with incident runbook bindings and evidence capture.
+- [ ] `DEV-00115` Component: Observability/Audit/Governance - full decision lineage explorer linking market event -> feature -> inference -> risk -> execution -> journal.
+- [ ] `DEV-00116` Component: Platform Topology - Kubernetes deployment baseline (namespaces, workloads, config/secret contracts) for all Section 5 services.
+- [ ] `DEV-00117` Component: Platform Topology - HA posture rollout for Kafka/Timescale/execution/risk critical path with failover drills.
+- [ ] `DEV-00118` Component: Platform Topology - environment parity pack (dev/paper/prod) with reproducible config-diff validation.
+- [ ] `DEV-00119` Component: Security & Control Boundaries - service-to-service authN/authZ enforcement across all internal APIs and event producers.
+- [ ] `DEV-00120` Component: Security & Control Boundaries - immutable audit-log integrity checks and tamper-evidence verification.
+- [ ] `DEV-00121` Component: Security & Control Boundaries - production promotion approval workflow for model/LLM artifacts with RBAC + dual control.
+- [ ] `DEV-00122` Component: Final Completion - full Section 5 replay/paper/live readiness evidence bundle and final `100%` closure report.
 
 ## In Progress
 
