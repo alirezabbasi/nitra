@@ -74,10 +74,9 @@ Last updated: 2026-04-30
 
 ### Priority 5 — Execution
 
-- [ ] `DEV-00103` Execution Layer - broker lifecycle conformance suite (submit/amend/cancel/partial/reject/expire/reconcile paths).
+- [ ] `DEV-00103` Execution Layer - broker lifecycle + idempotency/state-machine conformance suite (submit/amend/cancel/partial/reject/expire/reconcile + duplicate/out-of-order stream handling).
 - [ ] `DEV-00104` Execution Layer - resilient retry/timeout policy tuning with venue-specific failure taxonomies and SLA evidence.
 - [ ] `DEV-00105` Execution Layer - reconciliation autopilot for orphan orders/fills and deterministic conflict resolution.
-- [ ] `DEV-00149` Execution Layer - idempotency and state-machine determinism conformance pack for duplicate/out-of-order command streams.
 - [ ] `DEV-00134` Control Panel (P5) - execution module expansion (lifecycle conformance monitor, retry/timeout controls, reconciliation cockpit).
 
 ### Priority 6 — Observability and Intelligence Foundation
@@ -90,8 +89,7 @@ Last updated: 2026-04-30
 
 ### Priority 7 — MLflow and Feature Maturity
 
-- [ ] `DEV-00095` Research/Validation - model promotion gate linking MLflow signatures, benchmark thresholds, and approval audit.
-- [ ] `DEV-00150` MLflow Tracking/Registry - experiment lineage and model comparison hardening for deterministic promotion evidence.
+- [ ] `DEV-00095` Research/Validation - model promotion gate + MLflow lineage/comparison hardening (signatures, benchmark thresholds, approval audit, deterministic evidence).
 
 ### Priority 8 — RAG + LLM Analyst (Advisory Only, Last)
 
@@ -114,7 +112,8 @@ Last updated: 2026-04-30
 - [ ] `DEV-00121` Security & Control Boundaries - production promotion approval workflow for model/LLM artifacts with RBAC + dual control.
 - [ ] `DEV-00137` Control Panel - platform topology module (Kubernetes workload/environment parity views and guarded deployment/config actions).
 - [ ] `DEV-00138` Control Panel - security controls module (service auth policy center, audit-integrity checks, dual-approval governance console).
-- [ ] `DEV-00139` Control Panel Foundation - unified configuration registry integration for all modules (typed schema, validation, RBAC, approval, rollback).
+- [ ] `DEV-00151` Control Panel Foundation - unified configuration registry core (typed schema, validation engine, RBAC/approval/rollback primitives).
+- [ ] `DEV-00152` Control Panel Foundation - configuration registry adoption rollout across all modules with migration and compatibility checks.
 
 ### Final Completion
 
@@ -189,6 +188,9 @@ Last updated: 2026-04-30
 - [x] `DEV-00057` control-panel program reconciliation and closure hygiene (status normalization completed across Kanban + memory artifacts in same session).
 - [x] `DEV-00063` control-panel post-cutover observability revalidation (live sustained-load evidence captured; route parity fix applied for `/api/v1/charting/markets/available`).
 - [x] `DEV-00064` next roadmap slice definition completed (feature-platform shadow-readiness ticket registered with acceptance criteria and verification target `test-dev-0064`).
+- [x] `DEV-00139` control-panel unified configuration registry super-scope retired (split into `DEV-00151` core + `DEV-00152` adoption rollout).
+- [x] `DEV-00149` execution idempotency/state-machine conformance standalone scope retired (merged into `DEV-00103`).
+- [x] `DEV-00150` MLflow lineage/comparison standalone scope retired (merged into `DEV-00095`).
 
 ## Blocked
 

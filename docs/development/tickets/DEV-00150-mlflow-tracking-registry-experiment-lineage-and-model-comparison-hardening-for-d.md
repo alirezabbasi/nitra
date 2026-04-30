@@ -2,31 +2,25 @@
 
 ## Status
 
-Planned
+Merged into `DEV-00095` (scope normalization)
 
 ## Goal
 
-Define and deliver: MLflow Tracking/Registry - experiment lineage and model comparison hardening for deterministic promotion evidence.
+This scope has been merged into `DEV-00095` to keep promotion governance, lineage, and comparison evidence in one authoritative ticket.
 
 ## Scope
 
-- Implementation changes required by this ticket.
-- Test coverage and verification evidence for this ticket.
-- Documentation and operational updates needed for closeout.
+- No standalone implementation scope remains.
+- Historical reference retained for traceability.
 
 ## Acceptance Criteria
 
-- Behavior/contract described in the goal is implemented.
-- Deterministic and regression tests are added/updated.
-- Relevant docs/runbooks are updated.
-- Kanban and memory artifacts are synchronized with final status.
+- Covered by `DEV-00095` acceptance criteria and verification.
 
 ## Verification
 
-- Run the relevant `make test-*` target(s) for this scope.
-- `make enforce-section-5-1`
-- `make session-bootstrap`
+- Execute `DEV-00095` verification workflow.
 
 ## Notes
 
-- This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+- Merged during ticket integrity/scope normalization to avoid overlap.

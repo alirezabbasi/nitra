@@ -1535,3 +1535,21 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - progressively enrich newly backfilled ticket files with component-specific acceptance criteria and explicit verification targets as each priority slice starts.
+
+---
+
+## 2026-04-30 — Session Entry 022
+
+- Objective:
+  - review ticket scopes/objectives for overlap and normalize by merging/splitting where needed.
+- Work completed:
+  - merged overlapping execution-conformance scope into `DEV-00103` and retired standalone `DEV-00149`.
+  - merged MLflow lineage/comparison hardening into `DEV-00095` and retired standalone `DEV-00150`.
+  - split oversized control-panel config-registry scope `DEV-00139` into `DEV-00151` (core primitives) and `DEV-00152` (module adoption rollout).
+  - added explicit retired/merged references in Kanban done section for traceability.
+  - refined affected ticket files with clear scope boundaries and non-goals.
+- Verification:
+  - ticket registry parity: `kanban_ids=142`, `file_ids=142`, `missing=0`, `orphan=0`.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - continue normalization pass by enriching acceptance criteria for top-priority tickets (`P0`, `P1`) with concrete deterministic test targets.

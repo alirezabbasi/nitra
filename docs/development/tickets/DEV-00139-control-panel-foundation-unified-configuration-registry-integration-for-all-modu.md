@@ -2,31 +2,28 @@
 
 ## Status
 
-Planned
+Split into `DEV-00151` and `DEV-00152` (scope normalization)
 
 ## Goal
 
-Define and deliver: Control Panel Foundation - unified configuration registry integration for all modules (typed schema, validation, RBAC, approval, rollback).
+This original broad scope has been split to reduce implementation risk and improve traceability:
+
+- `DEV-00151`: configuration registry core primitives.
+- `DEV-00152`: module-by-module adoption rollout and migration checks.
 
 ## Scope
 
-- Implementation changes required by this ticket.
-- Test coverage and verification evidence for this ticket.
-- Documentation and operational updates needed for closeout.
+- No standalone implementation scope remains.
+- Historical reference retained for traceability.
 
 ## Acceptance Criteria
 
-- Behavior/contract described in the goal is implemented.
-- Deterministic and regression tests are added/updated.
-- Relevant docs/runbooks are updated.
-- Kanban and memory artifacts are synchronized with final status.
+- Covered by `DEV-00151` + `DEV-00152` acceptance criteria and verification.
 
 ## Verification
 
-- Run the relevant `make test-*` target(s) for this scope.
-- `make enforce-section-5-1`
-- `make session-bootstrap`
+- Execute `DEV-00151` and `DEV-00152` verification workflows.
 
 ## Notes
 
-- This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+- Split during ticket integrity/scope normalization to avoid oversized ticket risk.

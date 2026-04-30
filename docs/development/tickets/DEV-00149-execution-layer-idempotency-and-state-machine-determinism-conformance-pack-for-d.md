@@ -2,31 +2,25 @@
 
 ## Status
 
-Planned
+Merged into `DEV-00103` (scope normalization)
 
 ## Goal
 
-Define and deliver: Execution Layer - idempotency and state-machine determinism conformance pack for duplicate/out-of-order command streams.
+This scope has been merged into `DEV-00103` to eliminate duplication and keep execution conformance in one authoritative ticket.
 
 ## Scope
 
-- Implementation changes required by this ticket.
-- Test coverage and verification evidence for this ticket.
-- Documentation and operational updates needed for closeout.
+- No standalone implementation scope remains.
+- Historical reference retained for traceability.
 
 ## Acceptance Criteria
 
-- Behavior/contract described in the goal is implemented.
-- Deterministic and regression tests are added/updated.
-- Relevant docs/runbooks are updated.
-- Kanban and memory artifacts are synchronized with final status.
+- Covered by `DEV-00103` acceptance criteria and verification.
 
 ## Verification
 
-- Run the relevant `make test-*` target(s) for this scope.
-- `make enforce-section-5-1`
-- `make session-bootstrap`
+- Execute `DEV-00103` verification workflow.
 
 ## Notes
 
-- This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+- Merged during ticket integrity/scope normalization to avoid overlap.
