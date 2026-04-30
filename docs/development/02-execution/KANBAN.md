@@ -5,7 +5,7 @@ Last updated: 2026-04-30
 ## Backlog
 
 - [x] `DEV-00043` journal/audit evidence fabric and incident bundle export.
-- [ ] Prepare next roadmap slice after control-panel refactor epic closure.
+- [x] Prepare next roadmap slice after control-panel refactor epic closure (converted into `DEV-00064` with acceptance criteria + `dev-0064` verification pack).
 
 ## In Progress
 
@@ -73,6 +73,7 @@ Last updated: 2026-04-30
 - [x] `DEV-00044` control-panel service refactor program epic (monolith-to-modular production architecture) closed after completion of `DEV-00045..DEV-00051`; reconciliation/status-normalization tracked by `DEV-00057`.
 - [x] `DEV-00057` control-panel program reconciliation and closure hygiene (status normalization completed across Kanban + memory artifacts in same session).
 - [x] `DEV-00063` control-panel post-cutover observability revalidation (live sustained-load evidence captured; route parity fix applied for `/api/v1/charting/markets/available`).
+- [x] `DEV-00064` next roadmap slice definition completed (feature-platform shadow-readiness ticket registered with acceptance criteria and verification target `test-dev-0064`).
 
 ## Blocked
 

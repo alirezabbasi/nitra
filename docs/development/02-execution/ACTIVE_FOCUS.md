@@ -2,7 +2,7 @@
 
 ## Objective
 
-Prepare the next roadmap slice after control-panel post-cutover observability revalidation closure.
+Execute `DEV-00064` as the first post-control-panel roadmap slice with deterministic feature-platform shadow-readiness scope.
 
 ## Current constraints
 
@@ -13,5 +13,5 @@ Prepare the next roadmap slice after control-panel post-cutover observability re
 
 ## Immediate next slices
 
-1. Define the next implementation-priority slice after `DEV-00063` closure.
-2. Convert active backlog statement into a concrete ticket with acceptance criteria and tests.
+1. Implement `DEV-00064` contract artifacts for feature shadow snapshots and replay/live parity checks.
+2. Add follow-up implementation ticket(s) that wire shadow-readiness observability into runtime endpoints without changing live execution decisions.

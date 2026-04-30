@@ -248,11 +248,12 @@ Last updated: 2026-04-30
 - `DEV-00056` is closed with canonical liquidity ontology baseline documentation and explicit chart-layer legend semantics for project-wide analytical consistency (`dev-0055` gate).
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
 - `DEV-00063` is closed with sustained-load observability evidence captured and route parity fix applied for `/api/v1/charting/markets/available`.
+- Roadmap conversion backlog item is closed by registering `DEV-00064` with explicit acceptance criteria and verification target (`test-dev-0064`).
 
 ### Next
 
-1. Prepare next roadmap slice after control-panel refactor/post-cutover hardening closure.
-2. Convert roadmap-next slice into a concrete ticket with acceptance criteria and verification pack.
+1. Execute `DEV-00064` implementation slice (feature-platform contract/shadow readiness) in small test-backed steps.
+2. Create the next child ticket after `DEV-00064` for runtime shadow-observability wiring while preserving advisory-only boundaries.
 
 ### Risks/Blocks
 

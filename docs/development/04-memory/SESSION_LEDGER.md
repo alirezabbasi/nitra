@@ -1440,3 +1440,21 @@ Append one entry at the end of each substantial session.
   - `make enforce-section-5-1` passes.
 - Next recommended action:
   - open the next roadmap-priority implementation ticket and move it to active execution.
+
+---
+
+## 2026-04-30 — Session Entry 016
+
+- Objective:
+  - close remaining backlog roadmap-preparation scope and convert it into a concrete execution ticket.
+- Work completed:
+  - created `DEV-00064` ticket with explicit goal, scope, acceptance criteria, and verification commands.
+  - added verification pack `tests/dev-0064/run.sh` and wired `make test-dev-0064` in `Makefile`.
+  - updated `KANBAN.md` to mark the roadmap-preparation backlog item done and registered `DEV-00064` in done tracking.
+  - synchronized `ACTIVE_FOCUS.md`, `CURRENT_STATE.md`, and `WHERE_ARE_WE.md` so next execution focus points to `DEV-00064`.
+- Verification:
+  - `make test-dev-0064` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - start implementing `DEV-00064` in small, test-backed slices.

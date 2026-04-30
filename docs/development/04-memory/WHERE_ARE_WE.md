@@ -55,6 +55,7 @@ Last updated: 2026-04-30
 - `DEV-00041` completed: execution lifecycle hardening delivered with valid-transition guards, stale/duplicate command rejection, and reconciliation SLA context emission.
 - `DEV-00042` completed: portfolio authoritative reconciliation baseline delivered with invariant checks, drift taxonomy, and persisted reconciliation evidence.
 - `DEV-00043` completed: taxonomy-versioned execution audit payloads and incident evidence bundle export contract delivered with regression checks.
+- Converted the remaining roadmap backlog item into concrete ticket `DEV-00064` with acceptance criteria and `dev-0064` verification pack.
 
 ## Current
 
@@ -96,11 +97,12 @@ Last updated: 2026-04-30
 - `DEV-00050` is closed with control-panel backend/frontend/compatibility aggregate quality gates and CI-ready enforcement command.
 - `DEV-00051` is closed with control-panel native charting cutover, legacy alias retirement, and published rollout/deprecation closure artifacts.
 - `DEV-00052` is closed with live-adapter reconciliation/runbook evidence capture expansion and verification gate coverage.
+- `DEV-00064` is registered as the next execution slice for deterministic feature-platform shadow readiness.
 
 ## Next
 
-1. Prepare next roadmap slice after control-panel refactor/post-cutover hardening closure.
-2. Convert roadmap-next slice into a concrete ticket with acceptance criteria and verification pack.
+1. Execute `DEV-00064` implementation scope in small, test-backed increments.
+2. Open the next child ticket after `DEV-00064` for runtime shadow observability wiring (without changing live decision path).
 
 ## Risks/Blocks
 
