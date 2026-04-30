@@ -11,6 +11,7 @@ This folder defines architecture authority for NITRA.
 - `nitra_system_lld/`: implementation-level LLD pack.
 - `ingestion/`: ingestion-domain architecture, data-platform, DevOps, and LLD documentation.
 - `ontology/`: canonical interpretation ontologies used across charting, AI interpretation, and analysis governance.
+- `control-panel-product-and-ui.md`: control panel product vision, UX architecture, and module-level management contract.
 
 ## Supporting documents
 

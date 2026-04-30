@@ -58,6 +58,7 @@ Last updated: 2026-04-30
 - Converted the remaining roadmap backlog item into concrete ticket `DEV-00064` with acceptance criteria and `dev-0064` verification pack.
 - Decomposed all remaining HLD Section 5 architecture scope into atomic component tickets `DEV-00065..DEV-00122` and queued them in Kanban backlog.
 - Added mandatory control-panel companion stream `DEV-00123..DEV-00140` to ensure each remaining component has explicit operator UI section(s) and configuration management workflows.
+- Added global rule requiring control-panel integration for every new feature and published dedicated control-panel product/UI architecture doc in `docs/design/`.
 
 ## Current
 

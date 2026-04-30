@@ -1488,3 +1488,19 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - begin paired kickoff `DEV-00065` + `DEV-00123`, then enforce one-to-one component/control-panel closure sequencing.
+
+---
+
+## 2026-04-30 — Session Entry 019
+
+- Objective:
+  - make control-panel completeness a core architecture and delivery requirement.
+- Work completed:
+  - added global Rule 16 in `docs/ruleset.md` declaring the control panel as mandatory project control surface and requiring per-feature UI/config/RBAC/audit integration.
+  - updated core docs entrypoints (`docs/README.md`, `docs/design/README.md`) to include control-panel product direction as canonical project guidance.
+  - created `docs/design/control-panel-product-and-ui.md` defining product positioning, module architecture baseline, mandatory integration contract, and completion gate policy.
+  - synchronized memory artifacts to reflect new control-panel governance baseline.
+- Verification:
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute component and control-panel companion tickets in paired order so feature delivery and control-plane capability stay aligned.

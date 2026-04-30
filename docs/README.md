@@ -17,6 +17,13 @@ This is the canonical documentation entrypoint for the full NITRA project.
 - `docs/design/ingestion/`: ingestion-domain deep docs, contracts, runbooks, and domain bug registry.
 - `docs/knowledgebase/`: cross-session RCA and fix playbooks for recurring issues.
 
+## Control Panel Product Direction
+
+- The control panel is the primary operational interface for managing the full NITRA platform.
+- Every new platform feature must ship with relevant control-panel integration (visibility + controls + governance).
+- Canonical UI/product direction:
+  - `docs/design/control-panel-product-and-ui.md`
+
 ## Single-source principles
 
 - Architecture truth lives in `docs/design/`.

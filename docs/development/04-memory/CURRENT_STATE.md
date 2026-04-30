@@ -251,6 +251,7 @@ Last updated: 2026-04-30
 - Roadmap conversion backlog item is closed by registering `DEV-00064` with explicit acceptance criteria and verification target (`test-dev-0064`).
 - Section 5 remaining architecture scope is decomposed into atomic component tickets `DEV-00065..DEV-00122` and added to backlog as the completion path to `100%`.
 - Added mandatory control-panel companion ticket stream `DEV-00123..DEV-00140` so each remaining Section 5 component ships with explicit UI section coverage and configuration management controls.
+- Elevated control-panel governance to global policy (`docs/ruleset.md` Rule 16) and added dedicated product/UI architecture document (`docs/design/control-panel-product-and-ui.md`).
 
 ### Next
 

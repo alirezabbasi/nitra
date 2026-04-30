@@ -129,3 +129,15 @@ All contributors and AI agents must read and follow this file before planning or
 - Development and debugging commands must be logged in `docs/development/debugging/debugcmd.md` with timestamp, command text, and purpose.
 - Add log entries continuously during active debugging/development sessions (do not defer to session end only).
 - If a command fails, record failure status and short reason/evidence in the same entry.
+
+## Rule 16: Control Panel Is Mandatory Project Control Surface
+
+- The control panel is a first-class product surface and operational control plane for the whole project.
+- New platform capabilities are not considered complete unless they are integrated into the control panel under the relevant module/section.
+- Required per-feature control-panel integration includes:
+  - operator visibility (health/status/telemetry),
+  - configuration management controls where applicable,
+  - role-based access control and audit trail coverage for privileged actions,
+  - links to runbook/evidence workflows for operationally sensitive actions.
+- Any feature lacking control-panel integration must remain `incomplete` in execution tracking until the companion UI/management scope is delivered.
+- Control-panel UX/design direction must be maintained as an explicit architecture/value artifact under `docs/design/`.
