@@ -1,6 +1,6 @@
 # NITRA Project Kanban
 
-Last updated: 2026-04-30
+Last updated: 2026-05-01
 
 ## Backlog
 
@@ -122,7 +122,7 @@ Last updated: 2026-04-30
 
 ## In Progress
 
-- [ ] `DEV-00065` Program Governance - deterministic-first execution map, dependency graph, and closure criteria aligned to P0->P8.
+- [ ] (No active items)
 
 ## Done
 
@@ -187,6 +187,7 @@ Last updated: 2026-04-30
 - [x] `DEV-00057` control-panel program reconciliation and closure hygiene (status normalization completed across Kanban + memory artifacts in same session).
 - [x] `DEV-00063` control-panel post-cutover observability revalidation (live sustained-load evidence captured; route parity fix applied for `/api/v1/charting/markets/available`).
 - [x] `DEV-00064` next roadmap slice definition completed (feature-platform shadow-readiness ticket registered with acceptance criteria and verification target `test-dev-0064`).
+- [x] `DEV-00065` deterministic-first governance deliverables completed (dependency map + closure criteria artifacts + `test-dev-0065` verification target).
 - [x] `DEV-00139` control-panel unified configuration registry super-scope retired (split into `DEV-00151` core + `DEV-00152` adoption rollout).
 - [x] `DEV-00149` execution idempotency/state-machine conformance standalone scope retired (merged into `DEV-00103`).
 - [x] `DEV-00150` MLflow lineage/comparison standalone scope retired (merged into `DEV-00095`).

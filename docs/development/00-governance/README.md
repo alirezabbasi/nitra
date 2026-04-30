@@ -1,5 +1,10 @@
 # Governance
 
+## Key Contracts
+
+- `SDLC_OPERATING_MODEL.md`: baseline delivery process.
+- `SECTION5_CLOSURE_CRITERIA.md`: deterministic-first closure gates for Section 5 priorities (P0->P8).
+
 This section defines how NITRA work is planned, executed, reviewed, and resumed.
 
 ## Files

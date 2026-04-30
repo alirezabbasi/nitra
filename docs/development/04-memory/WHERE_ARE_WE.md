@@ -1,6 +1,6 @@
 # Where Are We
 
-Last updated: 2026-04-30
+Last updated: 2026-05-01
 
 ## Completed
 
@@ -105,12 +105,12 @@ Last updated: 2026-04-30
 - `DEV-00065..DEV-00122` now define the execution path required to reach full Section 5 architecture completion.
 - `DEV-00123..DEV-00140` define required control-panel module/config governance evolution running in lockstep with component delivery.
 - Backlog now follows strict build order: P0 ingestion/raw/kafka, P1 normalization/replay/storage/structure, then research, decisioning, control, execution, observability, and finally LLM/RAG.
-- `DEV-00065` is now in progress as the deterministic-first governance starter for P0->P8 dependency execution.
+- `DEV-00065` is now closed with governance deliverables completed (`DETERMINISTIC_EXECUTION_DEPENDENCY_MAP.md`, `SECTION5_CLOSURE_CRITERIA.md`, `test-dev-0065`).
 
 ## Next
 
-1. Execute P0 deterministic acquisition foundation and its control-panel modules first.
-2. Execute P1 deterministic integrity/replay/structure foundation before any P2+ scope.
+1. Start paired P0 implementation kickoff: `DEV-00068` + `DEV-00124`.
+2. Continue through remaining P0 feed/raw/Kafka tickets and companions before entering P1.
 
 ## Risks/Blocks
 

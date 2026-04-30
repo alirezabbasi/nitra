@@ -13,5 +13,5 @@ Execute the deterministic-first Section 5 completion plan in strict priority ord
 
 ## Immediate next slices
 
-1. Start Priority 0 only: `DEV-00065`, `DEV-00068..DEV-00076`, `DEV-00141..DEV-00143` with control-panel companions `DEV-00124..DEV-00126`.
-2. Block advancement to P2+ until P0 and P1 deterministic gates are complete and evidenced.
+1. Start paired P0 implementation kickoff: `DEV-00068` (feeds failover policy) + `DEV-00124` (feeds ops control-panel module).
+2. Continue P0 sequence through `DEV-00069`, `DEV-00070`, `DEV-00141..DEV-00143`, then raw-lake/Kafka tickets with companions.
