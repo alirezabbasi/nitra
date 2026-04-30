@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Done (2026-05-01)
 
 ## Goal
 
@@ -23,9 +23,20 @@ Define and deliver: Exchange/Broker Feeds - websocket/session manager hardening 
 
 ## Verification
 
-- Run the relevant `make test-*` target(s) for this scope.
+- `make test-dev-0069`
 - `make enforce-section-5-1`
 - `make session-bootstrap`
+
+## Delivered Artifacts
+
+- `services/charting/app.py`
+  - `control_panel_ingestion_ws_policy` table contract and seed path.
+  - `POST /api/v1/control-panel/ingestion/ws-policy` guarded mutation endpoint.
+  - `GET /api/v1/control-panel/ingestion` payload includes `ws_policies` + `ws_runtime`.
+- `services/control-panel/frontend/src/control-panel.html`
+  - websocket/session runtime policy table + update form.
+- `services/control-panel/frontend/src/app/control-panel.js`
+  - websocket/session runtime render + guarded submit handler.
 
 ## Notes
 

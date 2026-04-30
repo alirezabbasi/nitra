@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Done (2026-05-01)
 
 ## Goal
 
@@ -23,9 +23,20 @@ Define and deliver: Exchange/Broker Feeds - credential/session lifecycle hardeni
 
 ## Verification
 
-- Run the relevant `make test-*` target(s) for this scope.
+- `make test-dev-0069`
 - `make enforce-section-5-1`
 - `make session-bootstrap`
+
+## Delivered Artifacts
+
+- `services/charting/app.py`
+  - `control_panel_ingestion_session_policy` table contract and seed path.
+  - `POST /api/v1/control-panel/ingestion/session-policy` guarded mutation endpoint.
+  - `GET /api/v1/control-panel/ingestion` payload includes `session_policies` + `session_runtime`.
+- `services/control-panel/frontend/src/control-panel.html`
+  - session lifecycle policy table + update form.
+- `services/control-panel/frontend/src/app/control-panel.js`
+  - session lifecycle runtime render + guarded submit handler.
 
 ## Notes
 

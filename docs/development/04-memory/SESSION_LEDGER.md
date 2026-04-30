@@ -1621,3 +1621,24 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - start next paired P0 slice (`DEV-00069` + `DEV-00125`) for feed health-state contracts and control-panel health operations controls.
+
+---
+
+## 2026-05-01 — Session Entry 027
+
+- Objective:
+  - implement and close feeds/session reliability bundle across `DEV-00069` and `DEV-00141`.
+- Work completed:
+  - added ingestion session lifecycle policy contract in `services/charting/app.py` (`control_panel_ingestion_session_policy` seed+runtime+guarded update endpoint `POST /api/v1/control-panel/ingestion/session-policy`).
+  - added websocket/session manager policy contract in `services/charting/app.py` (`control_panel_ingestion_ws_policy` seed+runtime+guarded update endpoint `POST /api/v1/control-panel/ingestion/ws-policy`).
+  - expanded ingestion payload contract to include `session_policies`, `session_runtime`, `ws_policies`, and `ws_runtime` for operator visibility.
+  - added control-panel passthrough routes in `services/control-panel/app/api/routers/ingestion.py` for both new policy endpoints.
+  - delivered paired control-panel ingestion UI controls (`services/control-panel/frontend/src/control-panel.html` + `services/control-panel/frontend/src/app/control-panel.js`) and synced `src -> dist`.
+  - documented contracts in `docs/design/ingestion/02-data-platform/broker-1-connector.md` and `docs/design/ingestion/07-devdocs/04-lld-services/control-panel-service.md`.
+  - added verification pack `tests/dev-0069/run.sh` + `make test-dev-0069`; closed `DEV-00069` and `DEV-00141` and synchronized Kanban/memory/tickets.
+- Verification:
+  - `make test-dev-0069` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - start paired P0 slice `DEV-00070` + `DEV-00142`.

@@ -42,6 +42,41 @@
   - `request_timeout_seconds`
   - `jitter_pct`
 
+## Session Lifecycle Policy Contract (DEV-00069)
+
+- Per-venue credential/session lifecycle policy is operator-managed:
+  - `GET /api/v1/control-panel/ingestion`
+    - includes `session_policies` and `session_runtime`.
+  - `POST /api/v1/control-panel/ingestion/session-policy`
+    - guarded update path with RBAC + justification + audit trail.
+- Policy fields:
+  - `enabled`
+  - `auth_mode`
+  - `token_ttl_seconds`
+  - `refresh_lead_seconds`
+  - `max_refresh_retries`
+  - `lockout_cooldown_seconds`
+  - `classify_401`
+  - `classify_403`
+  - `classify_429`
+  - `classify_5xx`
+
+## WebSocket/Session Runtime Contract (DEV-00141)
+
+- Per-venue websocket/session manager policy is operator-managed:
+  - `GET /api/v1/control-panel/ingestion`
+    - includes `ws_policies` and `ws_runtime`.
+  - `POST /api/v1/control-panel/ingestion/ws-policy`
+    - guarded update path with RBAC + justification + audit trail.
+- Policy fields:
+  - `enabled`
+  - `heartbeat_interval_seconds`
+  - `stale_after_seconds`
+  - `reconnect_backoff_seconds`
+  - `max_backoff_seconds`
+  - `jitter_pct`
+  - `max_consecutive_failures`
+
 ## Key Environment Variables
 
 Common:

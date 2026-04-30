@@ -140,6 +140,37 @@ const metricOrder = [
           tr.innerHTML = `<td>${row.venue}</td><td>${row.enabled ? "ON" : "OFF"}</td><td>${row.primary_endpoint}</td><td>${(row.secondary_endpoints || []).join(", ") || "-"}</td><td>${row.failure_threshold}</td><td>${row.cooldown_seconds}</td><td>${row.reconnect_backoff_seconds}/${row.max_backoff_seconds}</td><td>${row.request_timeout_seconds}</td><td>${fmt(row.jitter_pct)}</td><td>${row.updated_by}</td>`;
           policyBody.appendChild(tr);
         }
+
+        const sessionMetrics = document.getElementById("sessionPolicyMetrics");
+        const sessionRuntime = data.session_runtime || {};
+        sessionMetrics.innerHTML = `
+          <div class="small">Enabled Session Policies: <strong>${fmt(sessionRuntime.configured_enabled_venues)}</strong></div>
+          <div class="small">Disabled Session Policies: <strong>${fmt(sessionRuntime.configured_disabled_venues)}</strong></div>
+          <div class="small">Capital Session Cached: <strong>${sessionRuntime.capital_session_cached ? "YES" : "NO"}</strong></div>
+          <div class="small">Capital Session Expires In (s): <strong>${fmt(sessionRuntime.capital_session_expires_in_seconds ?? "-")}</strong></div>
+        `;
+        const sessionBody = document.querySelector("#sessionPolicyTable tbody");
+        sessionBody.innerHTML = "";
+        for (const row of tableSlice(data.session_policies || [], 20)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.venue}</td><td>${row.enabled ? "ON" : "OFF"}</td><td>${row.auth_mode}</td><td>${row.token_ttl_seconds}</td><td>${row.refresh_lead_seconds}</td><td>${row.max_refresh_retries}</td><td>${row.lockout_cooldown_seconds}</td><td>${row.classify_401}/${row.classify_403}/${row.classify_429}/${row.classify_5xx}</td><td>${row.updated_by}</td>`;
+          sessionBody.appendChild(tr);
+        }
+
+        const wsMetrics = document.getElementById("wsPolicyMetrics");
+        const wsRuntime = data.ws_runtime || {};
+        wsMetrics.innerHTML = `
+          <div class="small">Enabled WS Policies: <strong>${fmt(wsRuntime.configured_enabled_venues)}</strong></div>
+          <div class="small">Disabled WS Policies: <strong>${fmt(wsRuntime.configured_disabled_venues)}</strong></div>
+          <div class="small">Active Ingestion Markets: <strong>${fmt(wsRuntime.active_markets)}</strong></div>
+        `;
+        const wsBody = document.querySelector("#wsPolicyTable tbody");
+        wsBody.innerHTML = "";
+        for (const row of tableSlice(data.ws_policies || [], 20)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.venue}</td><td>${row.enabled ? "ON" : "OFF"}</td><td>${row.heartbeat_interval_seconds}</td><td>${row.stale_after_seconds}</td><td>${row.reconnect_backoff_seconds}/${row.max_backoff_seconds}</td><td>${fmt(row.jitter_pct)}</td><td>${row.max_consecutive_failures}</td><td>${row.updated_by}</td>`;
+          wsBody.appendChild(tr);
+        }
       }
 
       async function loadIngestion() {
@@ -194,6 +225,65 @@ const metricOrder = [
         const out = document.getElementById("fpResult");
         out.textContent = "Submitting...";
         const res = await authedFetch("/api/v1/control-panel/ingestion/failover-policy", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Updated venue=${data.result?.venue || "-"} by ${data.result?.updated_by || "-"}`;
+        await loadIngestion();
+      }
+
+      async function submitSessionPolicy() {
+        const payload = {
+          venue: document.getElementById("spVenue").value.trim(),
+          enabled: document.getElementById("spEnabled").value.trim().toLowerCase() === "true",
+          auth_mode: document.getElementById("spAuthMode").value.trim(),
+          token_ttl_seconds: Number(document.getElementById("spTokenTtl").value || 1800),
+          refresh_lead_seconds: Number(document.getElementById("spRefreshLead").value || 120),
+          max_refresh_retries: Number(document.getElementById("spRetries").value || 2),
+          lockout_cooldown_seconds: Number(document.getElementById("spCooldown").value || 60),
+          classify_401: document.getElementById("spClass401").value.trim(),
+          classify_403: document.getElementById("spClass403").value.trim(),
+          classify_429: document.getElementById("spClass429").value.trim(),
+          classify_5xx: document.getElementById("spClass5xx").value.trim(),
+          justification: document.getElementById("spJustification").value.trim(),
+        };
+        const out = document.getElementById("spResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/session-policy", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Updated venue=${data.result?.venue || "-"} by ${data.result?.updated_by || "-"}`;
+        await loadIngestion();
+      }
+
+      async function submitWsPolicy() {
+        const payload = {
+          venue: document.getElementById("wpVenue").value.trim(),
+          enabled: document.getElementById("wpEnabled").value.trim().toLowerCase() === "true",
+          heartbeat_interval_seconds: Number(document.getElementById("wpHeartbeat").value || 15),
+          stale_after_seconds: Number(document.getElementById("wpStaleAfter").value || 45),
+          reconnect_backoff_seconds: Number(document.getElementById("wpReconnectBackoff").value || 5),
+          max_backoff_seconds: Number(document.getElementById("wpMaxBackoff").value || 120),
+          jitter_pct: Number(document.getElementById("wpJitterPct").value || 0.2),
+          max_consecutive_failures: Number(document.getElementById("wpMaxFailures").value || 5),
+          justification: document.getElementById("wpJustification").value.trim(),
+        };
+        const out = document.getElementById("wpResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/ws-policy", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
           body: JSON.stringify(payload),
@@ -944,6 +1034,8 @@ const metricOrder = [
       });
       document.getElementById("backfillBtn").addEventListener("click", () => submitBackfillWindow().catch(console.error));
       document.getElementById("fpSubmitBtn").addEventListener("click", () => submitFailoverPolicy().catch(console.error));
+      document.getElementById("spSubmitBtn").addEventListener("click", () => submitSessionPolicy().catch(console.error));
+      document.getElementById("wpSubmitBtn").addEventListener("click", () => submitWsPolicy().catch(console.error));
       document.getElementById("kpiLoadBtn").addEventListener("click", () => loadIngestionKpi().catch(console.error));
       document.getElementById("riskLimitsBtn").addEventListener("click", () => submitRiskLimits().catch(console.error));
       document.getElementById("killSwitchBtn").addEventListener("click", () => submitKillSwitch().catch(console.error));

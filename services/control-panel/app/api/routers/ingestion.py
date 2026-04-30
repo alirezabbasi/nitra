@@ -23,3 +23,13 @@ async def control_panel_ingestion_backfill_window(request: Request) -> Response:
 @router.post("/api/v1/control-panel/ingestion/failover-policy")
 async def control_panel_ingestion_failover_policy(request: Request) -> Response:
     return await proxy_to_legacy(request)
+
+
+@router.post("/api/v1/control-panel/ingestion/session-policy")
+async def control_panel_ingestion_session_policy(request: Request) -> Response:
+    return await proxy_to_legacy(request)
+
+
+@router.post("/api/v1/control-panel/ingestion/ws-policy")
+async def control_panel_ingestion_ws_policy(request: Request) -> Response:
+    return await proxy_to_legacy(request)

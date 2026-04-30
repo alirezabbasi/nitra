@@ -107,11 +107,12 @@ Last updated: 2026-05-01
 - Backlog now follows strict build order: P0 ingestion/raw/kafka, P1 normalization/replay/storage/structure, then research, decisioning, control, execution, observability, and finally LLM/RAG.
 - `DEV-00065` is now closed with governance deliverables completed (`DETERMINISTIC_EXECUTION_DEPENDENCY_MAP.md`, `SECTION5_CLOSURE_CRITERIA.md`, `test-dev-0065`).
 - `DEV-00068` and `DEV-00124` are now closed with paired failover-policy backend + control-panel operator controls delivered (`dev-0068`).
+- `DEV-00069` and `DEV-00141` are now closed with paired session lifecycle + websocket/session reliability controls delivered (`dev-0069`).
 
 ## Next
 
-1. Start paired P0 slice: `DEV-00069` + `DEV-00070`.
-2. Continue with `DEV-00141..DEV-00143` before moving to raw-lake/Kafka priorities.
+1. Start paired P0 slice: `DEV-00070` + `DEV-00142`.
+2. Continue with `DEV-00143` before moving to raw-lake/Kafka priorities.
 
 ## Risks/Blocks
 

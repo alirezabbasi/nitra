@@ -6,9 +6,7 @@ Last updated: 2026-05-01
 
 ### Priority 0 — Non-Negotiable Core (Data Acquisition)
 
-- [ ] `DEV-00069` Exchange/Broker Feeds - credential/session lifecycle hardening (token refresh, expiration guardrails, auth error classification).
 - [ ] `DEV-00070` Exchange/Broker Feeds - inbound feed quality SLA metrics (latency, drop, sequence discontinuity, venue heartbeat).
-- [ ] `DEV-00141` Exchange/Broker Feeds - websocket/session manager hardening (heartbeat, reconnect jitter/backoff, stale-session detection).
 - [ ] `DEV-00142` Exchange/Broker Feeds - rate-limit governance and adaptive throttling policy with per-venue configuration contracts.
 - [ ] `DEV-00143` Exchange/Broker Feeds - raw message capture conformance (full untouched payload persistence and sequence provenance checks).
 - [ ] `DEV-00071` Raw Data Lake - canonical Parquet partitioning and object-key strategy for replay-grade raw archives.
@@ -188,6 +186,8 @@ Last updated: 2026-05-01
 - [x] `DEV-00065` deterministic-first governance deliverables completed (dependency map + closure criteria artifacts + `test-dev-0065` verification target).
 - [x] `DEV-00068` connector failover policy contract delivered with operator-managed policy persistence + audit path (`/api/v1/control-panel/ingestion/failover-policy`, `test-dev-0068`).
 - [x] `DEV-00124` control-panel feeds ops failover controls delivered (policy table/runtime metrics + guarded update form in ingestion workspace).
+- [x] `DEV-00069` credential/session lifecycle hardening delivered (session policy contract, guarded update endpoint, runtime visibility, `test-dev-0069`).
+- [x] `DEV-00141` websocket/session manager hardening delivered (heartbeat/stale/reconnect policy contract + control-panel policy controls, `test-dev-0069`).
 - [x] `DEV-00139` control-panel unified configuration registry super-scope retired (split into `DEV-00151` core + `DEV-00152` adoption rollout).
 - [x] `DEV-00149` execution idempotency/state-machine conformance standalone scope retired (merged into `DEV-00103`).
 - [x] `DEV-00150` MLflow lineage/comparison standalone scope retired (merged into `DEV-00095`).

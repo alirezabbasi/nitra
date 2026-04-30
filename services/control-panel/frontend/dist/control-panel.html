@@ -118,6 +118,63 @@
               <div class="small" id="fpResult" style="margin-top:8px">No failover policy update submitted.</div>
             </article>
             <article class="card">
+              <div><strong>Credential & Session Lifecycle Policy</strong></div>
+              <div class="small">Token refresh, expiry guardrails, and auth error classification.</div>
+              <div id="sessionPolicyMetrics" style="margin-top:8px"></div>
+              <table class="table" id="sessionPolicyTable">
+                <thead><tr><th>Venue</th><th>Enabled</th><th>Auth</th><th>TTL</th><th>Lead</th><th>Retries</th><th>Cooldown</th><th>401/403/429/5xx</th><th>Updated By</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="form-row" style="margin-top:8px">
+                <input id="spVenue" value="capital" placeholder="venue" />
+                <input id="spEnabled" value="true" placeholder="enabled true|false" />
+                <input id="spAuthMode" value="token" placeholder="auth_mode" />
+                <input id="spTokenTtl" value="1800" placeholder="token_ttl_seconds" />
+              </div>
+              <div class="form-row">
+                <input id="spRefreshLead" value="120" placeholder="refresh_lead_seconds" />
+                <input id="spRetries" value="2" placeholder="max_refresh_retries" />
+                <input id="spCooldown" value="60" placeholder="lockout_cooldown_seconds" />
+              </div>
+              <div class="form-row">
+                <input id="spClass401" value="session_expired" placeholder="classify_401" />
+                <input id="spClass403" value="permission_denied" placeholder="classify_403" />
+                <input id="spClass429" value="rate_limited" placeholder="classify_429" />
+                <input id="spClass5xx" value="upstream_unavailable" placeholder="classify_5xx" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="spJustification" placeholder="justification (required)" />
+                <button class="btn" id="spSubmitBtn">Update Session Policy</button>
+              </div>
+              <div class="small" id="spResult" style="margin-top:8px">No session policy update submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>WebSocket/Session Runtime Policy</strong></div>
+              <div class="small">Heartbeat, reconnect strategy, and stale-session thresholds.</div>
+              <div id="wsPolicyMetrics" style="margin-top:8px"></div>
+              <table class="table" id="wsPolicyTable">
+                <thead><tr><th>Venue</th><th>Enabled</th><th>Heartbeat</th><th>Stale</th><th>Backoff</th><th>Jitter</th><th>Max Failures</th><th>Updated By</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="form-row" style="margin-top:8px">
+                <input id="wpVenue" value="coinbase" placeholder="venue" />
+                <input id="wpEnabled" value="true" placeholder="enabled true|false" />
+                <input id="wpHeartbeat" value="15" placeholder="heartbeat_interval_seconds" />
+                <input id="wpStaleAfter" value="45" placeholder="stale_after_seconds" />
+              </div>
+              <div class="form-row">
+                <input id="wpReconnectBackoff" value="5" placeholder="reconnect_backoff_seconds" />
+                <input id="wpMaxBackoff" value="120" placeholder="max_backoff_seconds" />
+                <input id="wpJitterPct" value="0.2" placeholder="jitter_pct" />
+                <input id="wpMaxFailures" value="5" placeholder="max_consecutive_failures" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="wpJustification" placeholder="justification (required)" />
+                <button class="btn" id="wpSubmitBtn">Update WS Policy</button>
+              </div>
+              <div class="small" id="wpResult" style="margin-top:8px">No websocket policy update submitted.</div>
+            </article>
+            <article class="card">
               <div><strong>Backfill Queue (Recent)</strong></div>
               <table class="table" id="backfillTable">
                 <thead><tr><th>Status</th><th>Market</th><th>Attempts</th></tr></thead>

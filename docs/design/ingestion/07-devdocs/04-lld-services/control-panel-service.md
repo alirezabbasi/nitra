@@ -204,3 +204,16 @@ Rollback policy:
     - role-gated policy updates with justification and audit logging.
 - UI contract:
   - ingestion workspace renders per-venue failover policy table + guarded update form.
+
+## DEV-00069 + DEV-00141 Feeds Reliability Ops
+
+- Ingestion workspace now includes paired policy surfaces for session reliability:
+  - credential/session lifecycle policy module (`DEV-00069`)
+  - websocket/session runtime policy module (`DEV-00141`)
+- Control-panel API contract additions:
+  - `POST /api/v1/control-panel/ingestion/session-policy`
+  - `POST /api/v1/control-panel/ingestion/ws-policy`
+- `GET /api/v1/control-panel/ingestion` now includes:
+  - `session_policies`, `session_runtime`
+  - `ws_policies`, `ws_runtime`
+- Both mutation endpoints require operator role minimum, justification, and audit trail records.

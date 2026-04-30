@@ -13,5 +13,5 @@ Execute the deterministic-first Section 5 completion plan in strict priority ord
 
 ## Immediate next slices
 
-1. Start paired P0 slice: `DEV-00069` (credential/session lifecycle hardening) + `DEV-00070` (feed SLA metrics surface).
-2. Continue P0 sequence with `DEV-00141..DEV-00143` then raw-lake/Kafka tickets with control-panel companions.
+1. Start paired P0 slice: `DEV-00070` (feed SLA metrics surface) + `DEV-00142` (rate-limit governance/adaptive throttling).
+2. Continue P0 sequence with `DEV-00143` then raw-lake/Kafka tickets with control-panel companions.

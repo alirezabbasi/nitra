@@ -371,11 +371,26 @@ def control_panel_ingestion(
     }
     connector_health: list[dict] = []
     failover_policies: list[dict] = []
+    session_policies: list[dict] = []
+    ws_policies: list[dict] = []
     failover_runtime: dict = {
         "configured_enabled_venues": 0,
         "configured_disabled_venues": 0,
         "active_market_venues": [],
         "degraded_market_venues": [],
+        "updated_at": None,
+    }
+    session_runtime: dict = {
+        "configured_enabled_venues": 0,
+        "configured_disabled_venues": 0,
+        "capital_session_cached": False,
+        "capital_session_expires_in_seconds": None,
+        "updated_at": None,
+    }
+    ws_runtime: dict = {
+        "configured_enabled_venues": 0,
+        "configured_disabled_venues": 0,
+        "active_markets": 0,
         "updated_at": None,
     }
     backfill_recent: list[dict] = []
@@ -400,6 +415,8 @@ def control_panel_ingestion(
 
         with psycopg.connect(db_url()) as conn:
             ensure_ingestion_failover_seed_data(conn)
+            ensure_ingestion_session_seed_data(conn)
+            ensure_ingestion_ws_seed_data(conn)
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -513,6 +530,103 @@ def control_panel_ingestion(
                         }
                     )
                 failover_runtime = ingestion_failover_runtime(conn)
+                session_runtime = ingestion_session_runtime(conn)
+                ws_runtime = ingestion_ws_runtime(conn)
+                cur.execute(
+                    """
+                    SELECT
+                      venue,
+                      enabled,
+                      auth_mode,
+                      token_ttl_seconds,
+                      refresh_lead_seconds,
+                      max_refresh_retries,
+                      lockout_cooldown_seconds,
+                      classify_401,
+                      classify_403,
+                      classify_429,
+                      classify_5xx,
+                      updated_by,
+                      updated_at
+                    FROM control_panel_ingestion_session_policy
+                    ORDER BY venue ASC
+                    """
+                )
+                for (
+                    venue,
+                    enabled,
+                    auth_mode,
+                    token_ttl_seconds,
+                    refresh_lead_seconds,
+                    max_refresh_retries,
+                    lockout_cooldown_seconds,
+                    classify_401,
+                    classify_403,
+                    classify_429,
+                    classify_5xx,
+                    updated_by,
+                    updated_at,
+                ) in cur.fetchall():
+                    session_policies.append(
+                        {
+                            "venue": str(venue),
+                            "enabled": bool(enabled),
+                            "auth_mode": str(auth_mode),
+                            "token_ttl_seconds": int(token_ttl_seconds or 0),
+                            "refresh_lead_seconds": int(refresh_lead_seconds or 0),
+                            "max_refresh_retries": int(max_refresh_retries or 0),
+                            "lockout_cooldown_seconds": int(lockout_cooldown_seconds or 0),
+                            "classify_401": str(classify_401),
+                            "classify_403": str(classify_403),
+                            "classify_429": str(classify_429),
+                            "classify_5xx": str(classify_5xx),
+                            "updated_by": str(updated_by),
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    SELECT
+                      venue,
+                      enabled,
+                      heartbeat_interval_seconds,
+                      stale_after_seconds,
+                      reconnect_backoff_seconds,
+                      max_backoff_seconds,
+                      jitter_pct,
+                      max_consecutive_failures,
+                      updated_by,
+                      updated_at
+                    FROM control_panel_ingestion_ws_policy
+                    ORDER BY venue ASC
+                    """
+                )
+                for (
+                    venue,
+                    enabled,
+                    heartbeat_interval_seconds,
+                    stale_after_seconds,
+                    reconnect_backoff_seconds,
+                    max_backoff_seconds,
+                    jitter_pct,
+                    max_consecutive_failures,
+                    updated_by,
+                    updated_at,
+                ) in cur.fetchall():
+                    ws_policies.append(
+                        {
+                            "venue": str(venue),
+                            "enabled": bool(enabled),
+                            "heartbeat_interval_seconds": int(heartbeat_interval_seconds or 0),
+                            "stale_after_seconds": int(stale_after_seconds or 0),
+                            "reconnect_backoff_seconds": int(reconnect_backoff_seconds or 0),
+                            "max_backoff_seconds": int(max_backoff_seconds or 0),
+                            "jitter_pct": float(jitter_pct or 0.0),
+                            "max_consecutive_failures": int(max_consecutive_failures or 0),
+                            "updated_by": str(updated_by),
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                        }
+                    )
 
                 cur.execute(
                     """
@@ -545,6 +659,10 @@ def control_panel_ingestion(
         "connector_health": connector_health,
         "failover_policies": failover_policies,
         "failover_runtime": failover_runtime,
+        "session_policies": session_policies,
+        "session_runtime": session_runtime,
+        "ws_policies": ws_policies,
+        "ws_runtime": ws_runtime,
         "coverage_rows": coverage_rows,
         "backfill_recent": backfill_recent,
         "replay_recent": replay_recent,
@@ -867,6 +985,182 @@ def control_panel_ingestion_failover_policy_update(
             "updated_at": datetime.now(timezone.utc).isoformat(),
         },
     }
+
+
+@app.post("/api/v1/control-panel/ingestion/session-policy")
+def control_panel_ingestion_session_policy_update(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    venue = str(payload.get("venue", "")).strip().lower()
+    if venue not in VALID_VENUES:
+        raise HTTPException(status_code=400, detail="invalid venue")
+    enabled = bool(payload.get("enabled", True))
+    auth_mode = str(payload.get("auth_mode", "token")).strip().lower() or "token"
+    token_ttl_seconds = int(payload.get("token_ttl_seconds", 1800))
+    refresh_lead_seconds = int(payload.get("refresh_lead_seconds", 120))
+    max_refresh_retries = int(payload.get("max_refresh_retries", 2))
+    lockout_cooldown_seconds = int(payload.get("lockout_cooldown_seconds", 60))
+    classify_401 = str(payload.get("classify_401", "session_expired")).strip()
+    classify_403 = str(payload.get("classify_403", "permission_denied")).strip()
+    classify_429 = str(payload.get("classify_429", "rate_limited")).strip()
+    classify_5xx = str(payload.get("classify_5xx", "upstream_unavailable")).strip()
+    justification = str(payload.get("justification", "")).strip()
+
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if token_ttl_seconds < 60 or token_ttl_seconds > 86400:
+        raise HTTPException(status_code=400, detail="token_ttl_seconds out of bounds")
+    if refresh_lead_seconds < 10 or refresh_lead_seconds >= token_ttl_seconds:
+        raise HTTPException(status_code=400, detail="refresh_lead_seconds out of bounds")
+    if max_refresh_retries < 0 or max_refresh_retries > 20:
+        raise HTTPException(status_code=400, detail="max_refresh_retries out of bounds")
+    if lockout_cooldown_seconds < 1 or lockout_cooldown_seconds > 3600:
+        raise HTTPException(status_code=400, detail="lockout_cooldown_seconds out of bounds")
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_ingestion_session_seed_data(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_session_policy (
+                  venue, enabled, auth_mode, token_ttl_seconds, refresh_lead_seconds,
+                  max_refresh_retries, lockout_cooldown_seconds,
+                  classify_401, classify_403, classify_429, classify_5xx,
+                  updated_by, updated_at
+                ) VALUES (
+                  %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
+                )
+                ON CONFLICT (venue) DO UPDATE
+                SET enabled = EXCLUDED.enabled,
+                    auth_mode = EXCLUDED.auth_mode,
+                    token_ttl_seconds = EXCLUDED.token_ttl_seconds,
+                    refresh_lead_seconds = EXCLUDED.refresh_lead_seconds,
+                    max_refresh_retries = EXCLUDED.max_refresh_retries,
+                    lockout_cooldown_seconds = EXCLUDED.lockout_cooldown_seconds,
+                    classify_401 = EXCLUDED.classify_401,
+                    classify_403 = EXCLUDED.classify_403,
+                    classify_429 = EXCLUDED.classify_429,
+                    classify_5xx = EXCLUDED.classify_5xx,
+                    updated_by = EXCLUDED.updated_by,
+                    updated_at = now()
+                """,
+                (
+                    venue,
+                    enabled,
+                    auth_mode,
+                    token_ttl_seconds,
+                    refresh_lead_seconds,
+                    max_refresh_retries,
+                    lockout_cooldown_seconds,
+                    classify_401,
+                    classify_403,
+                    classify_429,
+                    classify_5xx,
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.session_policy.update",
+            section="ingestion",
+            target=venue,
+            status="approved",
+            reason=None,
+            metadata={"justification": justification, "auth_mode": auth_mode, "enabled": enabled},
+        )
+        conn.commit()
+    return {"status": "accepted", "session": session, "result": {"venue": venue, "enabled": enabled, "updated_by": str(session["user_id"])}}
+
+
+@app.post("/api/v1/control-panel/ingestion/ws-policy")
+def control_panel_ingestion_ws_policy_update(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    venue = str(payload.get("venue", "")).strip().lower()
+    if venue not in VALID_VENUES:
+        raise HTTPException(status_code=400, detail="invalid venue")
+    enabled = bool(payload.get("enabled", True))
+    heartbeat_interval_seconds = int(payload.get("heartbeat_interval_seconds", 15))
+    stale_after_seconds = int(payload.get("stale_after_seconds", 45))
+    reconnect_backoff_seconds = int(payload.get("reconnect_backoff_seconds", 5))
+    max_backoff_seconds = int(payload.get("max_backoff_seconds", 120))
+    jitter_pct = float(payload.get("jitter_pct", 0.2))
+    max_consecutive_failures = int(payload.get("max_consecutive_failures", 5))
+    justification = str(payload.get("justification", "")).strip()
+
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if heartbeat_interval_seconds < 3 or heartbeat_interval_seconds > 300:
+        raise HTTPException(status_code=400, detail="heartbeat_interval_seconds out of bounds")
+    if stale_after_seconds <= heartbeat_interval_seconds or stale_after_seconds > 1800:
+        raise HTTPException(status_code=400, detail="stale_after_seconds out of bounds")
+    if reconnect_backoff_seconds < 1 or reconnect_backoff_seconds > 600:
+        raise HTTPException(status_code=400, detail="reconnect_backoff_seconds out of bounds")
+    if max_backoff_seconds < reconnect_backoff_seconds or max_backoff_seconds > 7200:
+        raise HTTPException(status_code=400, detail="max_backoff_seconds out of bounds")
+    if jitter_pct < 0.0 or jitter_pct > 1.0:
+        raise HTTPException(status_code=400, detail="jitter_pct out of bounds")
+    if max_consecutive_failures < 1 or max_consecutive_failures > 100:
+        raise HTTPException(status_code=400, detail="max_consecutive_failures out of bounds")
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_ingestion_ws_seed_data(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_ws_policy (
+                  venue, enabled, heartbeat_interval_seconds, stale_after_seconds,
+                  reconnect_backoff_seconds, max_backoff_seconds, jitter_pct, max_consecutive_failures,
+                  updated_by, updated_at
+                ) VALUES (
+                  %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
+                )
+                ON CONFLICT (venue) DO UPDATE
+                SET enabled = EXCLUDED.enabled,
+                    heartbeat_interval_seconds = EXCLUDED.heartbeat_interval_seconds,
+                    stale_after_seconds = EXCLUDED.stale_after_seconds,
+                    reconnect_backoff_seconds = EXCLUDED.reconnect_backoff_seconds,
+                    max_backoff_seconds = EXCLUDED.max_backoff_seconds,
+                    jitter_pct = EXCLUDED.jitter_pct,
+                    max_consecutive_failures = EXCLUDED.max_consecutive_failures,
+                    updated_by = EXCLUDED.updated_by,
+                    updated_at = now()
+                """,
+                (
+                    venue,
+                    enabled,
+                    heartbeat_interval_seconds,
+                    stale_after_seconds,
+                    reconnect_backoff_seconds,
+                    max_backoff_seconds,
+                    jitter_pct,
+                    max_consecutive_failures,
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.ws_policy.update",
+            section="ingestion",
+            target=venue,
+            status="approved",
+            reason=None,
+            metadata={"justification": justification, "enabled": enabled},
+        )
+        conn.commit()
+    return {"status": "accepted", "session": session, "result": {"venue": venue, "enabled": enabled, "updated_by": str(session["user_id"])}}
 
 
 def ensure_control_panel_risk_limits_table(conn: psycopg.Connection) -> None:
@@ -1306,6 +1600,49 @@ def ensure_control_panel_ingestion_failover_policy_table(conn: psycopg.Connectio
         )
 
 
+def ensure_control_panel_ingestion_session_policy_table(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_ingestion_session_policy (
+              venue TEXT PRIMARY KEY,
+              enabled BOOLEAN NOT NULL DEFAULT TRUE,
+              auth_mode TEXT NOT NULL DEFAULT 'token',
+              token_ttl_seconds INTEGER NOT NULL DEFAULT 1800,
+              refresh_lead_seconds INTEGER NOT NULL DEFAULT 120,
+              max_refresh_retries INTEGER NOT NULL DEFAULT 2,
+              lockout_cooldown_seconds INTEGER NOT NULL DEFAULT 60,
+              classify_401 TEXT NOT NULL DEFAULT 'session_expired',
+              classify_403 TEXT NOT NULL DEFAULT 'permission_denied',
+              classify_429 TEXT NOT NULL DEFAULT 'rate_limited',
+              classify_5xx TEXT NOT NULL DEFAULT 'upstream_unavailable',
+              updated_by TEXT NOT NULL,
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+
+def ensure_control_panel_ingestion_ws_policy_table(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_ingestion_ws_policy (
+              venue TEXT PRIMARY KEY,
+              enabled BOOLEAN NOT NULL DEFAULT TRUE,
+              heartbeat_interval_seconds INTEGER NOT NULL DEFAULT 15,
+              stale_after_seconds INTEGER NOT NULL DEFAULT 45,
+              reconnect_backoff_seconds INTEGER NOT NULL DEFAULT 5,
+              max_backoff_seconds INTEGER NOT NULL DEFAULT 120,
+              jitter_pct DOUBLE PRECISION NOT NULL DEFAULT 0.2,
+              max_consecutive_failures INTEGER NOT NULL DEFAULT 5,
+              updated_by TEXT NOT NULL,
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+
 def ensure_ingestion_failover_seed_data(conn: psycopg.Connection) -> None:
     ensure_control_panel_ingestion_failover_policy_table(conn)
     defaults = {
@@ -1365,6 +1702,44 @@ def ensure_ingestion_failover_seed_data(conn: psycopg.Connection) -> None:
             )
 
 
+def ensure_ingestion_session_seed_data(conn: psycopg.Connection) -> None:
+    ensure_control_panel_ingestion_session_policy_table(conn)
+    with conn.cursor() as cur:
+        for venue in sorted(VALID_VENUES):
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_session_policy (
+                  venue, enabled, auth_mode, token_ttl_seconds, refresh_lead_seconds,
+                  max_refresh_retries, lockout_cooldown_seconds,
+                  classify_401, classify_403, classify_429, classify_5xx, updated_by
+                ) VALUES (
+                  %s, TRUE, 'token', 1800, 120, 2, 60,
+                  'session_expired', 'permission_denied', 'rate_limited', 'upstream_unavailable', 'seed'
+                )
+                ON CONFLICT (venue) DO NOTHING
+                """,
+                (venue,),
+            )
+
+
+def ensure_ingestion_ws_seed_data(conn: psycopg.Connection) -> None:
+    ensure_control_panel_ingestion_ws_policy_table(conn)
+    with conn.cursor() as cur:
+        for venue in sorted(VALID_VENUES):
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_ws_policy (
+                  venue, enabled, heartbeat_interval_seconds, stale_after_seconds,
+                  reconnect_backoff_seconds, max_backoff_seconds, jitter_pct, max_consecutive_failures, updated_by
+                ) VALUES (
+                  %s, TRUE, 15, 45, 5, 120, 0.2, 5, 'seed'
+                )
+                ON CONFLICT (venue) DO NOTHING
+                """,
+                (venue,),
+            )
+
+
 def parse_secondary_endpoints(raw: object) -> list[str]:
     if raw is None:
         return []
@@ -1410,6 +1785,61 @@ def ingestion_failover_runtime(conn: psycopg.Connection) -> dict:
         "configured_disabled_venues": int(disabled_count or 0),
         "active_market_venues": sorted(active_market_venues),
         "degraded_market_venues": sorted(degraded_market_venues),
+        "updated_at": updated_at.isoformat() if updated_at else None,
+    }
+
+
+def ingestion_session_runtime(conn: psycopg.Connection) -> dict:
+    ensure_ingestion_session_seed_data(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              COUNT(*) FILTER (WHERE enabled = TRUE),
+              COUNT(*) FILTER (WHERE enabled = FALSE),
+              COALESCE(MAX(updated_at), now())
+            FROM control_panel_ingestion_session_policy
+            """
+        )
+        enabled_count, disabled_count, updated_at = cur.fetchone()
+    capital_expires_in = None
+    if _CAPITAL_SESSION_EXPIRY is not None:
+        capital_expires_in = max(0, int((_CAPITAL_SESSION_EXPIRY - datetime.now(timezone.utc)).total_seconds()))
+    return {
+        "configured_enabled_venues": int(enabled_count or 0),
+        "configured_disabled_venues": int(disabled_count or 0),
+        "capital_session_cached": bool(_CAPITAL_SESSION_HEADERS),
+        "capital_session_expires_in_seconds": capital_expires_in,
+        "updated_at": updated_at.isoformat() if updated_at else None,
+    }
+
+
+def ingestion_ws_runtime(conn: psycopg.Connection) -> dict:
+    ensure_ingestion_ws_seed_data(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              COUNT(*) FILTER (WHERE enabled = TRUE),
+              COUNT(*) FILTER (WHERE enabled = FALSE),
+              COALESCE(MAX(updated_at), now())
+            FROM control_panel_ingestion_ws_policy
+            """
+        )
+        enabled_count, disabled_count, updated_at = cur.fetchone()
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM venue_market
+            WHERE enabled = TRUE
+              AND ingest_enabled = TRUE
+            """
+        )
+        active_markets = int(cur.fetchone()[0] or 0)
+    return {
+        "configured_enabled_venues": int(enabled_count or 0),
+        "configured_disabled_venues": int(disabled_count or 0),
+        "active_markets": active_markets,
         "updated_at": updated_at.isoformat() if updated_at else None,
     }
 
