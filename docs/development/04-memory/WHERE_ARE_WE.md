@@ -1,6 +1,6 @@
 # Where Are We
 
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 
 ## Completed
 
@@ -85,7 +85,9 @@ Last updated: 2026-04-29
 - `DEV-00041` is closed with execution lifecycle guardrails and reconciliation SLA observability context.
 - `DEV-00042` is closed with authoritative portfolio reconciliation checks and drift alert emission.
 - `DEV-00043` is closed with end-to-end journal evidence fabric and incident bundle export baseline.
-- `DEV-00044` is in progress with program decomposition baseline and executable ticket-readiness gate.
+- `DEV-00044` is closed after completion of `DEV-00045..DEV-00051`; status is normalized across Kanban and memory artifacts.
+- `DEV-00057` is closed with control-panel program reconciliation completed in the same session.
+- `DEV-00063` is closed with sustained-load observability evidence captured and route parity fix applied for `/api/v1/charting/markets/available`.
 - `DEV-00045` is closed with target architecture freeze and migration compatibility contract artifacts.
 - `DEV-00046` is closed with backend foundation skeleton and `control-panel` compose service cutover.
 - `DEV-00047` is closed with control-panel domain router split and service-layer proxy extraction.
@@ -97,8 +99,8 @@ Last updated: 2026-04-29
 
 ## Next
 
-1. Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
-2. Prepare next roadmap slice after control-panel refactor epic closure.
+1. Prepare next roadmap slice after control-panel refactor/post-cutover hardening closure.
+2. Convert roadmap-next slice into a concrete ticket with acceptance criteria and verification pack.
 
 ## Risks/Blocks
 

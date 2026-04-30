@@ -1,6 +1,6 @@
 # Current State Snapshot
 
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 
 ## Where Are We Snapshot
 
@@ -232,7 +232,8 @@ Last updated: 2026-04-29
 - `DEV-00041` is closed with lifecycle transition safety and reconciliation SLA triage context.
 - `DEV-00042` is closed with authoritative reconciliation invariants and drift evidence emission.
 - `DEV-00043` is closed with taxonomy-versioned audit payloads and incident bundle export contract.
-- `DEV-00044` is in progress as the control-panel refactor program epic with executable baseline gate (`dev-0044`).
+- `DEV-00044` is closed after completion of `DEV-00045..DEV-00051`; closure state is normalized across Kanban and memory artifacts.
+- `DEV-00057` is closed with reconciliation completed for ticket/Kanban/memory status consistency.
 - `DEV-00045` is closed with architecture/migration contract freeze artifacts (`control-panel-service` LLD expansion + migration map + compatibility matrix).
 - `DEV-00046` is closed with backend modularization foundation (`services/control-panel`) and compose service-boundary rename.
 - `DEV-00047` is closed with domain router split and service-layer proxy extraction for control-panel APIs.
@@ -246,11 +247,12 @@ Last updated: 2026-04-29
 - `DEV-00055` is closed with architecture-level interpretation governance formalization: HLD integration plus dedicated LLD defining seven mandatory artifacts (ontology, rulebook, scenarios, output schema, RAG taxonomy, benchmark, prompt contract).
 - `DEV-00056` is closed with canonical liquidity ontology baseline documentation and explicit chart-layer legend semantics for project-wide analytical consistency (`dev-0055` gate).
 - Section 5.1 enforcement active (policy-as-code + hard gates) with migration batch completed.
+- `DEV-00063` is closed with sustained-load observability evidence captured and route parity fix applied for `/api/v1/charting/markets/available`.
 
 ### Next
 
-1. Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
-2. Prepare next roadmap slice after control-panel refactor epic closure.
+1. Prepare next roadmap slice after control-panel refactor/post-cutover hardening closure.
+2. Convert roadmap-next slice into a concrete ticket with acceptance criteria and verification pack.
 
 ### Risks/Blocks
 

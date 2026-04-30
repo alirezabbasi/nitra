@@ -1,15 +1,15 @@
 # NITRA Project Kanban
 
-Last updated: 2026-04-29
+Last updated: 2026-04-30
 
 ## Backlog
 
 - [x] `DEV-00043` journal/audit evidence fabric and incident bundle export.
-- [ ] Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
+- [ ] Prepare next roadmap slice after control-panel refactor epic closure.
 
 ## In Progress
 
-- [ ] `DEV-00044` control-panel service refactor program epic (monolith-to-modular production architecture).
+- [ ] (No active items)
 
 ## Done
 
@@ -70,6 +70,9 @@ Last updated: 2026-04-29
 - [x] `DEV-00054` chart liquidity-structure layer toggle (checkbox-enabled pullback/minor/major overlay model on any instrument + `dev-0054` pack).
 - [x] `DEV-00055` interpretation-governance architecture pack (HLD integration + dedicated LLD for ontology/rulebook/scenarios/schema/taxonomy/benchmark/prompt-contract).
 - [x] `DEV-00056` canonical liquidity ontology baseline + chart legend clarity (project-wide ontology doc + explicit in-layer semantic legend + `dev-0055` pack).
+- [x] `DEV-00044` control-panel service refactor program epic (monolith-to-modular production architecture) closed after completion of `DEV-00045..DEV-00051`; reconciliation/status-normalization tracked by `DEV-00057`.
+- [x] `DEV-00057` control-panel program reconciliation and closure hygiene (status normalization completed across Kanban + memory artifacts in same session).
+- [x] `DEV-00063` control-panel post-cutover observability revalidation (live sustained-load evidence captured; route parity fix applied for `/api/v1/charting/markets/available`).
 
 ## Blocked
 

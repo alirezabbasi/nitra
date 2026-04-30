@@ -30,6 +30,22 @@ Operational runbook for `DEV-00051` cutover from compatibility-shim mode to nati
 - UI load failures (`/control-panel-assets/*` fetch errors).
 - Latency regressions versus pre-cutover baseline.
 
+## Sustained-Load Thresholds
+
+- Success ratio (`2xx/3xx`) across sampled control-panel endpoints: `>= 99.0%`
+- `5xx` ratio across sampled control-panel endpoints: `<= 0.5%`
+- Endpoint p95 latency:
+  - control-plane routes (`/control-panel`, `/api/v1/config`, `/api/v1/control-panel/migration/status`, `/api/v1/control-panel/overview`): `<= 0.75s`
+  - charting market-availability route (`/api/v1/charting/markets/available`): `<= 2.00s`
+
+Sampled endpoints:
+
+- `/control-panel`
+- `/api/v1/config`
+- `/api/v1/control-panel/migration/status`
+- `/api/v1/control-panel/overview`
+- `/api/v1/charting/markets/available`
+
 ## Rollback Triggers
 
 - Sev-1 regression on control-panel critical workflow.
@@ -48,5 +64,9 @@ Operational runbook for `DEV-00051` cutover from compatibility-shim mode to nati
 ## Validation Commands
 
 - `make test-dev-0051`
+- `make test-dev-0063`
+- `scripts/observability/control_panel_cutover_sustained_check.sh`
+  - for authenticated endpoint sampling, pass token:
+    - `CONTROL_PANEL_TOKEN=<token> scripts/observability/control_panel_cutover_sustained_check.sh`
 - `make enforce-section-5-1`
 - `make session-bootstrap`

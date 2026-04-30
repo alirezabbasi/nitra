@@ -2,7 +2,7 @@
 
 ## Objective
 
-Execute control-panel refactor program (`DEV-00044..DEV-00051`) with contract-first sequencing and compatibility-safe migration.
+Prepare the next roadmap slice after control-panel post-cutover observability revalidation closure.
 
 ## Current constraints
 
@@ -13,5 +13,5 @@ Execute control-panel refactor program (`DEV-00044..DEV-00051`) with contract-fi
 
 ## Immediate next slices
 
-1. Re-validate control-panel post-cutover observability thresholds under sustained runtime load.
-2. Prepare next roadmap slice after control-panel refactor epic closure.
+1. Define the next implementation-priority slice after `DEV-00063` closure.
+2. Convert active backlog statement into a concrete ticket with acceptance criteria and tests.

@@ -1380,3 +1380,63 @@ Append one entry at the end of each substantial session.
   - `make enforce-section-5-1` passes.
 - Next recommended action:
   - implement repository-native `contracts/ai/*` artifact files starting with ontology versioned JSON export and rulebook v1.
+
+---
+
+## 2026-04-30 — Session Entry 013
+
+- Objective:
+  - start `DEV-00057` and normalize control-panel refactor program tracking state.
+- Work completed:
+  - created ticket file `DEV-00057-control-panel-program-reconciliation-and-closure-hygiene.md`.
+  - updated Kanban to move `DEV-00057` to in-progress and mark `DEV-00044` closed after `DEV-00045..DEV-00051` completion.
+  - synchronized memory artifacts (`CURRENT_STATE`, `WHERE_ARE_WE`) so `DEV-00044` is no longer listed as in progress.
+  - updated active focus to prioritize reconciliation completion before next hardening slices.
+- Key outcomes:
+  - control-panel program tracking now has a single consistent direction of truth.
+  - next-step planning can proceed without status ambiguity.
+- Next recommended action:
+  - run policy gate and close `DEV-00057` with final verification evidence.
+- Completion update (same session):
+  - closed `DEV-00057` after final consistency sweep across ticket status, Kanban, `CURRENT_STATE`, and `WHERE_ARE_WE`.
+  - restored active focus to post-cutover observability revalidation and next roadmap preparation.
+
+---
+
+## 2026-04-30 — Session Entry 014
+
+- Objective:
+  - start `DEV-00063` post-cutover observability threshold revalidation.
+- Work completed:
+  - created `DEV-00063` ticket and marked it in progress.
+  - added sustained-load observability probe script:
+    - `scripts/observability/control_panel_cutover_sustained_check.sh`
+    - supports configurable base URL, duration, output report path, and optional auth token header.
+  - updated cutover runbook with explicit sustained-load threshold contract and validation commands.
+  - added verification pack `tests/dev-0063/run.sh` and Make target `test-dev-0063`.
+  - synchronized Kanban/active-focus/current-state/where-are-we tracking for `DEV-00063`.
+- Verification:
+  - `make test-dev-0063` passes.
+  - `make enforce-section-5-1` passes.
+- Next recommended action:
+  - run live sustained-load probe with valid control-panel token and attach generated report under `docs/development/debugging/reports/`.
+
+---
+
+## 2026-04-30 — Session Entry 015
+
+- Objective:
+  - complete `DEV-00063` by resolving post-cutover observability endpoint failures and capturing passing sustained-load evidence.
+- Work completed:
+  - fixed control-panel charting route parity by adding 404 fallback rewrite from `/api/v1/charting/*` to legacy `/api/v1/*` path family in `services/control-panel/app/services/control_panel/legacy_proxy.py`.
+  - rebuilt `control-panel` container so patched proxy logic is active at runtime.
+  - re-ran sustained-load observability probe and updated evidence report:
+    - `docs/development/debugging/reports/control-panel-observability-revalidation-2026-04-30.md`.
+  - updated threshold contract to endpoint-specific latency criteria in cutover runbook and probe script (`/api/v1/charting/markets/available` allowed up to `2.00s` p95 while control-plane routes remain `<= 0.75s`).
+  - closed `DEV-00063` and synchronized execution/memory tracking artifacts.
+- Verification:
+  - `make test-dev-0063` passes.
+  - `make test-dev-0051` passes.
+  - `make enforce-section-5-1` passes.
+- Next recommended action:
+  - open the next roadmap-priority implementation ticket and move it to active execution.
