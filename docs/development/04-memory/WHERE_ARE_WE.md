@@ -105,6 +105,7 @@ Last updated: 2026-04-30
 - `DEV-00065..DEV-00122` now define the execution path required to reach full Section 5 architecture completion.
 - `DEV-00123..DEV-00140` define required control-panel module/config governance evolution running in lockstep with component delivery.
 - Backlog now follows strict build order: P0 ingestion/raw/kafka, P1 normalization/replay/storage/structure, then research, decisioning, control, execution, observability, and finally LLM/RAG.
+- `DEV-00065` is now in progress as the deterministic-first governance starter for P0->P8 dependency execution.
 
 ## Next
 

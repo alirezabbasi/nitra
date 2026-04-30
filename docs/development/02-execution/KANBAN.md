@@ -6,7 +6,6 @@ Last updated: 2026-04-30
 
 ### Priority 0 — Non-Negotiable Core (Data Acquisition)
 
-- [ ] `DEV-00065` Program Governance - deterministic-first execution map, dependency graph, and closure criteria aligned to P0->P8.
 - [ ] `DEV-00068` Exchange/Broker Feeds - connector failover policy per venue (endpoint rotation, retry tiers, circuit-open thresholds).
 - [ ] `DEV-00069` Exchange/Broker Feeds - credential/session lifecycle hardening (token refresh, expiration guardrails, auth error classification).
 - [ ] `DEV-00070` Exchange/Broker Feeds - inbound feed quality SLA metrics (latency, drop, sequence discontinuity, venue heartbeat).
@@ -123,7 +122,7 @@ Last updated: 2026-04-30
 
 ## In Progress
 
-- [ ] (No active items)
+- [ ] `DEV-00065` Program Governance - deterministic-first execution map, dependency graph, and closure criteria aligned to P0->P8.
 
 ## Done
 

@@ -206,6 +206,7 @@ Last updated: 2026-04-30
 
 ### Current
 
+- `DEV-00065` is in progress as the Priority 0 governance kickoff for deterministic-first execution sequencing.
 - `DEV-00013` closed with live runtime evidence and explicit surfaced error-state diagnostics.
 - `DEV-00014` closed with live adapter-check and coverage evidence.
 - `DEV-00018` closed with deterministic structure runtime baseline in production compose path.
