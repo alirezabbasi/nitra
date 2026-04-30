@@ -2,7 +2,7 @@
 
 ## Objective
 
-Execute the Section 5 completion backlog (`DEV-00065..DEV-00122`) with mandatory control-panel evolution stream (`DEV-00123..DEV-00140`) so every component has UI/config governance coverage.
+Execute the deterministic-first Section 5 completion plan in strict priority order (P0->P8), with mandatory control-panel integration for each component before closure.
 
 ## Current constraints
 
@@ -13,5 +13,5 @@ Execute the Section 5 completion backlog (`DEV-00065..DEV-00122`) with mandatory
 
 ## Immediate next slices
 
-1. Start `DEV-00065` with paired `DEV-00123` to establish completion map plus control-panel governance cockpit.
-2. Execute each architecture component ticket with its mapped control-panel companion ticket (`DEV-00124..DEV-00140`) before marking the component fully done.
+1. Start Priority 0 only: `DEV-00065`, `DEV-00068..DEV-00076`, `DEV-00141..DEV-00143` with control-panel companions `DEV-00124..DEV-00126`.
+2. Block advancement to P2+ until P0 and P1 deterministic gates are complete and evidenced.

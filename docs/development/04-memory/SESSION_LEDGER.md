@@ -1504,3 +1504,18 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - execute component and control-panel companion tickets in paired order so feature delivery and control-plane capability stay aligned.
+
+---
+
+## 2026-04-30 — Session Entry 020
+
+- Objective:
+  - realign execution backlog to deterministic-first architecture priorities.
+- Work completed:
+  - reordered backlog into strict priority bands P0->P8 based on deterministic data/replay/risk/execution-first guidance.
+  - added missing atomic core tickets for websocket/session hardening, adaptive rate-limit governance, untouched raw-message capture conformance, risk-policy composition contract, and execution idempotency/state-machine conformance.
+  - moved ML/LLM-related work explicitly behind deterministic core completion and reflected this in active-focus/memory next steps.
+- Verification:
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - start P0 execution only, with paired control-panel modules, and block P2+ work until P0/P1 deterministic gates are complete.

@@ -252,11 +252,12 @@ Last updated: 2026-04-30
 - Section 5 remaining architecture scope is decomposed into atomic component tickets `DEV-00065..DEV-00122` and added to backlog as the completion path to `100%`.
 - Added mandatory control-panel companion ticket stream `DEV-00123..DEV-00140` so each remaining Section 5 component ships with explicit UI section coverage and configuration management controls.
 - Elevated control-panel governance to global policy (`docs/ruleset.md` Rule 16) and added dedicated product/UI architecture document (`docs/design/control-panel-product-and-ui.md`).
+- Rebased remaining Section 5 backlog to deterministic-first build order (P0->P8), explicitly deferring Feast/Ray/MLflow maturity and LLM/RAG to later priorities.
 
 ### Next
 
-1. Start paired governance kickoff `DEV-00065` + `DEV-00123` (completion map + control-panel cockpit baseline).
-2. Enforce paired execution for each remaining component ticket and its control-panel companion ticket before closure (`DEV-00066..DEV-00122` with `DEV-00124..DEV-00140` mappings).
+1. Execute Priority 0 (ingestion + raw lake + Kafka) with deterministic evidence and paired control-panel modules.
+2. Execute Priority 1 (normalization/replay + timeseries + structure) before any higher-priority ML/LLM work.
 
 ### Risks/Blocks
 
@@ -270,7 +271,7 @@ Last updated: 2026-04-30
 ## Program status
 
 - Overall project phase: transition from ingestion baseline to core deterministic engine implementation.
-- Active focus: Section 5 full-completion execution plus mandatory control-panel evolution coverage (`DEV-00065..DEV-00122` + `DEV-00123..DEV-00140`).
+- Active focus: deterministic-first execution (P0->P8) with mandatory control-panel parity for each component.
 
 ## Architecture coverage (HLD Section 5)
 

@@ -59,6 +59,7 @@ Last updated: 2026-04-30
 - Decomposed all remaining HLD Section 5 architecture scope into atomic component tickets `DEV-00065..DEV-00122` and queued them in Kanban backlog.
 - Added mandatory control-panel companion stream `DEV-00123..DEV-00140` to ensure each remaining component has explicit operator UI section(s) and configuration management workflows.
 - Added global rule requiring control-panel integration for every new feature and published dedicated control-panel product/UI architecture doc in `docs/design/`.
+- Reordered remaining roadmap into deterministic-first priorities (P0->P8): data/replay/risk/execution first; ML/LLM layers explicitly later.
 
 ## Current
 
@@ -103,11 +104,12 @@ Last updated: 2026-04-30
 - `DEV-00064` remains a completed roadmap-conversion artifact.
 - `DEV-00065..DEV-00122` now define the execution path required to reach full Section 5 architecture completion.
 - `DEV-00123..DEV-00140` define required control-panel module/config governance evolution running in lockstep with component delivery.
+- Backlog now follows strict build order: P0 ingestion/raw/kafka, P1 normalization/replay/storage/structure, then research, decisioning, control, execution, observability, and finally LLM/RAG.
 
 ## Next
 
-1. Start paired kickoff `DEV-00065` + `DEV-00123` to anchor both architecture completion and control-panel governance visibility.
-2. Execute remaining component work with paired control-panel tickets so no component closes without UI/config coverage.
+1. Execute P0 deterministic acquisition foundation and its control-panel modules first.
+2. Execute P1 deterministic integrity/replay/structure foundation before any P2+ scope.
 
 ## Risks/Blocks
 
