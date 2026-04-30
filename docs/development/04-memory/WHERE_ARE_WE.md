@@ -57,6 +57,7 @@ Last updated: 2026-04-30
 - `DEV-00043` completed: taxonomy-versioned execution audit payloads and incident evidence bundle export contract delivered with regression checks.
 - Converted the remaining roadmap backlog item into concrete ticket `DEV-00064` with acceptance criteria and `dev-0064` verification pack.
 - Decomposed all remaining HLD Section 5 architecture scope into atomic component tickets `DEV-00065..DEV-00122` and queued them in Kanban backlog.
+- Added mandatory control-panel companion stream `DEV-00123..DEV-00140` to ensure each remaining component has explicit operator UI section(s) and configuration management workflows.
 
 ## Current
 
@@ -100,11 +101,12 @@ Last updated: 2026-04-30
 - `DEV-00052` is closed with live-adapter reconciliation/runbook evidence capture expansion and verification gate coverage.
 - `DEV-00064` remains a completed roadmap-conversion artifact.
 - `DEV-00065..DEV-00122` now define the execution path required to reach full Section 5 architecture completion.
+- `DEV-00123..DEV-00140` define required control-panel module/config governance evolution running in lockstep with component delivery.
 
 ## Next
 
-1. Start `DEV-00065` governance dependency map and sequence the full `DEV-00066..DEV-00122` delivery path.
-2. Begin implementation with highest dependency blockers: Feature Platform (`DEV-00086..DEV-00090`) and Ray Serve online inference (`DEV-00096..DEV-00099`).
+1. Start paired kickoff `DEV-00065` + `DEV-00123` to anchor both architecture completion and control-panel governance visibility.
+2. Execute remaining component work with paired control-panel tickets so no component closes without UI/config coverage.
 
 ## Risks/Blocks
 

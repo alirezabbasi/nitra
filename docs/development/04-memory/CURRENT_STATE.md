@@ -250,11 +250,12 @@ Last updated: 2026-04-30
 - `DEV-00063` is closed with sustained-load observability evidence captured and route parity fix applied for `/api/v1/charting/markets/available`.
 - Roadmap conversion backlog item is closed by registering `DEV-00064` with explicit acceptance criteria and verification target (`test-dev-0064`).
 - Section 5 remaining architecture scope is decomposed into atomic component tickets `DEV-00065..DEV-00122` and added to backlog as the completion path to `100%`.
+- Added mandatory control-panel companion ticket stream `DEV-00123..DEV-00140` so each remaining Section 5 component ships with explicit UI section coverage and configuration management controls.
 
 ### Next
 
-1. Start `DEV-00065` and finalize dependency-ordered execution for `DEV-00066..DEV-00122`.
-2. Execute highest-dependency architecture blockers first: Feature Platform (`DEV-00086..DEV-00090`) and Online Inference (`DEV-00096..DEV-00099`).
+1. Start paired governance kickoff `DEV-00065` + `DEV-00123` (completion map + control-panel cockpit baseline).
+2. Enforce paired execution for each remaining component ticket and its control-panel companion ticket before closure (`DEV-00066..DEV-00122` with `DEV-00124..DEV-00140` mappings).
 
 ### Risks/Blocks
 
@@ -268,7 +269,7 @@ Last updated: 2026-04-30
 ## Program status
 
 - Overall project phase: transition from ingestion baseline to core deterministic engine implementation.
-- Active focus: Section 5 full-completion execution across atomic component tickets (`DEV-00065..DEV-00122`).
+- Active focus: Section 5 full-completion execution plus mandatory control-panel evolution coverage (`DEV-00065..DEV-00122` + `DEV-00123..DEV-00140`).
 
 ## Architecture coverage (HLD Section 5)
 

@@ -2,7 +2,7 @@
 
 ## Objective
 
-Execute the Section 5 completion backlog (`DEV-00065..DEV-00122`) to drive the architecture from current state to `100%` completion.
+Execute the Section 5 completion backlog (`DEV-00065..DEV-00122`) with mandatory control-panel evolution stream (`DEV-00123..DEV-00140`) so every component has UI/config governance coverage.
 
 ## Current constraints
 
@@ -13,5 +13,5 @@ Execute the Section 5 completion backlog (`DEV-00065..DEV-00122`) to drive the a
 
 ## Immediate next slices
 
-1. Start `DEV-00065` program-governance completion map and finalize dependency-ordered execution plan for `DEV-00066..DEV-00122`.
-2. Begin component execution with highest dependency blockers: Feast feature platform (`DEV-00086..DEV-00090`) and Ray Serve inference layer (`DEV-00096..DEV-00099`).
+1. Start `DEV-00065` with paired `DEV-00123` to establish completion map plus control-panel governance cockpit.
+2. Execute each architecture component ticket with its mapped control-panel companion ticket (`DEV-00124..DEV-00140`) before marking the component fully done.

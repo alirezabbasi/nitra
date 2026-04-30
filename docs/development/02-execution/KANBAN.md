@@ -62,6 +62,24 @@ Last updated: 2026-04-30
 - [ ] `DEV-00120` Component: Security & Control Boundaries - immutable audit-log integrity checks and tamper-evidence verification.
 - [ ] `DEV-00121` Component: Security & Control Boundaries - production promotion approval workflow for model/LLM artifacts with RBAC + dual control.
 - [ ] `DEV-00122` Component: Final Completion - full Section 5 replay/paper/live readiness evidence bundle and final `100%` closure report.
+- [ ] `DEV-00123` Control Panel Component: Program Governance cockpit - Section 5 completion board, dependency graph, and closure gate status views.
+- [ ] `DEV-00124` Control Panel Component: Exchange/Broker Feeds ops module - connector health matrix, failover controls, credential/session status, and guarded config edits.
+- [ ] `DEV-00125` Control Panel Component: Raw Data Lake module - archive partition browser, replay manifest explorer, retention/tiering policy controls.
+- [ ] `DEV-00126` Control Panel Component: Kafka Backbone module - topic SLO dashboards, lag/recovery actions, partition/retention configuration management.
+- [ ] `DEV-00127` Control Panel Component: Normalization/Replay module - quarantine queue triage, sequence integrity reports, startup-coverage conformance console.
+- [ ] `DEV-00128` Control Panel Component: Structure Engine module - rule-state inspector, snapshot version browser, benchmark/regression evidence panel.
+- [ ] `DEV-00129` Control Panel Component: Time-Series Storage module - aggregate/compression policy management, query performance diagnostics, retention controls.
+- [ ] `DEV-00130` Control Panel Component: Feature Platform (Feast) module - feature view registry UI, online/offline store status, skew/parity health views, version lifecycle controls.
+- [ ] `DEV-00131` Control Panel Component: Research/Backtesting module expansion - dataset builder orchestration, walk-forward/labelling controls, experiment-run governance.
+- [ ] `DEV-00132` Control Panel Component: Online Inference (Ray Serve) module - deployment topology, scaling/time-budget controls, shadow parity and contract-check monitors.
+- [ ] `DEV-00133` Control Panel Component: Risk & Portfolio module expansion - hard-limit policy matrix editor, stress/reconciliation run controls, fail-closed posture dashboard.
+- [ ] `DEV-00134` Control Panel Component: Execution module expansion - lifecycle conformance monitor, retry/timeout tuning controls, orphan reconciliation cockpit.
+- [ ] `DEV-00135` Control Panel Component: AI Reasoning & Memory module - retrieval/index ops, prompt/contract governance, analyst/critic policy-compliance visibility.
+- [ ] `DEV-00136` Control Panel Component: Observability/Audit/Governance module expansion - trace lineage explorer, SLO dashboard registry, alert-routing policy management.
+- [ ] `DEV-00137` Control Panel Component: Platform Topology module - Kubernetes workload/environment parity views and controlled deployment/config actions.
+- [ ] `DEV-00138` Control Panel Component: Security & Control Boundaries module - service auth policy center, audit-integrity checks, dual-approval governance console.
+- [ ] `DEV-00139` Control Panel Foundation: unified configuration registry integration for all new modules (typed schema, validation, RBAC, approval, rollback).
+- [ ] `DEV-00140` Control Panel Finalization: end-to-end UX/RBAC/audit consistency pass across `DEV-00123..DEV-00139` with completion evidence for Section 5 closure.
 
 ## In Progress
 

@@ -1473,3 +1473,18 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - start `DEV-00065` and dependency-order the full backlog execution path before implementation begins.
+
+---
+
+## 2026-04-30 — Session Entry 018
+
+- Objective:
+  - enforce control-panel evolution parity for all remaining architecture components.
+- Work completed:
+  - added control-panel companion backlog tickets `DEV-00123..DEV-00140` mapped to Section 5 component workstream `DEV-00065..DEV-00122`.
+  - ensured ticket framing includes explicit UI section coverage and configuration-management responsibilities for each component domain.
+  - synchronized active focus and memory files to require paired component + control-panel execution before completion.
+- Verification:
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - begin paired kickoff `DEV-00065` + `DEV-00123`, then enforce one-to-one component/control-panel closure sequencing.
