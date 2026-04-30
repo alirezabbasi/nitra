@@ -206,6 +206,8 @@ Last updated: 2026-05-01
 
 ### Current
 
+- `DEV-00068` is in progress as the first P0 feeds reliability implementation ticket.
+- `DEV-00124` is in progress as the paired control-panel feeds operations module kickoff.
 - `DEV-00065` is closed with governance deliverables published: deterministic dependency map + Section 5 closure criteria contract + executable verification target (`test-dev-0065`).
 - `DEV-00013` closed with live runtime evidence and explicit surfaced error-state diagnostics.
 - `DEV-00014` closed with live adapter-check and coverage evidence.

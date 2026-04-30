@@ -106,11 +106,12 @@ Last updated: 2026-05-01
 - `DEV-00123..DEV-00140` define required control-panel module/config governance evolution running in lockstep with component delivery.
 - Backlog now follows strict build order: P0 ingestion/raw/kafka, P1 normalization/replay/storage/structure, then research, decisioning, control, execution, observability, and finally LLM/RAG.
 - `DEV-00065` is now closed with governance deliverables completed (`DETERMINISTIC_EXECUTION_DEPENDENCY_MAP.md`, `SECTION5_CLOSURE_CRITERIA.md`, `test-dev-0065`).
+- `DEV-00068` and `DEV-00124` are now in progress as the paired P0 implementation kickoff.
 
 ## Next
 
-1. Start paired P0 implementation kickoff: `DEV-00068` + `DEV-00124`.
-2. Continue through remaining P0 feed/raw/Kafka tickets and companions before entering P1.
+1. Deliver `DEV-00068` failover policy implementation and verification evidence.
+2. Deliver `DEV-00124` control-panel feeds ops surface in lockstep with `DEV-00068`.
 
 ## Risks/Blocks
 

@@ -1587,3 +1587,18 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - start paired P0 implementation tickets `DEV-00068` and `DEV-00124`.
+
+---
+
+## 2026-05-01 — Session Entry 025
+
+- Objective:
+  - start paired P0 implementation kickoff tickets `DEV-00068` + `DEV-00124`.
+- Work completed:
+  - moved `DEV-00068` and `DEV-00124` from backlog to in-progress in Kanban.
+  - updated both ticket files to `In Progress (2026-05-01)`.
+  - synchronized memory artifacts (`CURRENT_STATE`, `WHERE_ARE_WE`) to reflect active paired kickoff state.
+- Verification:
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - implement `DEV-00068` failover policy contracts and deliver paired control-panel controls in `DEV-00124`.

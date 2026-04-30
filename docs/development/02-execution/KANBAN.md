@@ -6,7 +6,6 @@ Last updated: 2026-05-01
 
 ### Priority 0 — Non-Negotiable Core (Data Acquisition)
 
-- [ ] `DEV-00068` Exchange/Broker Feeds - connector failover policy per venue (endpoint rotation, retry tiers, circuit-open thresholds).
 - [ ] `DEV-00069` Exchange/Broker Feeds - credential/session lifecycle hardening (token refresh, expiration guardrails, auth error classification).
 - [ ] `DEV-00070` Exchange/Broker Feeds - inbound feed quality SLA metrics (latency, drop, sequence discontinuity, venue heartbeat).
 - [ ] `DEV-00141` Exchange/Broker Feeds - websocket/session manager hardening (heartbeat, reconnect jitter/backoff, stale-session detection).
@@ -18,7 +17,6 @@ Last updated: 2026-05-01
 - [ ] `DEV-00074` Kafka Backbone - topic-level SLO and partition/retention right-sizing policy with enforcement checks.
 - [ ] `DEV-00075` Kafka Backbone - consumer lag recovery automation and dead-letter replay workflow hardening.
 - [ ] `DEV-00076` Kafka Backbone - schema compatibility CI gate for backward/forward validation across all runtime topics.
-- [ ] `DEV-00124` Control Panel (P0) - feeds operations module (health/failover/session/limit controls + guarded config).
 - [ ] `DEV-00125` Control Panel (P0) - raw data lake module (partition browser, replay manifest, retention controls).
 - [ ] `DEV-00126` Control Panel (P0) - Kafka module (topic SLOs, lag recovery controls, partition/retention management).
 
@@ -122,7 +120,8 @@ Last updated: 2026-05-01
 
 ## In Progress
 
-- [ ] (No active items)
+- [ ] `DEV-00068` Exchange/Broker Feeds - connector failover policy per venue (endpoint rotation, retry tiers, circuit-open thresholds).
+- [ ] `DEV-00124` Control Panel (P0) - feeds operations module (health/failover/session/limit controls + guarded config).
 
 ## Done
 
