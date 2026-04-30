@@ -4,8 +4,7 @@ Last updated: 2026-04-30
 
 ## Backlog
 
-- [x] `DEV-00043` journal/audit evidence fabric and incident bundle export.
-- [x] Prepare next roadmap slice after control-panel refactor epic closure (converted into `DEV-00064` with acceptance criteria + `dev-0064` verification pack).
+- [ ] (No backlog items)
 
 ## In Progress
 
