@@ -86,17 +86,19 @@ fn parse_ts(raw: Option<&str>) -> Option<DateTime<Utc>> {
         })
 }
 
-fn minute_bucket(ts: DateTime<Utc>) -> DateTime<Utc> {
-    ts.with_second(0)
+fn ten_second_bucket(ts: DateTime<Utc>) -> DateTime<Utc> {
+    let sec = ts.second();
+    let floored = (sec / 10) * 10;
+    ts.with_second(floored)
         .and_then(|v| v.with_nanosecond(0))
         .unwrap_or(ts)
 }
 
-fn expected_minutes(start: DateTime<Utc>, end: DateTime<Utc>) -> i64 {
+fn expected_buckets_10s(start: DateTime<Utc>, end: DateTime<Utc>) -> i64 {
     if end < start {
         return 0;
     }
-    (end - start).num_minutes() + 1
+    (end - start).num_seconds() / 10 + 1
 }
 
 fn parse_capital_epic_map(raw: &str) -> HashMap<String, String> {
@@ -239,7 +241,7 @@ fn parse_capital_price(value: &Value) -> Option<f64> {
 
 fn parse_utc_minute(raw: &str) -> Option<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(raw)
-        .map(|v| minute_bucket(v.with_timezone(&Utc)))
+        .map(|v| ten_second_bucket(v.with_timezone(&Utc)))
         .ok()
 }
 
@@ -255,7 +257,7 @@ async fn fetch_oanda_history_bars(
 
     let instrument = symbol_for_oanda(cfg, &command.canonical_symbol, broker_symbols);
     let start = command.start_ts.to_rfc3339();
-    let end = (command.end_ts + ChronoDuration::minutes(1)).to_rfc3339();
+    let end = (command.end_ts + ChronoDuration::seconds(10)).to_rfc3339();
     let url = format!(
         "{}/v3/instruments/{}/candles",
         cfg.oanda_rest_url.trim_end_matches('/'),
@@ -350,7 +352,7 @@ async fn fetch_coinbase_history_bars(
 ) -> Result<Vec<BarRow>, String> {
     let product = symbol_for_coinbase(&command.canonical_symbol);
     let start = command.start_ts.to_rfc3339();
-    let end = (command.end_ts + ChronoDuration::minutes(1)).to_rfc3339();
+    let end = (command.end_ts + ChronoDuration::seconds(10)).to_rfc3339();
 
     let primary_url = format!(
         "{}/products/{}/candles",
@@ -428,7 +430,7 @@ async fn fetch_coinbase_history_bars(
         product
     );
     let fallback_start = command.start_ts.timestamp().to_string();
-    let fallback_end = (command.end_ts + ChronoDuration::minutes(1))
+    let fallback_end = (command.end_ts + ChronoDuration::seconds(10))
         .timestamp()
         .to_string();
     let fallback = client
@@ -612,7 +614,7 @@ async fn fetch_capital_history_bars(
 ) -> Result<Vec<BarRow>, String> {
     let mut headers = capital_session_headers(client, cfg).await?;
     let from = command.start_ts.format("%Y-%m-%dT%H:%M:%S").to_string();
-    let to = (command.end_ts + ChronoDuration::minutes(1))
+    let to = (command.end_ts + ChronoDuration::seconds(10))
         .format("%Y-%m-%dT%H:%M:%S")
         .to_string();
 
@@ -734,8 +736,8 @@ async fn fetch_venue_history_bars(
         .map_err(|e| format!("history client build error: {e}"))?;
 
     let chunk_minutes = venue_chunk_minutes(&command.venue).max(1);
-    let mut cursor = minute_bucket(command.start_ts);
-    let end = minute_bucket(command.end_ts);
+    let mut cursor = ten_second_bucket(command.start_ts);
+    let end = ten_second_bucket(command.end_ts);
 
     let mut by_bucket: HashMap<DateTime<Utc>, BarRow> = HashMap::new();
     while cursor <= end {
@@ -767,7 +769,7 @@ async fn fetch_venue_history_bars(
         for row in window_rows {
             by_bucket.insert(row.bucket_start, row);
         }
-        cursor = window_end + ChronoDuration::minutes(1);
+        cursor = window_end + ChronoDuration::seconds(10);
     }
 
     let mut out = by_bucket.into_values().collect::<Vec<_>>();
@@ -815,7 +817,7 @@ fn parse_replay_command(payload: &Value) -> Option<ReplayCommand> {
     let timeframe = payload
         .get("timeframe")
         .and_then(|v| v.as_str())
-        .unwrap_or("1m")
+        .unwrap_or("10s")
         .to_string();
 
     let start_ts = parse_ts(payload.get("start_ts").and_then(|v| v.as_str()))?;
@@ -826,8 +828,8 @@ fn parse_replay_command(payload: &Value) -> Option<ReplayCommand> {
         venue,
         canonical_symbol,
         timeframe,
-        start_ts: minute_bucket(start_ts),
-        end_ts: minute_bucket(end_ts),
+        start_ts: ten_second_bucket(start_ts),
+        end_ts: ten_second_bucket(end_ts),
         dry_run: payload
             .get("dry_run")
             .and_then(|v| v.as_bool())
@@ -888,7 +890,7 @@ async fn ensure_tables(conn: &Client) -> Result<(), tokio_postgres::Error> {
           gap_id UUID,
           venue TEXT NOT NULL,
           canonical_symbol TEXT NOT NULL,
-          timeframe TEXT NOT NULL DEFAULT '1m',
+          timeframe TEXT NOT NULL DEFAULT '10s',
           range_start TIMESTAMPTZ NOT NULL,
           range_end TIMESTAMPTZ NOT NULL,
           status TEXT NOT NULL DEFAULT 'queued',
@@ -919,7 +921,7 @@ async fn ensure_tables(conn: &Client) -> Result<(), tokio_postgres::Error> {
           gap_id UUID PRIMARY KEY,
           venue TEXT NOT NULL,
           canonical_symbol TEXT NOT NULL,
-          timeframe TEXT NOT NULL DEFAULT '1m',
+          timeframe TEXT NOT NULL DEFAULT '10s',
           gap_start TIMESTAMPTZ NOT NULL,
           gap_end TIMESTAMPTZ NOT NULL,
           detected_at TIMESTAMPTZ NOT NULL,
@@ -1027,7 +1029,7 @@ async fn fetch_aggregated_bars(
     command: &ReplayCommand,
     broker_symbols: &[String],
 ) -> Result<Vec<BarRow>, tokio_postgres::Error> {
-    let end_exclusive = command.end_ts + ChronoDuration::minutes(1);
+    let end_exclusive = command.end_ts + ChronoDuration::seconds(10);
 
     let rows = conn
         .query(
@@ -1095,7 +1097,7 @@ async fn upsert_ohlcv_bars(
                 INSERT INTO ohlcv_bar (
                   venue, canonical_symbol, timeframe, bucket_start,
                   open, high, low, close, volume, trade_count, last_event_ts
-                ) VALUES ($1,$2,'1m',$3,$4,$5,$6,$7,$8,$9,$10)
+                ) VALUES ($1,$2,'10s',$3,$4,$5,$6,$7,$8,$9,$10)
                 ON CONFLICT (venue, canonical_symbol, timeframe, bucket_start)
                 DO UPDATE SET
                   open = EXCLUDED.open,
@@ -1139,7 +1141,7 @@ async fn is_range_complete(
             FROM ohlcv_bar
             WHERE venue = $1
               AND canonical_symbol = $2
-              AND timeframe = '1m'
+              AND timeframe = '10s'
               AND bucket_start >= $3
               AND bucket_start <= $4
             ",
@@ -1153,7 +1155,7 @@ async fn is_range_complete(
         .await?;
 
     let actual: i64 = row.get(0);
-    Ok(actual >= expected_minutes(command.start_ts, command.end_ts))
+    Ok(actual >= expected_buckets_10s(command.start_ts, command.end_ts))
 }
 
 async fn update_backfill_job_status(
@@ -1168,7 +1170,7 @@ async fn update_backfill_job_status(
             updated_at = now()
         WHERE venue = $2
           AND canonical_symbol = $3
-          AND timeframe = '1m'
+          AND timeframe = '10s'
           AND range_start = $4
           AND range_end = $5
         ",
@@ -1196,7 +1198,7 @@ async fn mark_backfill_jobs_running(
             updated_at = now()
         WHERE venue = $1
           AND canonical_symbol = $2
-          AND timeframe = '1m'
+          AND timeframe = '10s'
           AND range_start = $3
           AND range_end = $4
           AND status IN ('queued', 'failed_no_source_data', 'partial')
@@ -1246,7 +1248,7 @@ async fn resolve_completed_gaps_for_symbol(
             FROM gap_log
             WHERE venue = $1
               AND canonical_symbol = $2
-              AND timeframe = '1m'
+              AND timeframe = '10s'
               AND status IN ('open', 'backfill_queued')
             ",
             &[&venue, &symbol],
@@ -1265,7 +1267,7 @@ async fn resolve_completed_gaps_for_symbol(
                 FROM ohlcv_bar
                 WHERE venue = $1
                   AND canonical_symbol = $2
-                  AND timeframe = '1m'
+                  AND timeframe = '10s'
                   AND bucket_start >= $3
                   AND bucket_start <= $4
                 ",
@@ -1274,7 +1276,7 @@ async fn resolve_completed_gaps_for_symbol(
             .await?;
 
         let actual: i64 = row_count.get(0);
-        if actual >= expected_minutes(gap_start, gap_end) {
+        if actual >= expected_buckets_10s(gap_start, gap_end) {
             conn.execute(
                 "
                 UPDATE gap_log
@@ -1298,7 +1300,7 @@ async fn process_replay_command(
     registry: &HashMap<(String, String), Vec<String>>,
     history_cfg: &HistoryFetchConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if command.timeframe != "1m" {
+    if command.timeframe != "10s" {
         update_replay_audit(
             conn,
             command.replay_id,
@@ -1558,7 +1560,7 @@ mod tests {
         let end = DateTime::parse_from_rfc3339("2026-04-24T00:02:00Z")
             .expect("end")
             .with_timezone(&Utc);
-        assert_eq!(expected_minutes(start, end), 3);
+        assert_eq!(expected_buckets_10s(start, end), 3);
     }
 
     #[test]

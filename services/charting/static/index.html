@@ -661,6 +661,7 @@
           <div id="market-dropdown" class="combo-menu hidden"></div>
         </div>
         <select id="timeframe-select" class="select" title="Timeframe">
+          <option value="10s">10s</option>
           <option value="1m">1m</option>
           <option value="5m">5m</option>
           <option value="15m">15m</option>
@@ -1124,7 +1125,7 @@
       });
 
       const state = {
-        timeframe: "1m",
+        timeframe: "10s",
         locale: "en-US",
         timezone: "UTC",
         zoomAnchor: "cursor",
@@ -3268,8 +3269,8 @@
         let payload = await getJson(`/api/v1/markets/available?timeframe=${encodeURIComponent(state.timeframe)}`);
         let markets = payload.markets || [];
 
-        if (!markets.length && state.timeframe !== "1m") {
-          payload = await getJson("/api/v1/markets/available?timeframe=1m");
+        if (!markets.length && state.timeframe !== "10s") {
+          payload = await getJson("/api/v1/markets/available?timeframe=10s");
           markets = payload.markets || [];
         }
 
@@ -3304,16 +3305,16 @@
         setStatus("Loading candles...");
         let bars = await fetchBars(state.selected.venue, state.selected.symbol, state.timeframe, 700);
 
-        let derivedFromOneMinute = false;
-        if (!bars.length && state.timeframe !== "1m") {
-          const ratio = Math.max(1, Math.round(timeframeToMs(state.timeframe) / 60_000));
-          const oneMinuteLimit = Math.min(3000, 700 * ratio);
-          const oneMinuteBars = await fetchBars(state.selected.venue, state.selected.symbol, "1m", oneMinuteLimit);
-          bars = aggregateBarsFromLowerTf(oneMinuteBars, state.timeframe).slice(-700);
-          derivedFromOneMinute = bars.length > 0;
+        let derivedFromBase = false;
+        if (!bars.length && state.timeframe !== "10s") {
+          const ratio = Math.max(1, Math.round(timeframeToMs(state.timeframe) / 10_000));
+          const baseLimit = Math.min(9000, 700 * ratio);
+          const baseBars = await fetchBars(state.selected.venue, state.selected.symbol, "10s", baseLimit);
+          bars = aggregateBarsFromLowerTf(baseBars, state.timeframe).slice(-700);
+          derivedFromBase = bars.length > 0;
         }
 
-        state.derivedFromOneMinute = derivedFromOneMinute;
+        state.derivedFromOneMinute = derivedFromBase;
         state.persistedBars = bars;
         state.liveBars = bars.map((b) => ({ ...b }));
 
@@ -3344,8 +3345,8 @@
         syncLiquidityLayer();
         scheduleLayoutSave();
 
-        if (derivedFromOneMinute) {
-          setStatus(`${state.liveBars.length} candles · derived from 1m`);
+        if (derivedFromBase) {
+          setStatus(`${state.liveBars.length} candles · derived from 10s`);
         } else {
           setStatus(`${state.liveBars.length} candles · live on`);
         }

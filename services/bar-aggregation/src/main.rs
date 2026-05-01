@@ -63,8 +63,10 @@ fn choose_event_timestamp(event: &Value) -> DateTime<Utc> {
     }
 }
 
-fn minute_bucket(ts: DateTime<Utc>) -> DateTime<Utc> {
-    ts.with_second(0)
+fn ten_second_bucket(ts: DateTime<Utc>) -> DateTime<Utc> {
+    let sec = ts.second();
+    let floored = (sec / 10) * 10;
+    ts.with_second(floored)
         .and_then(|v| v.with_nanosecond(0))
         .unwrap_or(ts)
 }
@@ -136,7 +138,7 @@ async fn persist_bar(conn: &Client, bar: &BarState) -> Result<(), tokio_postgres
         INSERT INTO ohlcv_bar (
           venue, canonical_symbol, timeframe, bucket_start,
           open, high, low, close, volume, trade_count, last_event_ts
-        ) VALUES ($1,$2,'1m',$3,$4,$5,$6,$7,$8,$9,$10)
+        ) VALUES ($1,$2,'10s',$3,$4,$5,$6,$7,$8,$9,$10)
         ON CONFLICT (venue, canonical_symbol, timeframe, bucket_start)
         DO UPDATE SET
           high = GREATEST(ohlcv_bar.high, EXCLUDED.high),
@@ -171,7 +173,7 @@ async fn publish_bar(
     let bar_event = json!({
         "venue": bar.venue,
         "canonical_symbol": bar.canonical_symbol,
-        "timeframe": "1m",
+        "timeframe": "10s",
         "bucket_start": bar.bucket_start.to_rfc3339(),
         "open": bar.open,
         "high": bar.high,
@@ -196,7 +198,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service_name = "bar_aggregation";
     let brokers = env_or("KAFKA_BROKERS", "kafka:9092");
     let input_topic = env_or("BAR_INPUT_TOPIC", "normalized.quote.fx");
-    let output_topic = env_or("BAR_OUTPUT_TOPIC", "bar.1m");
+    let output_topic = env_or("BAR_OUTPUT_TOPIC", "bar.10s");
     let group_id = env_or("BAR_GROUP_ID", "nitra-bar-aggregation-v1");
     let db_dsn = env_or(
         "DATABASE_URL",
@@ -275,7 +277,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let event_ts = choose_event_timestamp(&event);
-        let bucket = minute_bucket(event_ts);
+        let bucket = ten_second_bucket(event_ts);
         let key = (venue.to_string(), symbol.to_string());
         let value = mid.unwrap_or(0.0);
 

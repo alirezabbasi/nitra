@@ -137,7 +137,7 @@ fn parse_gap_event(payload: &Value) -> Option<GapEvent> {
     let timeframe = payload
         .get("timeframe")
         .and_then(|v| v.as_str())
-        .unwrap_or("1m")
+        .unwrap_or("10s")
         .to_string();
     let gap_start = parse_ts(payload.get("gap_start")?.as_str())?;
     let gap_end = parse_ts(payload.get("gap_end")?.as_str())?;
@@ -208,7 +208,7 @@ async fn ensure_gap_backfill_tables(conn: &Client) -> Result<(), tokio_postgres:
         CREATE TABLE IF NOT EXISTS coverage_state (
           venue TEXT NOT NULL,
           canonical_symbol TEXT NOT NULL,
-          timeframe TEXT NOT NULL DEFAULT '1m',
+          timeframe TEXT NOT NULL DEFAULT '10s',
           last_bucket_start TIMESTAMPTZ NOT NULL,
           last_seen_at TIMESTAMPTZ NOT NULL,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -219,7 +219,7 @@ async fn ensure_gap_backfill_tables(conn: &Client) -> Result<(), tokio_postgres:
           gap_id UUID PRIMARY KEY,
           venue TEXT NOT NULL,
           canonical_symbol TEXT NOT NULL,
-          timeframe TEXT NOT NULL DEFAULT '1m',
+          timeframe TEXT NOT NULL DEFAULT '10s',
           gap_start TIMESTAMPTZ NOT NULL,
           gap_end TIMESTAMPTZ NOT NULL,
           detected_at TIMESTAMPTZ NOT NULL,
@@ -242,7 +242,7 @@ async fn ensure_gap_backfill_tables(conn: &Client) -> Result<(), tokio_postgres:
           gap_id UUID,
           venue TEXT NOT NULL,
           canonical_symbol TEXT NOT NULL,
-          timeframe TEXT NOT NULL DEFAULT '1m',
+          timeframe TEXT NOT NULL DEFAULT '10s',
           range_start TIMESTAMPTZ NOT NULL,
           range_end TIMESTAMPTZ NOT NULL,
           status TEXT NOT NULL DEFAULT 'queued',
@@ -298,10 +298,10 @@ fn split_gap_into_chunks(
     let chunk = ChronoDuration::minutes(chunk_minutes);
 
     while cursor <= gap_end {
-        let candidate_end = cursor + chunk - ChronoDuration::minutes(1);
+        let candidate_end = cursor + chunk - ChronoDuration::seconds(10);
         let end = std::cmp::min(candidate_end, gap_end);
         out.push((cursor, end));
-        cursor = end + ChronoDuration::minutes(1);
+        cursor = end + ChronoDuration::seconds(10);
     }
 
     out
@@ -497,7 +497,7 @@ async fn process_open_gaps(
             SELECT gap_id, venue, canonical_symbol, timeframe, gap_start, gap_end
             FROM gap_log
             WHERE status = 'open'
-              AND timeframe = '1m'
+              AND timeframe = '10s'
             ORDER BY detected_at ASC
             ",
             &[],
@@ -568,7 +568,7 @@ async fn requeue_stale_failed_no_source_data_jobs(
               SELECT job_id
               FROM backfill_jobs
               WHERE status = 'failed_no_source_data'
-                AND timeframe = '1m'
+                AND timeframe = '10s'
                 AND updated_at < now() - ($1::int * interval '1 second')
                 AND attempt_count < $2::int
               ORDER BY updated_at ASC
@@ -663,7 +663,7 @@ async fn reenqueue_queued_jobs(
             FROM backfill_jobs bj
             LEFT JOIN replay_audit ra ON ra.replay_id = bj.job_id
             WHERE bj.status = 'queued'
-              AND bj.timeframe = '1m'
+              AND bj.timeframe = '10s'
               AND (
                 (
                   bj.enqueue_count = 0

@@ -172,7 +172,7 @@ services:
       RUST_LOG: info
       DATABASE_URL: postgresql://trading:trading@timescaledb:5432/trading
       KAFKA_BROKERS: kafka:9092
-      STRUCTURE_INPUT_TOPIC: ${STRUCTURE_INPUT_TOPIC:-bar.1m}
+      STRUCTURE_INPUT_TOPIC: ${STRUCTURE_INPUT_TOPIC:-bar.10s}
       STRUCTURE_SNAPSHOT_TOPIC: ${STRUCTURE_SNAPSHOT_TOPIC:-structure.snapshot.v1}
       STRUCTURE_PULLBACK_TOPIC: ${STRUCTURE_PULLBACK_TOPIC:-structure.pullback.v1}
       STRUCTURE_MINOR_TOPIC: ${STRUCTURE_MINOR_TOPIC:-structure.minor_confirmed.v1}
@@ -461,7 +461,7 @@ services:
     environment:
       KAFKA_BROKERS: kafka:9092
       BAR_INPUT_TOPIC: normalized.quote.fx
-      BAR_OUTPUT_TOPIC: bar.1m
+      BAR_OUTPUT_TOPIC: bar.10s
       BAR_GROUP_ID: nitra-bar-aggregation-v1
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@timescaledb:5432/${POSTGRES_DB}
     depends_on:
@@ -478,7 +478,7 @@ services:
     container_name: gap-detection
     environment:
       KAFKA_BROKERS: kafka:9092
-      GAP_INPUT_TOPIC: bar.1m
+      GAP_INPUT_TOPIC: bar.10s
       GAP_OUTPUT_TOPIC: gap.events
       GAP_GROUP_ID: nitra-gap-detection-v1
       GAP_STARTUP_SCAN_ENABLED: "true"

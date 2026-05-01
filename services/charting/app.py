@@ -62,7 +62,9 @@ def db_url() -> str:
     return f"postgresql://{user}:{password}@{host}:{port}/{database}"
 
 
-DEFAULT_TIMEFRAME = env("CHARTING_TIMEFRAME", "1m")
+DEFAULT_TIMEFRAME = env("CHARTING_TIMEFRAME", "10s")
+CANONICAL_BAR_TIMEFRAME = env("CANONICAL_BAR_TIMEFRAME", "10s").strip().lower() or "10s"
+CANONICAL_BAR_SECONDS = max(1, int_env("CANONICAL_BAR_SECONDS", 10))
 DEFAULT_LIMIT = int_env("CHARTING_DEFAULT_LIMIT", 300)
 DEFAULT_REFRESH_SECS = int_env("CHARTING_REFRESH_SECS", 5)
 VENUE_FETCH_TIMEOUT_SECS = max(3, int_env("CHARTING_VENUE_FETCH_TIMEOUT_SECS", 8))
@@ -721,7 +723,7 @@ def control_panel_ingestion_kpi(
                         COUNT(*)::bigint AS ohlcv_1m_count,
                         MAX(bucket_start) AS last_ohlcv_bucket
                       FROM ohlcv_bar
-                      WHERE timeframe = '1m'
+                      WHERE timeframe = '10s'
                       GROUP BY lower(venue), upper(canonical_symbol)
                     ),
                     ticks AS (
@@ -2149,7 +2151,7 @@ def control_panel_risk_kill_switch(
     scope = str(payload.get("scope", "global")).strip().lower()
     venue = str(payload.get("venue", "")).strip().lower()
     symbol = str(payload.get("symbol", "")).strip().upper()
-    timeframe = str(payload.get("timeframe", "1m")).strip()
+    timeframe = str(payload.get("timeframe", "10s")).strip()
     justification = str(payload.get("justification", "")).strip()
     if len(justification) < 12:
         raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
@@ -3732,7 +3734,7 @@ def control_panel_search(
 def control_panel_charting_profile(
     venue: str = Query(min_length=1, max_length=64),
     symbol: str = Query(min_length=1, max_length=64),
-    timeframe: str = Query(default="1m", min_length=1, max_length=16),
+    timeframe: str = Query(default="10s", min_length=1, max_length=16),
     x_control_panel_token: str | None = Header(default=None),
 ) -> dict:
     session = get_operator_session(x_control_panel_token)
@@ -3936,6 +3938,9 @@ def canonical_window_90d() -> tuple[datetime, datetime]:
 
 def timeframe_minutes(timeframe: str) -> int:
     tf = timeframe.strip().lower()
+    if tf.endswith("s") and tf[:-1].isdigit():
+        seconds = max(1, int(tf[:-1]))
+        return max(1, seconds // 60) if seconds >= 60 else 0
     if tf.endswith("m") and tf[:-1].isdigit():
         return max(1, int(tf[:-1]))
     if tf.endswith("h") and tf[:-1].isdigit():
@@ -3945,10 +3950,23 @@ def timeframe_minutes(timeframe: str) -> int:
     return 1
 
 
+def timeframe_seconds(timeframe: str) -> int:
+    tf = timeframe.strip().lower()
+    if tf.endswith("s") and tf[:-1].isdigit():
+        return max(1, int(tf[:-1]))
+    if tf.endswith("m") and tf[:-1].isdigit():
+        return max(1, int(tf[:-1]) * 60)
+    if tf.endswith("h") and tf[:-1].isdigit():
+        return max(1, int(tf[:-1]) * 3600)
+    if tf.endswith("d") and tf[:-1].isdigit():
+        return max(1, int(tf[:-1]) * 86400)
+    return 60
+
+
 def timeframe_bucket_start(ts: datetime, tf_minutes: int) -> datetime:
-    minute_ts = int(ts.astimezone(timezone.utc).replace(second=0, microsecond=0).timestamp())
-    bucket_seconds = max(60, tf_minutes * 60)
-    bucket = (minute_ts // bucket_seconds) * bucket_seconds
+    ts_epoch = int(ts.astimezone(timezone.utc).replace(microsecond=0).timestamp())
+    bucket_seconds = max(1, tf_minutes * 60)
+    bucket = (ts_epoch // bucket_seconds) * bucket_seconds
     return datetime.fromtimestamp(bucket, tz=timezone.utc)
 
 
@@ -3961,6 +3979,60 @@ def aggregate_1m_rows(rows: list[tuple], tf_minutes: int) -> list[tuple]:
         if None in (bucket_start, open_, high, low, close):
             continue
         slot = timeframe_bucket_start(bucket_start, tf_minutes)
+        if current is None or current["bucket_start"] != slot:
+            if current is not None:
+                out.append(
+                    (
+                        current["bucket_start"],
+                        current["open"],
+                        current["high"],
+                        current["low"],
+                        current["close"],
+                        current["volume"],
+                        current["trade_count"],
+                    )
+                )
+            current = {
+                "bucket_start": slot,
+                "open": float(open_),
+                "high": float(high),
+                "low": float(low),
+                "close": float(close),
+                "volume": float(volume or 0.0),
+                "trade_count": int(trade_count or 0),
+            }
+            continue
+        current["high"] = max(current["high"], float(high))
+        current["low"] = min(current["low"], float(low))
+        current["close"] = float(close)
+        current["volume"] += float(volume or 0.0)
+        current["trade_count"] += int(trade_count or 0)
+    if current is not None:
+        out.append(
+            (
+                current["bucket_start"],
+                current["open"],
+                current["high"],
+                current["low"],
+                current["close"],
+                current["volume"],
+                current["trade_count"],
+            )
+        )
+    return out
+
+
+def aggregate_base_rows(rows: list[tuple], tf_seconds: int) -> list[tuple]:
+    if tf_seconds <= CANONICAL_BAR_SECONDS:
+        return rows
+    out: list[tuple] = []
+    current: dict | None = None
+    for bucket_start, open_, high, low, close, volume, trade_count in rows:
+        if None in (bucket_start, open_, high, low, close):
+            continue
+        slot_epoch = int(bucket_start.astimezone(timezone.utc).timestamp())
+        slot_epoch = (slot_epoch // tf_seconds) * tf_seconds
+        slot = datetime.fromtimestamp(slot_epoch, tz=timezone.utc)
         if current is None or current["bucket_start"] != slot:
             if current is not None:
                 out.append(
@@ -4224,7 +4296,7 @@ def fetch_missing_minutes(
       FROM ohlcv_bar
       WHERE venue = %s
         AND canonical_symbol = %s
-        AND timeframe = '1m'
+        AND timeframe = '10s'
         AND bucket_start >= %s
         AND bucket_start <= %s
     )
@@ -4892,7 +4964,7 @@ def build_coverage_status_payload(
     end_dt = datetime.now(timezone.utc).replace(second=0, microsecond=0) - timedelta(minutes=1)
     start_dt = end_dt - timedelta(hours=max(1, window_hours))
 
-    where_parts = ["cs.timeframe = '1m'"]
+    where_parts = ["cs.timeframe = '10s'"]
     params: list[object] = [start_dt, end_dt, start_dt, end_dt]
     if venue:
         where_parts.append("cs.venue = %s")
@@ -4919,7 +4991,7 @@ def build_coverage_status_payload(
       FROM ohlcv_bar ob
       WHERE ob.venue = cs.venue
         AND ob.canonical_symbol = cs.canonical_symbol
-        AND ob.timeframe = '1m'
+        AND ob.timeframe = '10s'
         AND ob.bucket_start >= %s
         AND ob.bucket_start <= %s
     ) b ON TRUE
@@ -4931,7 +5003,7 @@ def build_coverage_status_payload(
       FROM gap_log gl
       WHERE gl.venue = cs.venue
         AND gl.canonical_symbol = cs.canonical_symbol
-        AND gl.timeframe = '1m'
+        AND gl.timeframe = '10s'
         AND gl.status IN ('open', 'backfill_queued')
         AND gl.gap_end >= %s
         AND gl.gap_start <= %s
@@ -5093,7 +5165,7 @@ def venue_markets(
         MAX(bucket_start) AS last_bar_ts,
         COUNT(*)::bigint AS bar_count
       FROM ohlcv_bar
-      WHERE timeframe = '1m'
+      WHERE timeframe = '10s'
       GROUP BY venue, canonical_symbol
     )
     SELECT
@@ -5212,7 +5284,7 @@ def markets_available(timeframe: str = Query(default=DEFAULT_TIMEFRAME, min_leng
         MAX(bucket_start) AS last_bar_ts,
         COUNT(*)::bigint AS bar_count
       FROM ohlcv_bar
-      WHERE timeframe = '1m'
+      WHERE timeframe = '10s'
       GROUP BY venue, canonical_symbol
     ),
     cfg AS (
@@ -5297,11 +5369,11 @@ def bars_hot(
     with psycopg.connect(db_url()) as conn:
         with conn.cursor() as cur:
             if tf_minutes <= 1:
-                cur.execute(base_query, (venue, symbol, "1m", limit))
+                cur.execute(base_query, (venue, symbol, "10s", limit))
                 rows = cur.fetchall()
             else:
                 raw_limit = min(200_000, (limit * tf_minutes) + (tf_minutes * 2))
-                cur.execute(base_query, (venue, symbol, "1m", raw_limit))
+                cur.execute(base_query, (venue, symbol, "10s", raw_limit))
                 raw_rows_desc = cur.fetchall()
                 raw_rows_asc = list(reversed(raw_rows_desc))
                 rows = list(reversed(aggregate_1m_rows(raw_rows_asc, tf_minutes)[-limit:]))
@@ -5361,7 +5433,7 @@ def liquidity_layer_projection(
                 FROM ohlcv_bar
                 WHERE venue = %s
                   AND canonical_symbol = %s
-                  AND timeframe = '1m'
+                  AND timeframe = '10s'
                   AND bucket_start >= %s
                   AND bucket_start < %s
                 ORDER BY bucket_start ASC
@@ -5444,13 +5516,13 @@ def bars_history(
     with psycopg.connect(db_url()) as conn:
         with conn.cursor() as cur:
             if tf_minutes <= 1:
-                cur.execute(base_query, (venue, symbol, "1m", before_dt, limit + 1))
+                cur.execute(base_query, (venue, symbol, "10s", before_dt, limit + 1))
                 rows = cur.fetchall()
                 has_more = len(rows) > limit
                 rows = rows[:limit]
             else:
                 raw_limit = min(200_000, ((limit + 1) * tf_minutes) + (tf_minutes * 2))
-                cur.execute(base_query, (venue, symbol, "1m", before_dt, raw_limit))
+                cur.execute(base_query, (venue, symbol, "10s", before_dt, raw_limit))
                 raw_rows_desc = cur.fetchall()
                 raw_rows_asc = list(reversed(raw_rows_desc))
                 aggregated = aggregate_1m_rows(raw_rows_asc, tf_minutes)

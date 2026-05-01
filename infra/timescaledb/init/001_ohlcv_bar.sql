@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 CREATE TABLE IF NOT EXISTS ohlcv_bar (
   venue TEXT NOT NULL,
   canonical_symbol TEXT NOT NULL,
-  timeframe TEXT NOT NULL DEFAULT '1m',
+  timeframe TEXT NOT NULL DEFAULT '10s',
   bucket_start TIMESTAMPTZ NOT NULL,
   open DOUBLE PRECISION NOT NULL,
   high DOUBLE PRECISION NOT NULL,

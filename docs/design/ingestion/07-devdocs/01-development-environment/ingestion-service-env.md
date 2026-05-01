@@ -120,14 +120,14 @@ COINBASE profile:
 
 - `KAFKA_BROKERS` default `kafka:9092`
 - `BAR_INPUT_TOPIC` default `normalized.quote.fx`
-- `BAR_OUTPUT_TOPIC` default `bar.1m`
+- `BAR_OUTPUT_TOPIC` default `bar.10s`
 - `BAR_GROUP_ID` default `nitra-bar-aggregation-v1`
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
 
 ## gap-detection
 
 - `KAFKA_BROKERS` default `kafka:9092`
-- `GAP_INPUT_TOPIC` default `bar.1m`
+- `GAP_INPUT_TOPIC` default `bar.10s`
 - `GAP_OUTPUT_TOPIC` default `gap.events`
 - `GAP_GROUP_ID` default `nitra-gap-detection-v1`
 - `GAP_STARTUP_SCAN_ENABLED` default `true`
@@ -199,7 +199,7 @@ Notes:
 ## structure-engine
 
 - `KAFKA_BROKERS` default `kafka:9092`
-- `STRUCTURE_INPUT_TOPIC` default `bar.1m`
+- `STRUCTURE_INPUT_TOPIC` default `bar.10s`
 - `STRUCTURE_SNAPSHOT_TOPIC` default `structure.snapshot.v1`
 - `STRUCTURE_PULLBACK_TOPIC` default `structure.pullback.v1`
 - `STRUCTURE_MINOR_TOPIC` default `structure.minor_confirmed.v1`

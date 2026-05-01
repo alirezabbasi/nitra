@@ -59,8 +59,10 @@ fn parse_ts(value: Option<&str>) -> DateTime<Utc> {
     Utc::now()
 }
 
-fn minute_bucket(ts: DateTime<Utc>) -> DateTime<Utc> {
-    ts.with_second(0)
+fn ten_second_bucket(ts: DateTime<Utc>) -> DateTime<Utc> {
+    let sec = ts.second();
+    let floored = (sec / 10) * 10;
+    ts.with_second(floored)
         .and_then(|v| v.with_nanosecond(0))
         .unwrap_or(ts)
 }
@@ -132,7 +134,7 @@ async fn ensure_gap_backfill_tables(conn: &Client) -> Result<(), tokio_postgres:
         CREATE TABLE IF NOT EXISTS coverage_state (
           venue TEXT NOT NULL,
           canonical_symbol TEXT NOT NULL,
-          timeframe TEXT NOT NULL DEFAULT '1m',
+          timeframe TEXT NOT NULL DEFAULT '10s',
           last_bucket_start TIMESTAMPTZ NOT NULL,
           last_seen_at TIMESTAMPTZ NOT NULL,
           updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -143,7 +145,7 @@ async fn ensure_gap_backfill_tables(conn: &Client) -> Result<(), tokio_postgres:
           gap_id UUID PRIMARY KEY,
           venue TEXT NOT NULL,
           canonical_symbol TEXT NOT NULL,
-          timeframe TEXT NOT NULL DEFAULT '1m',
+          timeframe TEXT NOT NULL DEFAULT '10s',
           gap_start TIMESTAMPTZ NOT NULL,
           gap_end TIMESTAMPTZ NOT NULL,
           detected_at TIMESTAMPTZ NOT NULL,
@@ -166,7 +168,7 @@ async fn ensure_gap_backfill_tables(conn: &Client) -> Result<(), tokio_postgres:
           gap_id UUID,
           venue TEXT NOT NULL,
           canonical_symbol TEXT NOT NULL,
-          timeframe TEXT NOT NULL DEFAULT '1m',
+          timeframe TEXT NOT NULL DEFAULT '10s',
           range_start TIMESTAMPTZ NOT NULL,
           range_end TIMESTAMPTZ NOT NULL,
           status TEXT NOT NULL DEFAULT 'queued',
@@ -247,7 +249,7 @@ async fn load_markets_from_db(
             "
             SELECT DISTINCT venue, canonical_symbol
             FROM ohlcv_bar
-            WHERE timeframe = '1m'
+            WHERE timeframe = '10s'
               AND bucket_start >= now() - ($1::text || ' hours')::interval
             ",
             &[&lookback_hours.to_string()],
@@ -270,7 +272,7 @@ async fn load_markets_from_db(
             "
             SELECT DISTINCT venue, canonical_symbol
             FROM coverage_state
-            WHERE timeframe = '1m'
+            WHERE timeframe = '10s'
               AND last_seen_at >= now() - ($1::text || ' hours')::interval
             ",
             &[&lookback_hours.to_string()],
@@ -325,7 +327,7 @@ async fn fetch_buckets_in_window(
             FROM ohlcv_bar
             WHERE venue = $1
               AND canonical_symbol = $2
-              AND timeframe = '1m'
+              AND timeframe = '10s'
               AND bucket_start >= $3
               AND bucket_start <= $4
             ORDER BY bucket_start ASC
@@ -337,7 +339,7 @@ async fn fetch_buckets_in_window(
     let mut out = Vec::with_capacity(rows.len());
     for row in rows {
         let ts: DateTime<Utc> = row.get(0);
-        out.push(minute_bucket(ts));
+        out.push(ten_second_bucket(ts));
     }
 
     out.dedup();
@@ -357,7 +359,7 @@ fn find_missing_ranges_in_window(
     let mut cursor = start;
 
     for bucket in buckets {
-        let b = minute_bucket(*bucket);
+        let b = ten_second_bucket(*bucket);
         if b < cursor {
             continue;
         }
@@ -367,10 +369,10 @@ fn find_missing_ranges_in_window(
         if b > cursor {
             ranges.push(GapRange {
                 start: cursor,
-                end: b - ChronoDuration::minutes(1),
+                end: b - ChronoDuration::seconds(10),
             });
         }
-        cursor = b + ChronoDuration::minutes(1);
+        cursor = b + ChronoDuration::seconds(10);
         if cursor > end {
             break;
         }
@@ -392,7 +394,7 @@ async fn upsert_coverage_state(
     conn.execute(
         "
         INSERT INTO coverage_state (venue, canonical_symbol, timeframe, last_bucket_start, last_seen_at)
-        VALUES ($1, $2, '1m', $3, now())
+        VALUES ($1, $2, '10s', $3, now())
         ON CONFLICT (venue, canonical_symbol, timeframe)
         DO UPDATE SET
           last_bucket_start = GREATEST(coverage_state.last_bucket_start, EXCLUDED.last_bucket_start),
@@ -429,7 +431,7 @@ async fn insert_and_maybe_emit_gap(
               gap_start, gap_end, detected_at, status,
               source, reason, last_observed_bucket, new_observed_bucket
             )
-            VALUES ($1,$2,$3,'1m',$4,$5,$6,'open',$7,$8,$9,$10)
+            VALUES ($1,$2,$3,'10s',$4,$5,$6,'open',$7,$8,$9,$10)
             ON CONFLICT (venue, canonical_symbol, timeframe, gap_start, gap_end)
             DO NOTHING
             ",
@@ -456,7 +458,7 @@ async fn insert_and_maybe_emit_gap(
         "gap_id": gap_id.to_string(),
         "venue": venue,
         "canonical_symbol": symbol,
-        "timeframe": "1m",
+        "timeframe": "10s",
         "gap_start": gap_start.to_rfc3339(),
         "gap_end": gap_end.to_rfc3339(),
         "detected_at": detected_at.to_rfc3339(),
@@ -504,7 +506,7 @@ async fn run_coverage_scan(
                   FROM gap_log
                   WHERE venue = $1
                     AND canonical_symbol = $2
-                    AND timeframe = '1m'
+                    AND timeframe = '10s'
                     AND status IN ('open', 'backfill_queued')
                 )
                 ",
@@ -529,7 +531,7 @@ async fn run_coverage_scan(
         return Ok(0);
     }
 
-    let scan_end = minute_bucket(Utc::now());
+    let scan_end = ten_second_bucket(Utc::now());
     let scan_start = scan_end - ChronoDuration::days(coverage_days.max(1));
 
     let mut total_gaps = 0usize;
@@ -580,14 +582,14 @@ async fn load_last_bucket_from_coverage_state(
             FROM coverage_state
             WHERE venue = $1
               AND canonical_symbol = $2
-              AND timeframe = '1m'
+              AND timeframe = '10s'
             ",
             &[&venue, &symbol],
         )
         .await?;
     Ok(row.map(|r| {
         let ts: DateTime<Utc> = r.get(0);
-        minute_bucket(ts)
+        ten_second_bucket(ts)
     }))
 }
 
@@ -595,7 +597,7 @@ async fn load_last_bucket_from_coverage_state(
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service_name = "gap_detection";
     let brokers = env_or("KAFKA_BROKERS", "kafka:9092");
-    let input_topic = env_or("GAP_INPUT_TOPIC", "bar.1m");
+    let input_topic = env_or("GAP_INPUT_TOPIC", "bar.10s");
     let output_topic = env_or("GAP_OUTPUT_TOPIC", "gap.events");
     let group_id = env_or("GAP_GROUP_ID", "nitra-gap-detection-v1");
     let db_dsn = env_or(
@@ -604,7 +606,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let startup_scan_enabled = env_bool_or("GAP_STARTUP_SCAN_ENABLED", true);
-    // Hard floor: platform rule requires at least rolling 90-day 1m coverage.
+    // Hard floor: platform rule requires at least rolling 90-day canonical 10s coverage.
     let startup_coverage_days = env_i64_or("GAP_STARTUP_COVERAGE_DAYS", 90).max(90);
     let startup_db_lookback_hours = env_i64_or("GAP_ACTIVE_MARKET_DB_LOOKBACK_HOURS", 24);
     let registry_path = env_or("GAP_SYMBOL_REGISTRY_PATH", "/etc/nitra/registry.v1.json");
@@ -746,7 +748,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     continue;
                 }
 
-                let bucket = minute_bucket(parse_ts(bucket_raw));
+                let bucket = ten_second_bucket(parse_ts(bucket_raw));
                 let key = (venue.to_ascii_lowercase(), symbol.to_ascii_uppercase());
                 if !registry_market_set.is_empty() {
                     let market = MarketKey {
@@ -780,9 +782,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
 
                 if let Some(previous) = last_bucket.get(&key).copied() {
-                    if bucket > previous + ChronoDuration::minutes(1) {
-                        let gap_start = previous + ChronoDuration::minutes(1);
-                        let gap_end = bucket - ChronoDuration::minutes(1);
+                    if bucket > previous + ChronoDuration::seconds(10) {
+                        let gap_start = previous + ChronoDuration::seconds(10);
+                        let gap_end = bucket - ChronoDuration::seconds(10);
                         insert_and_maybe_emit_gap(
                             &conn,
                             &producer,
