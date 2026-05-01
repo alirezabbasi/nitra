@@ -1688,3 +1688,25 @@ Append one entry at the end of each substantial session.
   - `curl -sS "http://localhost:8110/charting?venue=oanda&symbol=GBPUSD&timeframe=5m" | rg -n "api/v1/liquidity-layer|TF:M5\(closed\)"` confirms frontend consumption and summary mode.
 - Next recommended action:
   - add deterministic fixture-based regression pack that asserts ontology pair outputs against curated M5 candle sequences (including inside/outside-bar edge precedence).
+
+---
+
+## 2026-05-01 — Session Entry 015
+
+- Objective:
+  - enforce task-level Definition of Done (DoD) as mandatory across backlog/in-progress execution flow.
+- Work completed:
+  - bulk-added `## Definition of Done` sections across all non-completed tickets lacking DoD in `docs/development/tickets/`.
+  - added missing DoD to `DEV-00052` (non-completed ticket with non-standard headings).
+  - updated governance/process docs to require DoD on every new ticket:
+    - `docs/ruleset.md`
+    - `docs/development/00-governance/SDLC_OPERATING_MODEL.md`
+    - `docs/development/README.md`
+  - added canonical ticket template with explicit DoD section:
+    - `docs/development/tickets/TICKET_TEMPLATE.md`
+  - hardwired enforcement into `make session-bootstrap` via `scripts/session/session-bootstrap.sh`:
+    - fails session bootstrap if any non-completed ticket lacks `## Definition of Done`.
+- Verification:
+  - `make session-bootstrap` passes with DoD enforcement active.
+- Next recommended action:
+  - optionally normalize legacy ticket status/heading schema (`Status` + `Acceptance Criteria`) for full structural consistency.

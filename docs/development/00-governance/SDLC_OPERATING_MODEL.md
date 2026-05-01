@@ -22,6 +22,7 @@ Each work unit (ticket/story) must include:
 - scope and non-goals
 - HLD alignment note
 - acceptance criteria
+- definition of done (DoD) section with completion gates
 - verification evidence
 - residual risks
 
@@ -42,6 +43,11 @@ A scope is done only when all are true:
 - relevant docs updated
 - board status updated
 - memory artifacts updated
+
+Ticket-level enforcement:
+
+- Every ticket in backlog or in-progress state must include a `## Definition of Done` section.
+- New tickets are not valid for execution tracking until DoD is present.
 
 ## Session discipline
 

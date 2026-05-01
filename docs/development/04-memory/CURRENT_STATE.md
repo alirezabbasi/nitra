@@ -13,6 +13,7 @@ Last updated: 2026-05-01
 
 ### Recent
 
+- Enforced mandatory ticket-level Definition of Done (DoD): non-completed tickets now require explicit DoD sections, and `make session-bootstrap` now fails fast when DoD is missing.
 - Completed `DEV-00154` liquidity-layer architecture correction:
   - added backend `GET /api/v1/liquidity-layer` projection for `today + yesterday` using closed `M5` candles only,
   - moved overlay source from local chart heuristic to backend ontology projection payload,
@@ -214,6 +215,7 @@ Last updated: 2026-05-01
 
 ### Current
 
+- SDLC governance now hard-enforces DoD presence for backlog/in-progress tasks via bootstrap validation and ticket-template policy, reducing long-gap process drift risk.
 - `DEV-00154` is closed with backend-driven liquidity overlay projection replacing chart-local 48h heuristic rendering path.
 - `DEV-00153` is closed with root/control-panel route swap and new-tab charting launch semantics aligned to operator workflow requirements.
 - `DEV-00068` is closed with failover policy contract delivery (policy table + update endpoint + audit integration + `dev-0068` gate).

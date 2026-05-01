@@ -41,3 +41,15 @@ Upgrade `charting` interaction UX to add commercial-grade exploration controls f
 - Users can jump directly to date/index and export chart snapshots.
 - Range/crosshair metadata is visible and updates during interaction.
 - Chart endpoint supports older-range pagination for lazy loading.
+
+## Definition of Done
+
+A ticket is complete only when all conditions below are true:
+
+- Acceptance Criteria are fully met without unresolved scope gaps.
+- Required implementation is merged in this repository and aligned with HLD/LLD constraints.
+- Tests are added/updated for the scope and passing evidence is recorded.
+- Operational/documentation artifacts for the scope are updated (runbooks/contracts/docs as applicable).
+- Execution tracking and memory artifacts are synchronized (`KANBAN`, `CURRENT_STATE`, `SESSION_LEDGER`).
+- Residual risks, assumptions, and follow-up actions are explicitly documented.
+

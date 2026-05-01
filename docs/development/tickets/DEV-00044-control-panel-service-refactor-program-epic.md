@@ -48,6 +48,17 @@ Current implementation quality is functionally rich but structurally fragile:
 - Tests and CI evidence cover compatibility, regressions, and operability.
 - Legacy monolithic files are either removed or retained only as temporary compatibility shims with explicit retirement date.
 
+## Definition of Done
+
+A ticket is complete only when all conditions below are true:
+
+- Acceptance Criteria are fully met without unresolved scope gaps.
+- Required implementation is merged in this repository and aligned with HLD/LLD constraints.
+- Tests are added/updated for the scope and passing evidence is recorded.
+- Operational/documentation artifacts for the scope are updated (runbooks/contracts/docs as applicable).
+- Execution tracking and memory artifacts are synchronized (`KANBAN`, `CURRENT_STATE`, `SESSION_LEDGER`).
+- Residual risks, assumptions, and follow-up actions are explicitly documented.
+
 ## Verification
 
 - Ticket-level verification evidence across `tests/dev-00045` .. `tests/dev-00051`.

@@ -24,6 +24,17 @@ Add a dedicated control-panel page to track two operational KPIs for all active 
   - aggregate KPI metrics
   - per-market rows with coverage progress, last bar time, tick recency, and pass/warn status.
 
+## Definition of Done
+
+A ticket is complete only when all conditions below are true:
+
+- Acceptance Criteria are fully met without unresolved scope gaps.
+- Required implementation is merged in this repository and aligned with HLD/LLD constraints.
+- Tests are added/updated for the scope and passing evidence is recorded.
+- Operational/documentation artifacts for the scope are updated (runbooks/contracts/docs as applicable).
+- Execution tracking and memory artifacts are synchronized (`KANBAN`, `CURRENT_STATE`, `SESSION_LEDGER`).
+- Residual risks, assumptions, and follow-up actions are explicitly documented.
+
 ## Verification
 
 - `make test-dev-0053`

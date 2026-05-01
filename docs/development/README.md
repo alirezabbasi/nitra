@@ -46,3 +46,11 @@ This workspace is governed by:
 - Domain ruleset (ingestion scope): `docs/design/ingestion/ruleset.md`
 
 All meaningful implementation changes must update the related docs here in the same change set.
+
+## Ticket policy
+
+- Every new ticket must include:
+  - `## Acceptance Criteria`
+  - `## Definition of Done`
+- Backlog or in-progress tickets missing DoD are considered invalid until updated.
+- `make session-bootstrap` enforces DoD presence for all non-completed tickets.

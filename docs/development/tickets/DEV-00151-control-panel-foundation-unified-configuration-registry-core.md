@@ -30,6 +30,17 @@ Deliver the core configuration registry primitives for control-panel managed con
 - Privileged config changes require approval + audit evidence.
 - Rollback path is deterministic and fully auditable.
 
+## Definition of Done
+
+A ticket is complete only when all conditions below are true:
+
+- Acceptance Criteria are fully met without unresolved scope gaps.
+- Required implementation is merged in this repository and aligned with HLD/LLD constraints.
+- Tests are added/updated for the scope and passing evidence is recorded.
+- Operational/documentation artifacts for the scope are updated (runbooks/contracts/docs as applicable).
+- Execution tracking and memory artifacts are synchronized (`KANBAN`, `CURRENT_STATE`, `SESSION_LEDGER`).
+- Residual risks, assumptions, and follow-up actions are explicitly documented.
+
 ## Verification
 
 - Run the relevant `make test-*` target(s) for this scope.

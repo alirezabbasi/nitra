@@ -52,6 +52,39 @@ assert_heading() {
   grep -Eq "^${heading}$" "$path" || fail "missing heading '${heading}' in $path"
 }
 
+validate_ticket_dod() {
+  local tickets_dir="docs/development/tickets"
+  local missing=()
+  local file status
+
+  shopt -s nullglob
+  for file in "$tickets_dir"/DEV-*.md; do
+    status="$(awk '
+      /^## Status$/ { capture=1; next }
+      capture && /^## / { capture=0 }
+      capture && NF { print; exit }
+    ' "$file" | tr -d '\r')"
+    [[ -z "$status" ]] && status="MISSING"
+
+    case "$status" in
+      Done*|Merged\ into*|Split\ into*)
+        continue
+        ;;
+    esac
+
+    if ! grep -Eq '^## Definition of Done$' "$file"; then
+      missing+=("${file#${ROOT_DIR}/}")
+    fi
+  done
+  shopt -u nullglob
+
+  if (( ${#missing[@]} > 0 )); then
+    printf 'SESSION_BOOTSTRAP_FAIL: missing ticket DoD section in non-completed scope:\n' >&2
+    printf ' - %s\n' "${missing[@]}" >&2
+    exit 1
+  fi
+}
+
 printf '[session-bootstrap] validating required context files...\n'
 
 check_file "docs/README.md"
@@ -90,6 +123,9 @@ assert_heading "docs/development/02-execution/KANBAN.md" "## Backlog"
 assert_heading "docs/development/02-execution/KANBAN.md" "## In Progress"
 assert_heading "docs/development/02-execution/KANBAN.md" "## Done"
 assert_heading "docs/development/02-execution/KANBAN.md" "## Blocked"
+
+printf '[session-bootstrap] validating ticket DoD enforcement...\n'
+validate_ticket_dod
 
 printf '[session-bootstrap] validating memory freshness and drift...\n'
 

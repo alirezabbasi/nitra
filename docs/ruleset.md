@@ -63,6 +63,7 @@ All contributors and AI agents must read and follow this file before planning or
 - Tests should be organized under root `tests/` by epic/story when applicable.
 - Relevant tests must be run before commit, before merge, and before release/promotion.
 - A feature is not done without updated tests, test execution evidence, and test-scope documentation updates.
+- Every non-completed ticket must contain an explicit `Definition of Done` section; new tickets are invalid without it.
 
 ## Rule 9: Safety, Operability, and Data Permanence First
 
