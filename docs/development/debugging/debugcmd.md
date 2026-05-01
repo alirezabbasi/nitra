@@ -1058,3 +1058,6 @@ For every future development/debugging session, append new entries to this file 
 | 2026-05-01 12:58:41 +0330 | `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/charting/app.py` | Verify backend syntax after ontology engine refactor. | Success |
 | 2026-05-01 12:58:41 +0330 | `docker compose up -d --build control-panel` | Rebuild runtime with ontology doc + engine refactor changes. | Success |
 | 2026-05-01 12:58:41 +0330 | `curl -sS http://localhost:8110/api/v1/liquidity-layer?...` and chart page grep checks | Verify live API/legend output reflects up-to-current mode and refactored ontology semantics. | Success |
+| 2026-05-01 14:34:00 +0330 | `apply_patch` on `services/charting/liquidity_layer.py`, `services/charting/app.py` | Extract liquidity ontology/windowing/overlay engine from monolithic app into dedicated module and rewire endpoint imports. | Success |
+| 2026-05-01 14:36:00 +0330 | `apply_patch` on `services/control-panel/Dockerfile`, `services/charting/Dockerfile` | Include new `liquidity_layer.py` module in container images after refactor split. | Success |
+| 2026-05-01 14:37:00 +0330 | `python -m py_compile ...` + `docker compose up -d --build control-panel` + `docker compose logs --tail=40 control-panel` | Validate syntax and runtime startup after module extraction/import path fix. | Success |
