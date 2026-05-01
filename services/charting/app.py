@@ -5582,29 +5582,17 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
             }
         )
 
-    # Merge independent minor pullbacks from both directional mappings,
-    # then canonicalize again to avoid fan-like overlaps at the same completion/peak areas.
-    dedup: dict[tuple[int, int], dict] = {}
-    for p in bear_pairs:
-        key = (int(p["low_idx"]), int(p["high_idx"]))
-        dedup[key] = {
+    # Minor structure projection should follow the current objective direction,
+    # while still including all completed pullbacks in that direction.
+    minor_pairs = bull_pairs_natural if bias == "bullish" else [
+        {
             "low_idx": int(p["low_idx"]),
             "high_idx": int(p["high_idx"]),
-            "end_idx": int(p["high_idx"]),
             "low_value": float(p["low_value"]),
             "high_value": float(p["high_value"]),
         }
-    for p in bull_pairs_natural:
-        key = (int(p["low_idx"]), int(p["high_idx"]))
-        if key not in dedup:
-            dedup[key] = {
-                "low_idx": int(p["low_idx"]),
-                "high_idx": int(p["high_idx"]),
-                "end_idx": int(p["high_idx"]),
-                "low_value": float(p["low_value"]),
-                "high_value": float(p["high_value"]),
-            }
-    minor_pairs = _canonicalize_pairs(list(dedup.values()))
+        for p in bear_pairs
+    ]
 
     # Active pair remains objective-directional.
     active_pair = None
@@ -5626,15 +5614,7 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
         }
 
     # Major structure derived from objective-directional completed minors.
-    objective_pairs = bull_pairs_natural if bias == "bullish" else [
-        {
-            "low_idx": int(p["low_idx"]),
-            "high_idx": int(p["high_idx"]),
-            "low_value": float(p["low_value"]),
-            "high_value": float(p["high_value"]),
-        }
-        for p in bear_pairs
-    ]
+    objective_pairs = list(minor_pairs)
     structural_high_archive: list[float] = []
     major_pairs: list[dict] = []
     for pair in objective_pairs:

@@ -688,6 +688,11 @@
           <input id="liquidity-layer-toggle" type="checkbox" />
           Liquidity Layer
         </label>
+        <select id="liquidity-layer-mode" class="select" title="Liquidity layer mode" style="width: 130px">
+          <option value="minor_major">Minor + Major</option>
+          <option value="minor_only">Minor only</option>
+          <option value="major_only">Major only</option>
+        </select>
         <button class="tool-btn" id="settings-btn" title="Venue and ingestion settings">⚙ Settings</button>
         <div id="status" class="meta">Loading...</div>
       </div>
@@ -924,6 +929,7 @@
       const snapshotBtn = document.getElementById("snapshot-btn");
       const backfillBtn = document.getElementById("backfill-btn");
       const liquidityLayerToggleEl = document.getElementById("liquidity-layer-toggle");
+      const liquidityLayerModeEl = document.getElementById("liquidity-layer-mode");
       const settingsBtn = document.getElementById("settings-btn");
       const liquidityLayerLegendEl = document.getElementById("liquidity-layer-legend");
       const liquidityLayerSummaryEl = document.getElementById("liquidity-layer-summary");
@@ -1174,6 +1180,7 @@
         layoutRestoreApplied: false,
         layoutSaveTimer: null,
         liquidityLayerEnabled: false,
+        liquidityLayerMode: "minor_major",
         liquidityLayerOverlayId: null,
         liquidityLayerLastBarSignature: null,
         liquidityLayerLastSymbolKey: null,
@@ -1211,6 +1218,7 @@
             zoomAnchor: state.zoomAnchor,
             formatMode: state.formatMode,
             liquidityLayerEnabled: state.liquidityLayerEnabled,
+            liquidityLayerMode: state.liquidityLayerMode,
             market:
               state.selected && state.selected.venue && state.selected.symbol
                 ? { venue: state.selected.venue, symbol: state.selected.symbol }
@@ -1249,6 +1257,13 @@
         if (typeof prefs.liquidityLayerEnabled === "boolean") {
           state.liquidityLayerEnabled = prefs.liquidityLayerEnabled;
           liquidityLayerToggleEl.checked = state.liquidityLayerEnabled;
+        }
+        if (
+          typeof prefs.liquidityLayerMode === "string" &&
+          ["minor_major", "minor_only", "major_only"].includes(prefs.liquidityLayerMode)
+        ) {
+          state.liquidityLayerMode = prefs.liquidityLayerMode;
+          liquidityLayerModeEl.value = state.liquidityLayerMode;
         }
         if (prefs.market && typeof prefs.market.venue === "string" && typeof prefs.market.symbol === "string") {
           state.preferredMarket = {
@@ -2300,13 +2315,20 @@
         state.liquidityLayerFetchInFlight = false;
 
         const model = payload?.model || { bias: "bearish", minor_pairs: [], major_pairs: [] };
-        const overlayData = payload?.overlay_data || { segments: [], markers: [] };
+        const overlayDataRaw = payload?.overlay_data || { segments: [], markers: [] };
+        const overlayData = filterLiquidityOverlayData(overlayDataRaw, state.liquidityLayerMode);
         const windowLabel = payload?.window?.mode === "today_plus_yesterday_up_to_current" ? "today+yesterday+current" : "-";
         state.liquidityLayerLastBarSignature = barSignature;
         state.liquidityLayerLastSymbolKey = marketKey;
         liquidityLayerLegendEl.classList.remove("hidden");
         const activeState = model?.active_pair ? "yes" : "no";
-        liquidityLayerSummaryEl.textContent = `Bias:${model.bias} | Minor:${(model.minor_pairs || []).length} | Major:${(model.major_pairs || []).length} | Active:${activeState} | Window:${windowLabel} | TF:M5(up-to-current)`;
+        const modeLabel =
+          state.liquidityLayerMode === "minor_only"
+            ? "Minor only"
+            : state.liquidityLayerMode === "major_only"
+              ? "Major only"
+              : "Minor+Major";
+        liquidityLayerSummaryEl.textContent = `Bias:${model.bias} | Minor:${(model.minor_pairs || []).length} | Major:${(model.major_pairs || []).length} | Active:${activeState} | Mode:${modeLabel} | Window:${windowLabel} | TF:M5(up-to-current)`;
         if (state.liquidityLayerOverlayId && typeof chart.overrideOverlay === "function") {
           chart.overrideOverlay({
             id: state.liquidityLayerOverlayId,
@@ -2327,6 +2349,24 @@
         });
         const createdId = Array.isArray(created) ? created[0] : created;
         state.liquidityLayerOverlayId = createdId || null;
+      }
+
+      function filterLiquidityOverlayData(overlayData, mode) {
+        const sourceSegments = Array.isArray(overlayData?.segments) ? overlayData.segments : [];
+        const sourceMarkers = Array.isArray(overlayData?.markers) ? overlayData.markers : [];
+        const norm = String(mode || "minor_major");
+        if (norm === "minor_major") {
+          return { segments: sourceSegments, markers: sourceMarkers };
+        }
+        const allowMinor = norm === "minor_only";
+        const allowMajor = norm === "major_only";
+        const segments = sourceSegments.filter((seg) => {
+          const color = String(seg?.color || "").toLowerCase();
+          if (allowMinor) return color === "#f7c744" || color === "#ff9b3d";
+          if (allowMajor) return color === "#25d2b8";
+          return true;
+        });
+        return { segments, markers: [] };
       }
 
       function syncRealtimeButtonState() {
@@ -3615,8 +3655,19 @@
 
       liquidityLayerToggleEl.addEventListener("change", () => {
         state.liquidityLayerEnabled = liquidityLayerToggleEl.checked;
+        liquidityLayerModeEl.disabled = !state.liquidityLayerEnabled;
         persistUiPrefs();
         scheduleLayoutSave();
+        syncLiquidityLayer();
+      });
+
+      liquidityLayerModeEl.addEventListener("change", () => {
+        const next = String(liquidityLayerModeEl.value || "minor_major");
+        if (!["minor_major", "minor_only", "major_only"].includes(next)) return;
+        state.liquidityLayerMode = next;
+        persistUiPrefs();
+        scheduleLayoutSave();
+        state.liquidityLayerLastBarSignature = null;
         syncLiquidityLayer();
       });
 
@@ -3825,6 +3876,8 @@
 
       applyUiPrefs();
       liquidityLayerToggleEl.checked = state.liquidityLayerEnabled;
+      liquidityLayerModeEl.value = state.liquidityLayerMode;
+      liquidityLayerModeEl.disabled = !state.liquidityLayerEnabled;
       applyLayoutPreferences(loadLayoutState(), { includeMarket: true });
       applyUrlContext();
       setActiveTimeframe(state.timeframe);
