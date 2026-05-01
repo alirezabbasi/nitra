@@ -138,6 +138,7 @@ def _pairs_to_pivot_chain(pairs: list[dict], bars: list[dict]) -> list[dict]:
             {
                 "low_idx": low_idx,
                 "high_idx": high_idx,
+                "end_idx": int(pair.get("end_idx", high_idx)),
                 "low_ts": int(bars[low_idx]["timestamp"]),
                 "high_ts": int(bars[high_idx]["timestamp"]),
                 "low_value": float(pair["low_value"]),
@@ -145,7 +146,8 @@ def _pairs_to_pivot_chain(pairs: list[dict], bars: list[dict]) -> list[dict]:
             }
         )
 
-    valid.sort(key=lambda p: (p["high_idx"], p["low_idx"]))
+    # Ontology sequence fidelity: chain completed pullbacks in completion order.
+    valid.sort(key=lambda p: (p["end_idx"], p["high_idx"], p["low_idx"]))
     pivots: list[dict] = []
     for pair in valid:
         low_pivot = {"idx": pair["low_idx"], "ts": pair["low_ts"], "value": pair["low_value"]}
@@ -263,6 +265,7 @@ def build_ontology_liquidity_model(bars: list[dict]) -> dict:
             {
                 "low_idx": int(pair["low_idx"]),
                 "high_idx": int(pair["high_idx"]),
+                "end_idx": int(pair["end_idx"]),
                 "low_value": float(pair["low_value"]),
                 "high_value": float(pair["high_value"]),
             }
@@ -353,6 +356,7 @@ def build_ontology_liquidity_model(bars: list[dict]) -> dict:
         {
             "low_idx": int(p["low_idx"]),
             "high_idx": int(p["high_idx"]),
+            "end_idx": int(p.get("end_idx", p["high_idx"])),
             "low_value": -float(p["low_value"]),
             "high_value": -float(p["high_value"]),
         }
@@ -362,6 +366,7 @@ def build_ontology_liquidity_model(bars: list[dict]) -> dict:
         {
             "low_idx": int(p["low_idx"]),
             "high_idx": int(p["high_idx"]),
+            "end_idx": int(p.get("end_idx", p["high_idx"])),
             "low_value": float(p["low_value"]),
             "high_value": float(p["high_value"]),
         }
@@ -421,7 +426,7 @@ def build_liquidity_overlay_data(bars: list[dict], model: dict) -> dict:
 
     minor_pivots = [p for p in model.get("minor_pivots", []) if isinstance(p, dict)]
     major_pivots = [p for p in model.get("major_pivots", []) if isinstance(p, dict)]
-    _pivots_to_segments(minor_pivots, "#e05555", 1)
+    _pivots_to_segments(minor_pivots, "#f7c744", 1)
     _pivots_to_segments(major_pivots, "#3d73ff", 2)
 
     active_pair = model.get("active_pair")

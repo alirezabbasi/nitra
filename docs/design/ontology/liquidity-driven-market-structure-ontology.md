@@ -74,6 +74,7 @@ Applies to: chart layer semantics, rulebooks, scenario labeling, schema outputs,
   - Minor Low: lowest price immediately before pullback start (typically reference low)
   - Minor High: highest price reached during pullback before termination
 - Minor pullbacks are evaluated independently at each eligible sequence and MUST be recorded even when they occur inside an active pullback or inside a major pullback context.
+- Minor projection chain on chart MUST be constructed in completed-pullback sequence order (termination/completion order), not arbitrary index sorting.
 - Minor structure archive is append-only.
 - Prior pairs are never discarded; only active pair changes.
 
@@ -140,5 +141,5 @@ Any interpretation component that diverges MUST declare explicit versioned varia
 - Closed-candle structure must remain deterministic; active-candle extension may be provisional.
 - Chart must distinguish completed versus active (in-progress) structure state in overlay semantics.
 - Visualization contract:
-  - Minor layer: full minor pivot chain (dense, local structure).
+  - Minor layer: full minor pivot chain (dense, local structure) built by completed-pullback order.
   - Major layer: compressed major pivot chain (clean, dominant structure).
