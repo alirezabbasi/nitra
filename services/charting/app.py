@@ -5635,87 +5635,60 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
 def _build_liquidity_overlay_data(bars: list[dict], model: dict) -> dict:
     segments: list[dict] = []
     markers: list[dict] = []
-    bias = str(model.get("bias") or "bearish")
 
-    for pair in model.get("minor_pairs", []):
-        low_idx = int(pair["low_idx"])
-        high_idx = int(pair["high_idx"])
-        if low_idx < 0 or high_idx < 0 or low_idx >= len(bars) or high_idx >= len(bars):
-            continue
-        low_bar = bars[low_idx]
-        high_bar = bars[high_idx]
-        low_value = float(pair["low_value"])
-        high_value = float(pair["high_value"])
-        segments.append(
-            {
-                "start": {"timestamp": int(low_bar["timestamp"]), "value": low_value},
-                "end": {"timestamp": int(high_bar["timestamp"]), "value": high_value},
-                "color": "#f7c744",
-                "size": 1,
-                "style": "dash",
-            }
-        )
-        markers.append(
-            {
-                "timestamp": int(low_bar["timestamp"]),
-                "value": low_value,
-                "label": "mH" if bias == "bullish" else "mL",
-                "color": "#f7c744",
-                "labelDx": 5,
-                "labelDy": 10,
-            }
-        )
-        markers.append(
-            {
-                "timestamp": int(high_bar["timestamp"]),
-                "value": high_value,
-                "label": "mL" if bias == "bullish" else "mH",
-                "color": "#f7c744",
-                "labelDx": 5,
-                "labelDy": -10,
-            }
-        )
+    def _to_chain_segments(pairs: list[dict], color: str, size: int) -> None:
+        valid = []
+        for pair in pairs:
+            low_idx = int(pair.get("low_idx", -1))
+            high_idx = int(pair.get("high_idx", -1))
+            if low_idx < 0 or high_idx < 0 or low_idx >= len(bars) or high_idx >= len(bars):
+                continue
+            valid.append(
+                {
+                    "low_idx": low_idx,
+                    "high_idx": high_idx,
+                    "low_ts": int(bars[low_idx]["timestamp"]),
+                    "high_ts": int(bars[high_idx]["timestamp"]),
+                    "low_value": float(pair["low_value"]),
+                    "high_value": float(pair["high_value"]),
+                }
+            )
 
-    for pair in model.get("major_pairs", []):
-        low_idx = int(pair["low_idx"])
-        high_idx = int(pair["high_idx"])
-        if low_idx < 0 or high_idx < 0 or low_idx >= len(bars) or high_idx >= len(bars):
-            continue
-        low_bar = bars[low_idx]
-        high_bar = bars[high_idx]
-        low_value = float(pair["low_value"])
-        high_value = float(pair["high_value"])
-        segments.append(
-            {
-                "start": {"timestamp": int(low_bar["timestamp"]), "value": low_value},
-                "end": {"timestamp": int(high_bar["timestamp"]), "value": high_value},
-                "color": "#25d2b8",
-                "size": 2,
-                "style": "solid",
-            }
-        )
-        markers.append(
-            {
-                "timestamp": int(low_bar["timestamp"]),
-                "value": low_value,
-                "label": "MH" if bias == "bullish" else "ML",
-                "color": "#25d2b8",
-                "labelDx": 6,
-                "labelDy": 12,
-                "radius": 3.5,
-            }
-        )
-        markers.append(
-            {
-                "timestamp": int(high_bar["timestamp"]),
-                "value": high_value,
-                "label": "ML" if bias == "bullish" else "MH",
-                "color": "#25d2b8",
-                "labelDx": 6,
-                "labelDy": -12,
-                "radius": 3.5,
-            }
-        )
+        valid.sort(key=lambda p: (p["high_idx"], p["low_idx"]))
+        pivots: list[dict] = []
+        for pair in valid:
+            low_pivot = {"idx": pair["low_idx"], "ts": pair["low_ts"], "value": pair["low_value"]}
+            high_pivot = {"idx": pair["high_idx"], "ts": pair["high_ts"], "value": pair["high_value"]}
+            if not pivots:
+                pivots.append(low_pivot)
+                pivots.append(high_pivot)
+                continue
+            if pivots[-1]["idx"] == low_pivot["idx"]:
+                pivots[-1] = low_pivot
+            else:
+                pivots.append(low_pivot)
+            if pivots[-1]["idx"] == high_pivot["idx"]:
+                pivots[-1] = high_pivot
+            else:
+                pivots.append(high_pivot)
+
+        for i in range(1, len(pivots)):
+            start = pivots[i - 1]
+            end = pivots[i]
+            if int(start["idx"]) == int(end["idx"]):
+                continue
+            segments.append(
+                {
+                    "start": {"timestamp": int(start["ts"]), "value": float(start["value"])},
+                    "end": {"timestamp": int(end["ts"]), "value": float(end["value"])},
+                    "color": color,
+                    "size": size,
+                    "style": "solid",
+                }
+            )
+
+    _to_chain_segments(model.get("minor_pairs", []), "#f7c744", 1)
+    _to_chain_segments(model.get("major_pairs", []), "#25d2b8", 2)
 
     active_pair = model.get("active_pair")
     if isinstance(active_pair, dict):
