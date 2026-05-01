@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -32,6 +32,15 @@ app.mount(
 @app.get("/")
 def root_control_panel() -> FileResponse:
     return FileResponse(str(FRONTEND_DIST_DIR / "control-panel.html"))
+
+
+@app.middleware("http")
+async def root_charting_override(request: Request, call_next):
+    if request.url.path == "/":
+        return FileResponse(str(FRONTEND_DIST_DIR / "control-panel.html"))
+    if request.url.path == "/charting":
+        return FileResponse(str(LEGACY_STATIC_DIR / "index.html"))
+    return await call_next(request)
 
 
 @app.get("/control-panel")
