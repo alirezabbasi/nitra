@@ -7,7 +7,7 @@ Applies to: chart layer semantics, rulebooks, scenario labeling, schema outputs,
 ## 1. Core Market Principles
 
 - Market is modeled as a continuous price stream driven by liquidity interaction.
-- Price is interpreted as movement between liquidity pools, not intrinsic “trend”.
+- Price is interpreted as movement between Liquidity Points, not intrinsic “trend”.
 - Timeframes (`1m`, `5m`, `15m`, `1h`, etc.) are sampling windows over a continuous stream.
 - Candle visuals are compressed artifacts and may hide internal sequence events.
 - Structural interpretation MUST prioritize liquidity interaction logic over candle-shape heuristics.
@@ -17,6 +17,7 @@ Applies to: chart layer semantics, rulebooks, scenario labeling, schema outputs,
 - Bias is defined by taken liquidity versus remaining opposing liquidity.
 - If upper liquidity is taken and lower opposing liquidity remains, directional objective is bearish until lower liquidity is reached.
 - Inverse logic applies for bullish objective.
+- For implementation, "taken" means a confirmed breach of the corresponding prior liquidity point in sequence context.
 
 ## 3. Pullback Mechanics (Bearish reference model)
 
@@ -35,8 +36,8 @@ Applies to: chart layer semantics, rulebooks, scenario labeling, schema outputs,
 ## 4. Pullback Extension
 
 - Pullback remains active while:
-  - each new candle breaks previous candle high
   - active reference low remains intact
+- Pullback does not require continuous higher-high printing to remain active.
 
 ## 5. Special Candle Conditions
 
@@ -58,6 +59,14 @@ Applies to: chart layer semantics, rulebooks, scenario labeling, schema outputs,
 - Termination reference resolution:
   - if next candle `C.high > B.high`: extension confirmed, termination reference shifts to `B` (terminate on `B.low` break)
   - else: termination reference remains `A` (terminate on `A.low` break)
+
+## 5.3 Bullish Inverse Mapping
+
+- Sections 3-5 define the bearish reference model.
+- Bullish evaluation is the strict inverse:
+  - swap `high` and `low` logic symmetrically,
+  - swap upper/lower liquidity interpretation,
+  - preserve identical precedence rules (inside/outside/reference/termination).
 
 ## 6. Minor Structure
 
@@ -122,3 +131,9 @@ This ontology is a mandatory base contract for:
 - prompt contract constraints.
 
 Any interpretation component that diverges MUST declare explicit versioned variance and pass benchmark compatibility checks before promotion.
+
+## 16. Liquidity Layer Execution Contract
+
+- Liquidity layer projection window is `today + yesterday`, extended up to the current active candle.
+- Closed-candle structure must remain deterministic; active-candle extension may be provisional.
+- Chart must distinguish completed versus active (in-progress) structure state in overlay semantics.

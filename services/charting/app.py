@@ -5425,15 +5425,28 @@ def _augment_current_m5_with_ticks(
 
 
 def _resolve_liquidity_bias(bars: list[dict]) -> str:
-    if len(bars) < 20:
+    # Ontology-aligned directional objective:
+    # latest taken upper liquidity point -> bearish objective,
+    # latest taken lower liquidity point -> bullish objective.
+    if len(bars) < 2:
         return "bearish"
-    lookback = bars[-80:]
-    high = max(float(b["high"]) for b in lookback)
-    low = min(float(b["low"]) for b in lookback)
-    if high <= low:
+    upper_taken_idx = -1
+    lower_taken_idx = -1
+    for i in range(1, len(bars)):
+        prev = bars[i - 1]
+        cur = bars[i]
+        if float(cur["high"]) > float(prev["high"]):
+            upper_taken_idx = i
+        if float(cur["low"]) < float(prev["low"]):
+            lower_taken_idx = i
+
+    if upper_taken_idx == -1 and lower_taken_idx == -1:
         return "bearish"
-    pos = (float(lookback[-1]["close"]) - low) / (high - low)
-    return "bullish" if pos > 0.55 else "bearish"
+    if upper_taken_idx > lower_taken_idx:
+        return "bearish"
+    if lower_taken_idx > upper_taken_idx:
+        return "bullish"
+    return "bearish"
 
 
 def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
@@ -5474,13 +5487,24 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
             if is_inside and cur["low"] == series[ref_idx]["low"]:
                 ref_idx = i
                 continue
+            is_outside = cur["high"] > series[ref_idx]["high"] and cur["low"] < series[ref_idx]["low"]
+            if is_outside:
+                active = {
+                    "ref_idx": ref_idx,
+                    "termination_ref_idx": ref_idx,
+                    "max_high": cur["high"],
+                    "max_high_idx": i,
+                    "outside_base_idx": i,
+                    "outside_resolved": False,
+                }
+                continue
             if cur["high"] > series[ref_idx]["high"] and cur["low"] >= series[ref_idx]["low"]:
                 active = {
                     "ref_idx": ref_idx,
                     "termination_ref_idx": ref_idx,
                     "max_high": cur["high"],
                     "max_high_idx": i,
-                    "outside_base_idx": i if cur["low"] < series[ref_idx]["low"] else None,
+                    "outside_base_idx": None,
                     "outside_resolved": False,
                 }
             continue
@@ -5518,9 +5542,6 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
 
             ref_idx = i
             active = None
-            continue
-
-        if cur["high"] > prev["high"]:
             continue
 
     if active is not None:

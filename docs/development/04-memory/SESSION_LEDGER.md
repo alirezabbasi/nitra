@@ -1710,3 +1710,28 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes with DoD enforcement active.
 - Next recommended action:
   - optionally normalize legacy ticket status/heading schema (`Status` + `Acceptance Criteria`) for full structural consistency.
+
+---
+
+## 2026-05-01 — Session Entry 016
+
+- Objective:
+  - recheck ontology document end-to-end and refactor liquidity-layer projection engine for closer semantic alignment.
+- Work completed:
+  - reviewed ontology consistency and added clarifying normative sections:
+    - bullish inverse mapping contract,
+    - explicit execution contract for `today + yesterday + current` analysis mode,
+    - pullback extension clarification.
+  - refactored backend ontology projection behavior in `services/charting/app.py`:
+    - directional objective now derived from liquidity-taken event ordering,
+    - outside-bar pullback start handling made explicit,
+    - active/in-progress pair semantics retained for chart projection.
+  - updated chart legend/runtime summary semantics to include active-pair visualization contract.
+  - rebuilt control-panel runtime and verified live endpoint/served UI output reflects refactor.
+- Verification:
+  - `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/charting/app.py` passes.
+  - `make session-bootstrap` passes.
+  - `docker compose up -d --build control-panel` passes.
+  - live checks on `/api/v1/liquidity-layer` and `/charting?...` confirm new mode/summary contract.
+- Next recommended action:
+  - add deterministic fixture tests for ontology edge-cases (inside equal-low, outside-bar next-candle precedence, major activation archive-break logic).

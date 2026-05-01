@@ -1051,3 +1051,10 @@ For every future development/debugging session, append new entries to this file 
 | 2026-05-01 12:39:12 +0330 | `docker compose up -d --build control-panel` | Rebuild runtime with up-to-current liquidity-layer fixes. | Success |
 | 2026-05-01 12:39:12 +0330 | `curl -sS "http://localhost:8110/api/v1/liquidity-layer?venue=coinbase&symbol=XRPUSD"` | Verify live API now reports `analysis_mode: up_to_current_candle`. | Success |
 | 2026-05-01 12:39:12 +0330 | `curl -sS "http://localhost:8110/charting?..." | rg -n "TF:M5\(up-to-current\)"` | Verify chart page wiring/summary reflects up-to-current mode. | Success |
+| 2026-05-01 12:58:41 +0330 | `sed/rg` on ontology + `services/charting/app.py` liquidity model | Recheck ontology semantics and inspect current liquidity-layer engine logic for full refactor. | Success |
+| 2026-05-01 12:58:41 +0330 | `apply_patch` on `services/charting/app.py` | Refactor ontology projection logic (liquidity-event bias resolution, explicit outside-bar start handling, active pair semantics retained). | Success |
+| 2026-05-01 12:58:41 +0330 | `apply_patch` on `docs/design/ontology/liquidity-driven-market-structure-ontology.md` | Add clarified inverse mapping and execution contract language; tighten pullback extension semantics. | Success |
+| 2026-05-01 12:58:41 +0330 | `apply_patch` on `services/charting/static/index.html` | Update legend and runtime summary to reflect active-pair semantics in refactored engine. | Success |
+| 2026-05-01 12:58:41 +0330 | `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/charting/app.py` | Verify backend syntax after ontology engine refactor. | Success |
+| 2026-05-01 12:58:41 +0330 | `docker compose up -d --build control-panel` | Rebuild runtime with ontology doc + engine refactor changes. | Success |
+| 2026-05-01 12:58:41 +0330 | `curl -sS http://localhost:8110/api/v1/liquidity-layer?...` and chart page grep checks | Verify live API/legend output reflects up-to-current mode and refactored ontology semantics. | Success |

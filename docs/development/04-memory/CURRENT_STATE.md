@@ -13,6 +13,10 @@ Last updated: 2026-05-01
 
 ### Recent
 
+- Rechecked and refined ontology-driven liquidity engine semantics:
+  - directional bias now resolved from liquidity-taken event ordering (upper-taken => bearish objective, lower-taken => bullish objective),
+  - outside-bar pullback start handling is explicit in projection state machine,
+  - ontology doc now includes bullish inverse mapping and a formal up-to-current execution contract.
 - Enforced mandatory ticket-level Definition of Done (DoD): non-completed tickets now require explicit DoD sections, and `make session-bootstrap` now fails fast when DoD is missing.
 - Completed `DEV-00154` liquidity-layer architecture correction:
   - added backend `GET /api/v1/liquidity-layer` projection for `today + yesterday` using closed `M5` candles only,
@@ -215,6 +219,7 @@ Last updated: 2026-05-01
 
 ### Current
 
+- Liquidity-layer engine is now refactored to tighter ontology alignment with explicit bullish inverse semantics and active/in-progress pair visibility contracts.
 - SDLC governance now hard-enforces DoD presence for backlog/in-progress tasks via bootstrap validation and ticket-template policy, reducing long-gap process drift risk.
 - `DEV-00154` is closed with backend-driven liquidity overlay projection replacing chart-local 48h heuristic rendering path.
 - `DEV-00153` is closed with root/control-panel route swap and new-tab charting launch semantics aligned to operator workflow requirements.
