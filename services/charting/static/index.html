@@ -1255,6 +1255,31 @@
         }
       }
 
+      function applyUrlContext() {
+        const params = new URLSearchParams(window.location.search || "");
+        const venueParam = String(params.get("venue") || "")
+          .trim()
+          .toLowerCase();
+        const symbolParam = String(params.get("symbol") || "")
+          .trim()
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g, "");
+        const timeframeParam = String(params.get("timeframe") || "")
+          .trim()
+          .toLowerCase();
+
+        if (timeframeParam && hasSelectOption(timeframeSelectEl, timeframeParam)) {
+          state.timeframe = timeframeParam;
+          timeframeSelectEl.value = timeframeParam;
+        }
+        if (venueParam && symbolParam) {
+          state.preferredMarket = {
+            venue: venueParam,
+            symbol: symbolParam,
+          };
+        }
+      }
+
       function clamp(value, min, max) {
         return Math.max(min, Math.min(max, value));
       }
@@ -3758,6 +3783,7 @@
       window.addEventListener("resize", () => fitChart());
 
       applyUiPrefs();
+      applyUrlContext();
       liquidityLayerToggleEl.checked = state.liquidityLayerEnabled;
       applyLayoutPreferences(loadLayoutState(), { includeMarket: true });
       setActiveTimeframe(state.timeframe);
