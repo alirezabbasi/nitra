@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import statistics
 
 
 def floor_to_tf(dt: datetime, tf_minutes: int) -> datetime:
@@ -124,6 +125,114 @@ def _resolve_liquidity_bias(bars: list[dict]) -> str:
     if lower_taken_idx > upper_taken_idx:
         return "bullish"
     return "bearish"
+
+
+def _pairs_to_pivot_chain(pairs: list[dict], bars: list[dict]) -> list[dict]:
+    valid: list[dict] = []
+    for pair in pairs:
+        low_idx = int(pair.get("low_idx", -1))
+        high_idx = int(pair.get("high_idx", -1))
+        if low_idx < 0 or high_idx < 0 or low_idx >= len(bars) or high_idx >= len(bars):
+            continue
+        valid.append(
+            {
+                "low_idx": low_idx,
+                "high_idx": high_idx,
+                "low_ts": int(bars[low_idx]["timestamp"]),
+                "high_ts": int(bars[high_idx]["timestamp"]),
+                "low_value": float(pair["low_value"]),
+                "high_value": float(pair["high_value"]),
+            }
+        )
+
+    valid.sort(key=lambda p: (p["high_idx"], p["low_idx"]))
+    pivots: list[dict] = []
+    for pair in valid:
+        low_pivot = {"idx": pair["low_idx"], "ts": pair["low_ts"], "value": pair["low_value"]}
+        high_pivot = {"idx": pair["high_idx"], "ts": pair["high_ts"], "value": pair["high_value"]}
+        if not pivots:
+            pivots.append(low_pivot)
+            pivots.append(high_pivot)
+            continue
+        if pivots[-1]["idx"] == low_pivot["idx"]:
+            pivots[-1] = low_pivot
+        else:
+            pivots.append(low_pivot)
+        if pivots[-1]["idx"] == high_pivot["idx"]:
+            pivots[-1] = high_pivot
+        else:
+            pivots.append(high_pivot)
+    return pivots
+
+
+def _compress_major_pivots(minor_pivots: list[dict]) -> list[dict]:
+    if len(minor_pivots) <= 2:
+        return list(minor_pivots)
+
+    # Stage 1: collapse same-direction extensions to dominant extremes.
+    directional: list[dict] = [minor_pivots[0], minor_pivots[1]]
+    for pivot in minor_pivots[2:]:
+        a = directional[-2]
+        b = directional[-1]
+        d1 = float(b["value"]) - float(a["value"])
+        d2 = float(pivot["value"]) - float(b["value"])
+        if d1 == 0.0:
+            directional[-1] = pivot
+            continue
+        if d1 * d2 > 0:
+            if (d1 > 0 and float(pivot["value"]) >= float(b["value"])) or (d1 < 0 and float(pivot["value"]) <= float(b["value"])):
+                directional[-1] = pivot
+            continue
+        directional.append(pivot)
+
+    if len(directional) <= 2:
+        return directional
+
+    # Stage 2: remove low-prominence reversals; keep structurally meaningful turns.
+    leg_sizes = [abs(float(directional[i]["value"]) - float(directional[i - 1]["value"])) for i in range(1, len(directional))]
+    base_leg = statistics.median(leg_sizes) if leg_sizes else 0.0
+    threshold = base_leg * 1.2
+
+    major: list[dict] = [directional[0]]
+    for i in range(1, len(directional) - 1):
+        prev_p = directional[i - 1]
+        cur_p = directional[i]
+        next_p = directional[i + 1]
+        left = abs(float(cur_p["value"]) - float(prev_p["value"]))
+        right = abs(float(next_p["value"]) - float(cur_p["value"]))
+        prominence = min(left, right)
+        if prominence >= threshold:
+            major.append(cur_p)
+    major.append(directional[-1])
+
+    # Deduplicate by index while preserving order.
+    out: list[dict] = []
+    for p in major:
+        if out and int(out[-1]["idx"]) == int(p["idx"]):
+            out[-1] = p
+        else:
+            out.append(p)
+    return out
+
+
+def _pivots_to_pairs(pivots: list[dict]) -> list[dict]:
+    pairs: list[dict] = []
+    for i in range(1, len(pivots)):
+        a = pivots[i - 1]
+        b = pivots[i]
+        if int(a["idx"]) == int(b["idx"]):
+            continue
+        low_p = a if float(a["value"]) <= float(b["value"]) else b
+        high_p = b if low_p is a else a
+        pairs.append(
+            {
+                "low_idx": int(low_p["idx"]),
+                "high_idx": int(high_p["idx"]),
+                "low_value": float(low_p["value"]),
+                "high_value": float(high_p["value"]),
+            }
+        )
+    return pairs
 
 
 def build_ontology_liquidity_model(bars: list[dict]) -> dict:
@@ -277,57 +386,24 @@ def build_ontology_liquidity_model(bars: list[dict]) -> dict:
             "status": "active",
         }
 
-    structural_high_archive: list[float] = []
-    major_pairs: list[dict] = []
-    for pair in minor_pairs:
-        minor_high = -float(pair["high_value"]) if bias == "bullish" else float(pair["high_value"])
-        broke_prior_high = any(minor_high > archived for archived in structural_high_archive)
-        structural_high_archive.append(minor_high)
-        if broke_prior_high:
-            major_pairs.append(dict(pair))
+    minor_pivots = _pairs_to_pivot_chain(minor_pairs, bars)
+    major_pivots = _compress_major_pivots(minor_pivots)
+    major_pairs = _pivots_to_pairs(major_pivots)
 
-    return {"bias": bias, "minor_pairs": minor_pairs, "major_pairs": major_pairs, "active_pair": active_pair}
+    return {
+        "bias": bias,
+        "minor_pairs": minor_pairs,
+        "major_pairs": major_pairs,
+        "minor_pivots": minor_pivots,
+        "major_pivots": major_pivots,
+        "active_pair": active_pair,
+    }
 
 
 def build_liquidity_overlay_data(bars: list[dict], model: dict) -> dict:
     segments: list[dict] = []
 
-    def _to_chain_segments(pairs: list[dict], color: str, size: int) -> None:
-        valid = []
-        for pair in pairs:
-            low_idx = int(pair.get("low_idx", -1))
-            high_idx = int(pair.get("high_idx", -1))
-            if low_idx < 0 or high_idx < 0 or low_idx >= len(bars) or high_idx >= len(bars):
-                continue
-            valid.append(
-                {
-                    "low_idx": low_idx,
-                    "high_idx": high_idx,
-                    "low_ts": int(bars[low_idx]["timestamp"]),
-                    "high_ts": int(bars[high_idx]["timestamp"]),
-                    "low_value": float(pair["low_value"]),
-                    "high_value": float(pair["high_value"]),
-                }
-            )
-
-        valid.sort(key=lambda p: (p["high_idx"], p["low_idx"]))
-        pivots: list[dict] = []
-        for pair in valid:
-            low_pivot = {"idx": pair["low_idx"], "ts": pair["low_ts"], "value": pair["low_value"]}
-            high_pivot = {"idx": pair["high_idx"], "ts": pair["high_ts"], "value": pair["high_value"]}
-            if not pivots:
-                pivots.append(low_pivot)
-                pivots.append(high_pivot)
-                continue
-            if pivots[-1]["idx"] == low_pivot["idx"]:
-                pivots[-1] = low_pivot
-            else:
-                pivots.append(low_pivot)
-            if pivots[-1]["idx"] == high_pivot["idx"]:
-                pivots[-1] = high_pivot
-            else:
-                pivots.append(high_pivot)
-
+    def _pivots_to_segments(pivots: list[dict], color: str, size: int) -> None:
         for i in range(1, len(pivots)):
             start = pivots[i - 1]
             end = pivots[i]
@@ -343,8 +419,10 @@ def build_liquidity_overlay_data(bars: list[dict], model: dict) -> dict:
                 }
             )
 
-    _to_chain_segments(model.get("minor_pairs", []), "#f7c744", 1)
-    _to_chain_segments(model.get("major_pairs", []), "#25d2b8", 2)
+    minor_pivots = [p for p in model.get("minor_pivots", []) if isinstance(p, dict)]
+    major_pivots = [p for p in model.get("major_pivots", []) if isinstance(p, dict)]
+    _pivots_to_segments(minor_pivots, "#e05555", 1)
+    _pivots_to_segments(major_pivots, "#3d73ff", 2)
 
     active_pair = model.get("active_pair")
     if isinstance(active_pair, dict):

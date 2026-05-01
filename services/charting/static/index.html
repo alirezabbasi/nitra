@@ -299,10 +299,10 @@
         height: 2px;
       }
       .legend-swatch.minor {
-        border-top: 2px dashed #f7c744;
+        border-top: 2px solid #e05555;
       }
       .legend-swatch.major {
-        border-top: 2px solid #25d2b8;
+        border-top: 2px solid #3d73ff;
       }
 
       #kline {
@@ -2362,8 +2362,8 @@
         const allowMajor = norm === "major_only";
         const segments = sourceSegments.filter((seg) => {
           const color = String(seg?.color || "").toLowerCase();
-          if (allowMinor) return color === "#f7c744" || color === "#ff9b3d";
-          if (allowMajor) return color === "#25d2b8";
+          if (allowMinor) return color === "#e05555" || color === "#ff9b3d";
+          if (allowMajor) return color === "#3d73ff";
           return true;
         });
         return { segments, markers: [] };

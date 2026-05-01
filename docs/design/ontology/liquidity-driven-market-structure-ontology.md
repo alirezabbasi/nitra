@@ -79,10 +79,12 @@ Applies to: chart layer semantics, rulebooks, scenario labeling, schema outputs,
 
 ## 7. Major Structure Activation
 
-- Major activation occurs when pullback high breaks archived structural highs:
-  - previous minor highs
-  - previous major highs
-- Condition: `pullback.high > any archived structural high`
+- Major structure is the higher-order footprint of the same pullback process.
+- Practical projection rule:
+  - derive a chronological minor pivot chain first,
+  - compress that chain by retaining dominant reversals/extensions only,
+  - use the compressed chain as major structure.
+- This preserves ontology fractality and matches analyst-style major swing mapping.
 
 ## 8. Major High
 
@@ -94,9 +96,8 @@ Applies to: chart layer semantics, rulebooks, scenario labeling, schema outputs,
 
 ## 10. Major Structural Pair
 
-- Major pair is always:
-  - Major Low
-  - Major High
+- Major pairs are consecutive pivots of the compressed major chain.
+- Each major segment is drawn as one line between two consecutive major pivots.
 
 ## 11. Continuous Market Principle
 
@@ -138,3 +139,6 @@ Any interpretation component that diverges MUST declare explicit versioned varia
 - Liquidity layer projection window is `today + yesterday`, extended up to the current active candle.
 - Closed-candle structure must remain deterministic; active-candle extension may be provisional.
 - Chart must distinguish completed versus active (in-progress) structure state in overlay semantics.
+- Visualization contract:
+  - Minor layer: full minor pivot chain (dense, local structure).
+  - Major layer: compressed major pivot chain (clean, dominant structure).
