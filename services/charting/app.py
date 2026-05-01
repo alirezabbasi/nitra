@@ -5457,6 +5457,34 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
     series_bear = [{"high": float(b["high"]), "low": float(b["low"])} for b in bars]
     series_bull = [{"high": -float(b["low"]), "low": -float(b["high"])} for b in bars]
 
+    def _canonicalize_pairs(pairs: list[dict]) -> list[dict]:
+        # Keep one canonical pullback per completion candle and per peak candle,
+        # preferring the most local structure (latest reference low).
+        by_end: dict[int, dict] = {}
+        for pair in pairs:
+            end_idx = int(pair["end_idx"])
+            current = by_end.get(end_idx)
+            if current is None or int(pair["low_idx"]) > int(current["low_idx"]):
+                by_end[end_idx] = pair
+
+        by_peak: dict[int, dict] = {}
+        for pair in by_end.values():
+            peak_idx = int(pair["high_idx"])
+            current = by_peak.get(peak_idx)
+            if current is None or int(pair["low_idx"]) > int(current["low_idx"]):
+                by_peak[peak_idx] = pair
+
+        canonical = sorted(by_peak.values(), key=lambda p: (int(p["end_idx"]), int(p["high_idx"]), int(p["low_idx"])))
+        return [
+            {
+                "low_idx": int(pair["low_idx"]),
+                "high_idx": int(pair["high_idx"]),
+                "low_value": float(pair["low_value"]),
+                "high_value": float(pair["high_value"]),
+            }
+            for pair in canonical
+        ]
+
     def detect_pairs(series: list[dict]) -> tuple[list[dict], dict | None]:
         detected: list[dict] = []
         active_candidates: list[dict] = []
@@ -5514,6 +5542,7 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
                         {
                             "low_idx": int(termination_ref_idx),
                             "high_idx": int(max_high_idx),
+                            "end_idx": int(i),
                             "low_value": float(series[termination_ref_idx]["low"]),
                             "high_value": float(series[max_high_idx]["high"]),
                         }
@@ -5530,11 +5559,7 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
                         }
                     )
 
-        dedup_detected: dict[tuple[int, int], dict] = {}
-        for pair in detected:
-            key = (int(pair["low_idx"]), int(pair["high_idx"]))
-            dedup_detected[key] = pair
-        detected_sorted = sorted(dedup_detected.values(), key=lambda p: (int(p["high_idx"]), int(p["low_idx"])))
+        detected_sorted = _canonicalize_pairs(detected)
 
         active_local = None
         if active_candidates:
@@ -5557,21 +5582,29 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
             }
         )
 
-    # Merge independent minor pullbacks from both directional mappings.
+    # Merge independent minor pullbacks from both directional mappings,
+    # then canonicalize again to avoid fan-like overlaps at the same completion/peak areas.
     dedup: dict[tuple[int, int], dict] = {}
     for p in bear_pairs:
         key = (int(p["low_idx"]), int(p["high_idx"]))
         dedup[key] = {
             "low_idx": int(p["low_idx"]),
             "high_idx": int(p["high_idx"]),
+            "end_idx": int(p["high_idx"]),
             "low_value": float(p["low_value"]),
             "high_value": float(p["high_value"]),
         }
     for p in bull_pairs_natural:
         key = (int(p["low_idx"]), int(p["high_idx"]))
         if key not in dedup:
-            dedup[key] = p
-    minor_pairs = sorted(dedup.values(), key=lambda p: (int(p["high_idx"]), int(p["low_idx"])))
+            dedup[key] = {
+                "low_idx": int(p["low_idx"]),
+                "high_idx": int(p["high_idx"]),
+                "end_idx": int(p["high_idx"]),
+                "low_value": float(p["low_value"]),
+                "high_value": float(p["high_value"]),
+            }
+    minor_pairs = _canonicalize_pairs(list(dedup.values()))
 
     # Active pair remains objective-directional.
     active_pair = None
