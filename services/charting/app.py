@@ -5776,7 +5776,8 @@ def _build_liquidity_overlay_data(bars: list[dict], model: dict) -> dict:
                 }
             )
 
-    return {"segments": segments, "markers": markers}
+    # Keep overlay readable: draw pullback lines only, no text markers.
+    return {"segments": segments, "markers": []}
 
 
 @app.get("/api/v1/liquidity-layer")
