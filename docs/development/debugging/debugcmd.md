@@ -1023,3 +1023,7 @@ For every future development/debugging session, append new entries to this file 
 | 2026-05-01 11:22:58 +0330 | `python -m py_compile services/control-panel/app/main.py services/charting/app.py` | Syntax-check updated Python modules. | Failed (`Permission denied` writing `__pycache__`) |
 | 2026-05-01 11:22:58 +0330 | `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/control-panel/app/main.py services/charting/app.py` | Re-run syntax checks with writable pycache path. | Success |
 | 2026-05-01 11:22:58 +0330 | `make session-bootstrap` | Final readiness re-check after code/docs/ticket updates. | Success (`SESSION_BOOTSTRAP_OK`) |
+| 2026-05-01 11:24:09 +0330 | `sed -n '1,120p' docs/ruleset.md` | Re-check ruleset before final commit. | Success |
+| 2026-05-01 11:24:09 +0330 | `git add ... && git commit -m "control-panel: swap root route and add chart new-tab handoff"` (parallel attempt) | Commit completed ticket scope in same session per Rule 7. | Failed (`git commit` raced before staged files in parallel execution) |
+| 2026-05-01 11:24:09 +0330 | `git add ... && git commit -m "control-panel: swap root route and add chart new-tab handoff"` (sequential retry) | Retry same commit flow sequentially after race condition. | Success (commit `b81779a`) |
+| 2026-05-01 11:24:09 +0330 | `git status --short` | Confirm clean working tree after commit. | Success (clean) |
