@@ -2304,7 +2304,8 @@
         state.liquidityLayerLastBarSignature = barSignature;
         state.liquidityLayerLastSymbolKey = marketKey;
         liquidityLayerLegendEl.classList.remove("hidden");
-        liquidityLayerSummaryEl.textContent = `Bias:${model.bias} | Minor:${(model.minor_pairs || []).length} | Major:${(model.major_pairs || []).length} | Window:${windowLabel} | TF:M5(up-to-current)`;
+        const activeState = model?.active_pair ? "yes" : "no";
+        liquidityLayerSummaryEl.textContent = `Bias:${model.bias} | Minor:${(model.minor_pairs || []).length} | Major:${(model.major_pairs || []).length} | Active:${activeState} | Window:${windowLabel} | TF:M5(up-to-current)`;
         if (state.liquidityLayerOverlayId && typeof chart.overrideOverlay === "function") {
           chart.overrideOverlay({
             id: state.liquidityLayerOverlayId,

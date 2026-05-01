@@ -5438,7 +5438,7 @@ def _resolve_liquidity_bias(bars: list[dict]) -> str:
 
 def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
     if len(bars) < 5:
-        return {"bias": "bearish", "minor_pairs": [], "major_pairs": []}
+        return {"bias": "bearish", "minor_pairs": [], "major_pairs": [], "active_pair": None}
 
     bias = _resolve_liquidity_bias(bars)
     series: list[dict] = []
@@ -5460,6 +5460,7 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
 
     minor_pairs: list[dict] = []
     major_pairs: list[dict] = []
+    active_pair: dict | None = None
     structural_high_archive: list[float] = []
     ref_idx = 0
     active: dict | None = None
@@ -5522,10 +5523,24 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
         if cur["high"] > prev["high"]:
             continue
 
+    if active is not None:
+        active_low_idx = int(active["ref_idx"])
+        active_high_idx = int(active["max_high_idx"])
+        active_low = float(series[active_low_idx]["low"])
+        active_high = float(series[active_high_idx]["high"])
+        active_pair = {
+            "low_idx": active_low_idx,
+            "high_idx": active_high_idx,
+            "low_value": -active_low if bias == "bullish" else active_low,
+            "high_value": -active_high if bias == "bullish" else active_high,
+            "status": "active",
+        }
+
     return {
         "bias": bias,
         "minor_pairs": minor_pairs,
         "major_pairs": major_pairs,
+        "active_pair": active_pair,
     }
 
 
@@ -5613,6 +5628,45 @@ def _build_liquidity_overlay_data(bars: list[dict], model: dict) -> dict:
                 "radius": 3.5,
             }
         )
+
+    active_pair = model.get("active_pair")
+    if isinstance(active_pair, dict):
+        low_idx = int(active_pair.get("low_idx", -1))
+        high_idx = int(active_pair.get("high_idx", -1))
+        if low_idx >= 0 and high_idx >= 0 and low_idx < len(bars) and high_idx < len(bars):
+            low_bar = bars[low_idx]
+            high_bar = bars[high_idx]
+            low_value = float(active_pair.get("low_value", 0.0))
+            high_value = float(active_pair.get("high_value", 0.0))
+            segments.append(
+                {
+                    "start": {"timestamp": int(low_bar["timestamp"]), "value": low_value},
+                    "end": {"timestamp": int(high_bar["timestamp"]), "value": high_value},
+                    "color": "#ff9b3d",
+                    "size": 1,
+                    "style": "dash",
+                }
+            )
+            markers.append(
+                {
+                    "timestamp": int(low_bar["timestamp"]),
+                    "value": low_value,
+                    "label": "aL" if bias == "bullish" else "aH",
+                    "color": "#ff9b3d",
+                    "labelDx": 5,
+                    "labelDy": 10,
+                }
+            )
+            markers.append(
+                {
+                    "timestamp": int(high_bar["timestamp"]),
+                    "value": high_value,
+                    "label": "aH" if bias == "bullish" else "aL",
+                    "color": "#ff9b3d",
+                    "labelDx": 5,
+                    "labelDy": -10,
+                }
+            )
 
     return {"segments": segments, "markers": markers}
 
