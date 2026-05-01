@@ -5328,24 +5328,24 @@ def _floor_to_tf(dt: datetime, tf_minutes: int) -> datetime:
     return dt_utc.replace(minute=minute)
 
 
-def _closed_m5_window(now_utc: datetime) -> tuple[datetime, datetime]:
+def _m5_window_bounds(now_utc: datetime) -> tuple[datetime, datetime, datetime]:
     current_bucket_start = _floor_to_tf(now_utc, 5)
     last_closed_bucket_start = current_bucket_start - timedelta(minutes=5)
     start_of_today = now_utc.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     start_of_yesterday = start_of_today - timedelta(days=1)
-    return start_of_yesterday, last_closed_bucket_start
+    return start_of_yesterday, last_closed_bucket_start, current_bucket_start
 
 
-def _aggregate_closed_m5_from_1m(rows: list[tuple], last_closed_bucket_start: datetime) -> list[dict]:
+def _aggregate_m5_from_1m(rows: list[tuple], max_bucket_start: datetime) -> list[dict]:
     buckets: dict[datetime, dict] = {}
     for bucket_start, o, h, l, c, volume, trade_count in rows:
         if None in (bucket_start, o, h, l, c):
             continue
-        if bucket_start > last_closed_bucket_start:
+        if bucket_start > max_bucket_start:
             continue
         bucket_start_utc = bucket_start.astimezone(timezone.utc).replace(second=0, microsecond=0)
         m5_start = bucket_start_utc - timedelta(minutes=bucket_start_utc.minute % 5)
-        if m5_start > last_closed_bucket_start:
+        if m5_start > max_bucket_start:
             continue
         group = buckets.get(m5_start)
         if group is None:
@@ -5367,8 +5367,61 @@ def _aggregate_closed_m5_from_1m(rows: list[tuple], last_closed_bucket_start: da
         group["trade_count"] += int(trade_count or 0)
         group["minute_count"] += 1
 
-    out = [buckets[k] for k in sorted(buckets.keys()) if int(buckets[k]["minute_count"]) == 5]
+    out = [buckets[k] for k in sorted(buckets.keys())]
     return out
+
+
+def _coalesce_price(mid: float | None, bid: float | None, ask: float | None, last: float | None) -> float | None:
+    if mid is not None:
+        return float(mid)
+    if bid is not None and ask is not None:
+        return float((bid + ask) / 2.0)
+    if last is not None:
+        return float(last)
+    return None
+
+
+def _augment_current_m5_with_ticks(
+    *,
+    bars_5m: list[dict],
+    ticks: list[tuple],
+    current_bucket_start: datetime,
+) -> list[dict]:
+    current_bucket_ms = int(current_bucket_start.timestamp() * 1000)
+    prices: list[float] = []
+    for _ts, mid, bid, ask, last in ticks:
+        price = _coalesce_price(mid, bid, ask, last)
+        if price is not None:
+            prices.append(price)
+
+    if not prices:
+        return bars_5m
+
+    existing = bars_5m[-1] if bars_5m and int(bars_5m[-1]["timestamp"]) == current_bucket_ms else None
+    if existing is not None:
+        existing["high"] = max(float(existing["high"]), max(prices))
+        existing["low"] = min(float(existing["low"]), min(prices))
+        existing["close"] = float(prices[-1])
+        existing["provisional"] = True
+        return bars_5m
+
+    open_price = float(prices[0])
+    if bars_5m:
+        open_price = float(bars_5m[-1]["close"])
+    bars_5m.append(
+        {
+            "timestamp": current_bucket_ms,
+            "open": open_price,
+            "high": max(max(prices), open_price),
+            "low": min(min(prices), open_price),
+            "close": float(prices[-1]),
+            "volume": 0.0,
+            "trade_count": 0,
+            "minute_count": 0,
+            "provisional": True,
+        }
+    )
+    return bars_5m
 
 
 def _resolve_liquidity_bias(bars: list[dict]) -> str:
@@ -5572,8 +5625,8 @@ def liquidity_layer_projection(
     venue_norm = normalize_venue(venue)
     symbol_norm = normalize_symbol(symbol)
     now_utc = datetime.now(timezone.utc)
-    window_start, last_closed_bucket_start = _closed_m5_window(now_utc)
-    window_end_exclusive = last_closed_bucket_start + timedelta(minutes=5)
+    window_start, last_closed_bucket_start, current_bucket_start = _m5_window_bounds(now_utc)
+    window_end_exclusive = current_bucket_start + timedelta(minutes=5)
 
     with psycopg.connect(db_url()) as conn:
         with conn.cursor() as cur:
@@ -5598,8 +5651,25 @@ def liquidity_layer_projection(
                 (venue_norm, symbol_norm, window_start, window_end_exclusive),
             )
             one_minute_rows = cur.fetchall()
+            cur.execute(
+                """
+                SELECT event_ts_received, mid, bid, ask, last
+                FROM raw_tick
+                WHERE venue = %s
+                  AND broker_symbol = %s
+                  AND event_ts_received >= %s
+                ORDER BY event_ts_received ASC
+                """,
+                (venue_norm, symbol_norm, current_bucket_start),
+            )
+            current_bucket_ticks = cur.fetchall()
 
-    bars_5m = _aggregate_closed_m5_from_1m(one_minute_rows, last_closed_bucket_start)
+    bars_5m = _aggregate_m5_from_1m(one_minute_rows, current_bucket_start)
+    bars_5m = _augment_current_m5_with_ticks(
+        bars_5m=bars_5m,
+        ticks=current_bucket_ticks,
+        current_bucket_start=current_bucket_start,
+    )
     model = _build_ontology_liquidity_model(bars_5m)
     overlay_data = _build_liquidity_overlay_data(bars_5m, model)
 
@@ -5607,11 +5677,13 @@ def liquidity_layer_projection(
         "venue": venue_norm,
         "symbol": symbol_norm,
         "analysis_timeframe": "5m",
+        "analysis_mode": "up_to_current_candle",
         "window": {
-            "mode": "today_plus_yesterday",
+            "mode": "today_plus_yesterday_up_to_current",
             "start": window_start.isoformat(),
             "end": window_end_exclusive.isoformat(),
             "last_closed_bucket_start": last_closed_bucket_start.isoformat(),
+            "current_bucket_start": current_bucket_start.isoformat(),
         },
         "bars_used": len(bars_5m),
         "model": model,

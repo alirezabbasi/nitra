@@ -1045,3 +1045,9 @@ For every future development/debugging session, append new entries to this file 
 | 2026-05-01 12:27:43 +0330 | `apply_patch` on `docs/development/tickets/TICKET_TEMPLATE.md` | Add canonical ticket template including required DoD section. | Success |
 | 2026-05-01 12:27:43 +0330 | `apply_patch` on `scripts/session/session-bootstrap.sh` | Add fail-fast DoD validation for non-completed tickets at session start bootstrap. | Success |
 | 2026-05-01 12:27:43 +0330 | `make session-bootstrap` | Verify DoD enforcement and resume checks pass with new bootstrap policy. | Failed then Success (initial missing DoD in `DEV-00052`, fixed and re-run passed) |
+| 2026-05-01 12:39:12 +0330 | `apply_patch` on `services/charting/app.py` | Extend liquidity-layer backend projection from closed-M5-only to up-to-current-candle mode using current-bucket tick augmentation. | Success |
+| 2026-05-01 12:39:12 +0330 | `apply_patch` on `services/charting/static/index.html` | Change liquidity-layer refresh gating from closed-bucket-only to last-bar signature updates so current candle analysis stays fresh. | Success |
+| 2026-05-01 12:39:12 +0330 | `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/charting/app.py` | Syntax-check updated backend endpoint implementation. | Success |
+| 2026-05-01 12:39:12 +0330 | `docker compose up -d --build control-panel` | Rebuild runtime with up-to-current liquidity-layer fixes. | Success |
+| 2026-05-01 12:39:12 +0330 | `curl -sS "http://localhost:8110/api/v1/liquidity-layer?venue=coinbase&symbol=XRPUSD"` | Verify live API now reports `analysis_mode: up_to_current_candle`. | Success |
+| 2026-05-01 12:39:12 +0330 | `curl -sS "http://localhost:8110/charting?..." | rg -n "TF:M5\(up-to-current\)"` | Verify chart page wiring/summary reflects up-to-current mode. | Success |
