@@ -1662,3 +1662,29 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes (`SESSION_BOOTSTRAP_OK`).
 - Next recommended action:
   - add focused regression test coverage for root/charting route semantics and chart-tab fallback behavior.
+
+---
+
+## 2026-05-01 — Session Entry 014
+
+- Objective:
+  - implement backend ontology-derived liquidity-layer projection for `today + yesterday` on closed `M5` candles and switch chart overlay consumption to that backend source.
+- Work completed:
+  - added `GET /api/v1/liquidity-layer` in `services/charting/app.py` with:
+    - closed `M5` window derivation,
+    - `1m -> M5` complete-bucket aggregation,
+    - ontology projection model generation (`bias`, `minor_pairs`, `major_pairs`),
+    - overlay payload generation (`segments`, `markers`).
+  - refactored `services/charting/static/index.html` liquidity layer flow:
+    - fetches backend payload instead of relying on local 48h heuristic window,
+    - refreshes only when closed-M5 bucket boundary advances or symbol changes,
+    - updates UI summary to `Window:today+yesterday | TF:M5(closed)`.
+  - updated `BUG-00009` to resolved with fix details.
+  - created and closed delivery ticket `DEV-00154`; synchronized Kanban and current-state artifacts.
+- Verification:
+  - `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/charting/app.py` passes.
+  - `docker compose up -d --build control-panel` passes.
+  - `curl -sS "http://localhost:8110/api/v1/liquidity-layer?venue=oanda&symbol=GBPUSD"` returns `analysis_timeframe:"5m"` with `window.mode:"today_plus_yesterday"` and overlay payload.
+  - `curl -sS "http://localhost:8110/charting?venue=oanda&symbol=GBPUSD&timeframe=5m" | rg -n "api/v1/liquidity-layer|TF:M5\(closed\)"` confirms frontend consumption and summary mode.
+- Next recommended action:
+  - add deterministic fixture-based regression pack that asserts ontology pair outputs against curated M5 candle sequences (including inside/outside-bar edge precedence).

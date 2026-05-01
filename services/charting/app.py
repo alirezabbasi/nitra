@@ -5322,6 +5322,304 @@ def _rows_to_bars(rows: list[tuple]) -> list[dict]:
     return out
 
 
+def _floor_to_tf(dt: datetime, tf_minutes: int) -> datetime:
+    dt_utc = dt.astimezone(timezone.utc).replace(second=0, microsecond=0)
+    minute = (dt_utc.minute // tf_minutes) * tf_minutes
+    return dt_utc.replace(minute=minute)
+
+
+def _closed_m5_window(now_utc: datetime) -> tuple[datetime, datetime]:
+    current_bucket_start = _floor_to_tf(now_utc, 5)
+    last_closed_bucket_start = current_bucket_start - timedelta(minutes=5)
+    start_of_today = now_utc.astimezone(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    start_of_yesterday = start_of_today - timedelta(days=1)
+    return start_of_yesterday, last_closed_bucket_start
+
+
+def _aggregate_closed_m5_from_1m(rows: list[tuple], last_closed_bucket_start: datetime) -> list[dict]:
+    buckets: dict[datetime, dict] = {}
+    for bucket_start, o, h, l, c, volume, trade_count in rows:
+        if None in (bucket_start, o, h, l, c):
+            continue
+        if bucket_start > last_closed_bucket_start:
+            continue
+        bucket_start_utc = bucket_start.astimezone(timezone.utc).replace(second=0, microsecond=0)
+        m5_start = bucket_start_utc - timedelta(minutes=bucket_start_utc.minute % 5)
+        if m5_start > last_closed_bucket_start:
+            continue
+        group = buckets.get(m5_start)
+        if group is None:
+            buckets[m5_start] = {
+                "timestamp": int(m5_start.timestamp() * 1000),
+                "open": float(o),
+                "high": float(h),
+                "low": float(l),
+                "close": float(c),
+                "volume": float(volume or 0.0),
+                "trade_count": int(trade_count or 0),
+                "minute_count": 1,
+            }
+            continue
+        group["high"] = max(group["high"], float(h))
+        group["low"] = min(group["low"], float(l))
+        group["close"] = float(c)
+        group["volume"] += float(volume or 0.0)
+        group["trade_count"] += int(trade_count or 0)
+        group["minute_count"] += 1
+
+    out = [buckets[k] for k in sorted(buckets.keys()) if int(buckets[k]["minute_count"]) == 5]
+    return out
+
+
+def _resolve_liquidity_bias(bars: list[dict]) -> str:
+    if len(bars) < 20:
+        return "bearish"
+    lookback = bars[-80:]
+    high = max(float(b["high"]) for b in lookback)
+    low = min(float(b["low"]) for b in lookback)
+    if high <= low:
+        return "bearish"
+    pos = (float(lookback[-1]["close"]) - low) / (high - low)
+    return "bullish" if pos > 0.55 else "bearish"
+
+
+def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
+    if len(bars) < 5:
+        return {"bias": "bearish", "minor_pairs": [], "major_pairs": []}
+
+    bias = _resolve_liquidity_bias(bars)
+    series: list[dict] = []
+    for b in bars:
+        if bias == "bullish":
+            series.append(
+                {
+                    "high": -float(b["low"]),
+                    "low": -float(b["high"]),
+                }
+            )
+        else:
+            series.append(
+                {
+                    "high": float(b["high"]),
+                    "low": float(b["low"]),
+                }
+            )
+
+    minor_pairs: list[dict] = []
+    major_pairs: list[dict] = []
+    structural_high_archive: list[float] = []
+    ref_idx = 0
+    active: dict | None = None
+
+    for i in range(1, len(series)):
+        prev = series[i - 1]
+        cur = series[i]
+
+        if active is None:
+            is_inside = cur["high"] <= series[ref_idx]["high"] and cur["low"] >= series[ref_idx]["low"]
+            if is_inside and cur["low"] == series[ref_idx]["low"]:
+                ref_idx = i
+                continue
+            if cur["high"] > series[ref_idx]["high"] and cur["low"] >= series[ref_idx]["low"]:
+                active = {
+                    "ref_idx": ref_idx,
+                    "termination_ref_idx": ref_idx,
+                    "max_high": cur["high"],
+                    "max_high_idx": i,
+                    "outside_base_idx": i if cur["low"] < series[ref_idx]["low"] else None,
+                    "outside_resolved": False,
+                }
+            continue
+
+        if active["outside_base_idx"] is not None and not active["outside_resolved"]:
+            base_idx = int(active["outside_base_idx"])
+            if cur["high"] > series[base_idx]["high"]:
+                active["termination_ref_idx"] = base_idx
+            active["outside_resolved"] = True
+
+        if cur["high"] > float(active["max_high"]):
+            active["max_high"] = cur["high"]
+            active["max_high_idx"] = i
+
+        termination_ref_idx = int(active["termination_ref_idx"])
+        terminated = cur["low"] < series[termination_ref_idx]["low"]
+        if terminated:
+            minor_low_idx = int(active["ref_idx"])
+            minor_high_idx = int(active["max_high_idx"])
+            minor_low = float(series[minor_low_idx]["low"])
+            minor_high = float(series[minor_high_idx]["high"])
+
+            pair = {
+                "low_idx": minor_low_idx,
+                "high_idx": minor_high_idx,
+                "low_value": -minor_low if bias == "bullish" else minor_low,
+                "high_value": -minor_high if bias == "bullish" else minor_high,
+            }
+            minor_pairs.append(pair)
+
+            broke_prior_high = any(minor_high > archived for archived in structural_high_archive)
+            structural_high_archive.append(minor_high)
+            if broke_prior_high:
+                major_pairs.append(dict(pair))
+
+            ref_idx = i
+            active = None
+            continue
+
+        if cur["high"] > prev["high"]:
+            continue
+
+    return {
+        "bias": bias,
+        "minor_pairs": minor_pairs,
+        "major_pairs": major_pairs,
+    }
+
+
+def _build_liquidity_overlay_data(bars: list[dict], model: dict) -> dict:
+    segments: list[dict] = []
+    markers: list[dict] = []
+    bias = str(model.get("bias") or "bearish")
+
+    for pair in model.get("minor_pairs", []):
+        low_idx = int(pair["low_idx"])
+        high_idx = int(pair["high_idx"])
+        if low_idx < 0 or high_idx < 0 or low_idx >= len(bars) or high_idx >= len(bars):
+            continue
+        low_bar = bars[low_idx]
+        high_bar = bars[high_idx]
+        low_value = float(pair["low_value"])
+        high_value = float(pair["high_value"])
+        segments.append(
+            {
+                "start": {"timestamp": int(low_bar["timestamp"]), "value": low_value},
+                "end": {"timestamp": int(high_bar["timestamp"]), "value": high_value},
+                "color": "#f7c744",
+                "size": 1,
+                "style": "dash",
+            }
+        )
+        markers.append(
+            {
+                "timestamp": int(low_bar["timestamp"]),
+                "value": low_value,
+                "label": "mH" if bias == "bullish" else "mL",
+                "color": "#f7c744",
+                "labelDx": 5,
+                "labelDy": 10,
+            }
+        )
+        markers.append(
+            {
+                "timestamp": int(high_bar["timestamp"]),
+                "value": high_value,
+                "label": "mL" if bias == "bullish" else "mH",
+                "color": "#f7c744",
+                "labelDx": 5,
+                "labelDy": -10,
+            }
+        )
+
+    for pair in model.get("major_pairs", []):
+        low_idx = int(pair["low_idx"])
+        high_idx = int(pair["high_idx"])
+        if low_idx < 0 or high_idx < 0 or low_idx >= len(bars) or high_idx >= len(bars):
+            continue
+        low_bar = bars[low_idx]
+        high_bar = bars[high_idx]
+        low_value = float(pair["low_value"])
+        high_value = float(pair["high_value"])
+        segments.append(
+            {
+                "start": {"timestamp": int(low_bar["timestamp"]), "value": low_value},
+                "end": {"timestamp": int(high_bar["timestamp"]), "value": high_value},
+                "color": "#25d2b8",
+                "size": 2,
+                "style": "solid",
+            }
+        )
+        markers.append(
+            {
+                "timestamp": int(low_bar["timestamp"]),
+                "value": low_value,
+                "label": "MH" if bias == "bullish" else "ML",
+                "color": "#25d2b8",
+                "labelDx": 6,
+                "labelDy": 12,
+                "radius": 3.5,
+            }
+        )
+        markers.append(
+            {
+                "timestamp": int(high_bar["timestamp"]),
+                "value": high_value,
+                "label": "ML" if bias == "bullish" else "MH",
+                "color": "#25d2b8",
+                "labelDx": 6,
+                "labelDy": -12,
+                "radius": 3.5,
+            }
+        )
+
+    return {"segments": segments, "markers": markers}
+
+
+@app.get("/api/v1/liquidity-layer")
+def liquidity_layer_projection(
+    venue: str = Query(min_length=1, max_length=64),
+    symbol: str = Query(min_length=1, max_length=64),
+) -> dict:
+    venue_norm = normalize_venue(venue)
+    symbol_norm = normalize_symbol(symbol)
+    now_utc = datetime.now(timezone.utc)
+    window_start, last_closed_bucket_start = _closed_m5_window(now_utc)
+    window_end_exclusive = last_closed_bucket_start + timedelta(minutes=5)
+
+    with psycopg.connect(db_url()) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                  bucket_start,
+                  open,
+                  high,
+                  low,
+                  close,
+                  COALESCE(volume, 0),
+                  COALESCE(trade_count, 0)
+                FROM ohlcv_bar
+                WHERE venue = %s
+                  AND canonical_symbol = %s
+                  AND timeframe = '1m'
+                  AND bucket_start >= %s
+                  AND bucket_start < %s
+                ORDER BY bucket_start ASC
+                """,
+                (venue_norm, symbol_norm, window_start, window_end_exclusive),
+            )
+            one_minute_rows = cur.fetchall()
+
+    bars_5m = _aggregate_closed_m5_from_1m(one_minute_rows, last_closed_bucket_start)
+    model = _build_ontology_liquidity_model(bars_5m)
+    overlay_data = _build_liquidity_overlay_data(bars_5m, model)
+
+    return {
+        "venue": venue_norm,
+        "symbol": symbol_norm,
+        "analysis_timeframe": "5m",
+        "window": {
+            "mode": "today_plus_yesterday",
+            "start": window_start.isoformat(),
+            "end": window_end_exclusive.isoformat(),
+            "last_closed_bucket_start": last_closed_bucket_start.isoformat(),
+        },
+        "bars_used": len(bars_5m),
+        "model": model,
+        "overlay_data": overlay_data,
+        "generated_at": now_utc.isoformat(),
+    }
+
+
 @app.get("/api/v1/bars/history")
 def bars_history(
     venue: str = Query(min_length=1, max_length=64),

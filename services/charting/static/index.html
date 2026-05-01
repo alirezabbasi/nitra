@@ -958,7 +958,6 @@
       const LAYOUT_STATE_KEY = "nitra.chart.layout_state.v1";
       const DRAW_GROUP_ID = "nitra_drawing_tools";
       const LIQ_LAYER_GROUP_ID = "nitra_liquidity_layer";
-      const LIQ_LAYER_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
 
       const drawCursorBtn = document.getElementById("draw-cursor-btn");
       const drawLineBtn = document.getElementById("draw-line-btn");
@@ -1175,6 +1174,9 @@
         layoutSaveTimer: null,
         liquidityLayerEnabled: false,
         liquidityLayerOverlayId: null,
+        liquidityLayerLastClosedBucketStart: null,
+        liquidityLayerLastSymbolKey: null,
+        liquidityLayerFetchInFlight: false,
       };
 
       let chart = null;
@@ -2229,15 +2231,6 @@
         return { model, overlayData: { segments, markers } };
       }
 
-      function getLiquidityWindowBars(inputBars) {
-        const bars = Array.isArray(inputBars) ? inputBars : [];
-        if (!bars.length) return [];
-        const lastTs = Number(bars[bars.length - 1]?.timestamp || 0);
-        if (!Number.isFinite(lastTs) || lastTs <= 0) return bars;
-        const cutoff = lastTs - LIQ_LAYER_WINDOW_MS;
-        return bars.filter((bar) => Number(bar.timestamp) >= cutoff);
-      }
-
       function clearLiquidityLayer() {
         if (!chart || typeof chart.removeOverlay !== "function") return;
         if (state.liquidityLayerOverlayId) {
@@ -2246,30 +2239,71 @@
         } else {
           chart.removeOverlay({ groupId: LIQ_LAYER_GROUP_ID });
         }
+        state.liquidityLayerLastClosedBucketStart = null;
+        state.liquidityLayerLastSymbolKey = null;
+        state.liquidityLayerFetchInFlight = false;
         liquidityLayerLegendEl.classList.add("hidden");
         liquidityLayerSummaryEl.textContent = "Bias:- | Minor:0 | Major:0";
       }
 
-      function syncLiquidityLayer() {
+      function currentClosedM5BucketStartMs() {
+        const now = new Date();
+        now.setUTCSeconds(0, 0);
+        now.setUTCMinutes(Math.floor(now.getUTCMinutes() / 5) * 5);
+        return now.getTime() - 5 * 60 * 1000;
+      }
+
+      async function fetchLiquidityLayerPayload() {
+        if (!state.selected) return null;
+        const params = new URLSearchParams({
+          venue: state.selected.venue,
+          symbol: state.selected.symbol,
+        });
+        return getJson(`/api/v1/liquidity-layer?${params.toString()}`);
+      }
+
+      async function syncLiquidityLayer() {
         if (!chart || typeof chart.createOverlay !== "function") return;
         if (!state.liquidityLayerEnabled || !state.liveBars.length) {
           clearLiquidityLayer();
           return;
         }
-
-        const liqBars = getLiquidityWindowBars(state.liveBars);
-        if (!liqBars.length) {
+        if (!state.selected) {
           clearLiquidityLayer();
           return;
         }
 
-        const payload = buildLiquidityLayerPayload(liqBars);
+        const marketKey = `${state.selected.venue}:${state.selected.symbol}`;
+        const closedBucketStartMs = currentClosedM5BucketStartMs();
+        const shouldRefresh =
+          state.liquidityLayerLastSymbolKey !== marketKey ||
+          state.liquidityLayerLastClosedBucketStart !== closedBucketStartMs;
+        if (!shouldRefresh || state.liquidityLayerFetchInFlight) {
+          return;
+        }
+
+        state.liquidityLayerFetchInFlight = true;
+        let payload;
+        try {
+          payload = await fetchLiquidityLayerPayload();
+        } catch (error) {
+          state.liquidityLayerFetchInFlight = false;
+          setStatus(`Liquidity layer error: ${error.message}`);
+          return;
+        }
+        state.liquidityLayerFetchInFlight = false;
+
+        const model = payload?.model || { bias: "bearish", minor_pairs: [], major_pairs: [] };
+        const overlayData = payload?.overlay_data || { segments: [], markers: [] };
+        const windowLabel = payload?.window?.mode === "today_plus_yesterday" ? "today+yesterday" : "-";
+        state.liquidityLayerLastClosedBucketStart = closedBucketStartMs;
+        state.liquidityLayerLastSymbolKey = marketKey;
         liquidityLayerLegendEl.classList.remove("hidden");
-        liquidityLayerSummaryEl.textContent = `Bias:${payload.model.bias} | Minor:${payload.model.minorPairs.length} | Major:${payload.model.majorPairs.length} | Window:48h`;
+        liquidityLayerSummaryEl.textContent = `Bias:${model.bias} | Minor:${(model.minor_pairs || []).length} | Major:${(model.major_pairs || []).length} | Window:${windowLabel} | TF:M5(closed)`;
         if (state.liquidityLayerOverlayId && typeof chart.overrideOverlay === "function") {
           chart.overrideOverlay({
             id: state.liquidityLayerOverlayId,
-            extendData: payload.overlayData,
+            extendData: overlayData,
             visible: true,
           });
           return;
@@ -2282,7 +2316,7 @@
           lock: true,
           visible: true,
           zLevel: 40,
-          extendData: payload.overlayData,
+          extendData: overlayData,
         });
         const createdId = Array.isArray(created) ? created[0] : created;
         state.liquidityLayerOverlayId = createdId || null;

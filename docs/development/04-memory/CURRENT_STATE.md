@@ -13,6 +13,10 @@ Last updated: 2026-05-01
 
 ### Recent
 
+- Completed `DEV-00154` liquidity-layer architecture correction:
+  - added backend `GET /api/v1/liquidity-layer` projection for `today + yesterday` using closed `M5` candles only,
+  - moved overlay source from local chart heuristic to backend ontology projection payload,
+  - gated liquidity-layer refresh cadence to closed `M5` boundary progression and symbol switches.
 - Completed `DEV-00153` control-panel routing + chart handoff UX update:
   - port `8110` root now resolves to control panel (`/` -> control panel surface),
   - charting view moved to explicit `/charting` launch path,
@@ -210,6 +214,7 @@ Last updated: 2026-05-01
 
 ### Current
 
+- `DEV-00154` is closed with backend-driven liquidity overlay projection replacing chart-local 48h heuristic rendering path.
 - `DEV-00153` is closed with root/control-panel route swap and new-tab charting launch semantics aligned to operator workflow requirements.
 - `DEV-00068` is closed with failover policy contract delivery (policy table + update endpoint + audit integration + `dev-0068` gate).
 - `DEV-00124` is closed with control-panel feeds failover controls (runtime metrics, policy table, guarded policy-update form).

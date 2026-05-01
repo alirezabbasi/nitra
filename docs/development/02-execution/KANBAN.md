@@ -189,6 +189,7 @@ Last updated: 2026-05-01
 - [x] `DEV-00069` credential/session lifecycle hardening delivered (session policy contract, guarded update endpoint, runtime visibility, `test-dev-0069`).
 - [x] `DEV-00141` websocket/session manager hardening delivered (heartbeat/stale/reconnect policy contract + control-panel policy controls, `test-dev-0069`).
 - [x] `DEV-00153` control-panel root routing + chart-tab handoff delivered (`/` now serves control panel, chart launches moved to new-tab flow with instrument-aware/default fallback).
+- [x] `DEV-00154` liquidity-layer backend projection delivered (ontology-derived today+yesterday closed-`M5` API + chart consumption replacing local heuristic overlay path).
 - [x] `DEV-00139` control-panel unified configuration registry super-scope retired (split into `DEV-00151` core + `DEV-00152` adoption rollout).
 - [x] `DEV-00149` execution idempotency/state-machine conformance standalone scope retired (merged into `DEV-00103`).
 - [x] `DEV-00150` MLflow lineage/comparison standalone scope retired (merged into `DEV-00095`).
