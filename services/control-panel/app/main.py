@@ -15,12 +15,13 @@ from app.api.routers.overview import router as overview_router
 from app.api.routers.research import router as research_router
 from app.api.routers.risk_portfolio import router as risk_portfolio_router
 from app.api.routers.search import router as search_router
-from app.core.legacy_bridge import LEGACY_APP
+from app.core.legacy_bridge import LEGACY_APP, LEGACY_MODULE
 
 
 
 app = FastAPI(title="nitra-control-panel")
 FRONTEND_DIST_DIR = Path(__file__).resolve().parents[1] / "frontend" / "dist"
+LEGACY_STATIC_DIR = Path(getattr(LEGACY_MODULE, "STATIC_DIR", FRONTEND_DIST_DIR))
 app.mount(
     "/control-panel-assets",
     StaticFiles(directory=str(FRONTEND_DIST_DIR)),
@@ -28,9 +29,19 @@ app.mount(
 )
 
 
+@app.get("/")
+def root_control_panel() -> FileResponse:
+    return FileResponse(str(FRONTEND_DIST_DIR / "control-panel.html"))
+
+
 @app.get("/control-panel")
 def control_panel() -> FileResponse:
     return FileResponse(str(FRONTEND_DIST_DIR / "control-panel.html"))
+
+
+@app.get("/charting")
+def charting_view() -> FileResponse:
+    return FileResponse(str(LEGACY_STATIC_DIR / "index.html"))
 
 
 app.include_router(health_router)

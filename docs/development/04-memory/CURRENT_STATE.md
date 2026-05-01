@@ -13,6 +13,10 @@ Last updated: 2026-05-01
 
 ### Recent
 
+- Completed `DEV-00153` control-panel routing + chart handoff UX update:
+  - port `8110` root now resolves to control panel (`/` -> control panel surface),
+  - charting view moved to explicit `/charting` launch path,
+  - chart actions now open a new browser tab with instrument-aware context or first-available market fallback.
 - Reviewed control-panel implementation and confirmed production-structure gap:
   - `services/charting/app.py` remains a large monolith with mixed concerns.
   - `services/charting/static/control-panel.html` remains single-file UI architecture.
@@ -206,6 +210,7 @@ Last updated: 2026-05-01
 
 ### Current
 
+- `DEV-00153` is closed with root/control-panel route swap and new-tab charting launch semantics aligned to operator workflow requirements.
 - `DEV-00068` is closed with failover policy contract delivery (policy table + update endpoint + audit integration + `dev-0068` gate).
 - `DEV-00124` is closed with control-panel feeds failover controls (runtime metrics, policy table, guarded policy-update form).
 - `DEV-00069` is closed with credential/session lifecycle hardening (session policy contract + guarded mutation endpoint + runtime visibility + `dev-0069` gate).

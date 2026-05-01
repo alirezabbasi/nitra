@@ -1642,3 +1642,23 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap` passes.
 - Next recommended action:
   - start paired P0 slice `DEV-00070` + `DEV-00142`.
+
+---
+
+## 2026-05-01 — Session Entry 013
+
+- Objective:
+  - swap control-panel/charting default entry behavior on port `8110` and move chart launch to explicit new-tab workflow.
+- Work completed:
+  - created and completed ticket `DEV-00153` with scope-specific delivery and verification.
+  - updated control-panel service routing so `/` serves control panel and added explicit `/charting` chart page route.
+  - updated charting profile deep links to `/charting?...`.
+  - replaced row-level chart actions in control panel with `Chart Tab` launch behavior that opens a new browser tab.
+  - added general-context chart button in charting workbench; when no instrument is provided, it selects the first available market from `/api/v1/charting/markets/available`.
+  - synced frontend artifacts (`src -> dist`) and updated Kanban/current-state artifacts.
+- Verification:
+  - `scripts/frontend/build_control_panel_frontend.sh` passes.
+  - `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/control-panel/app/main.py services/charting/app.py` passes.
+  - `make session-bootstrap` passes (`SESSION_BOOTSTRAP_OK`).
+- Next recommended action:
+  - add focused regression test coverage for root/charting route semantics and chart-tab fallback behavior.

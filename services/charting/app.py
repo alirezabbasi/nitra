@@ -3836,7 +3836,7 @@ def control_panel_charting_profile(
         "session": session,
         "profile": profile,
         "links": {
-            "full_chart": f"/?venue={urllib.parse.quote(venue_norm)}&symbol={urllib.parse.quote(symbol_norm)}&timeframe={urllib.parse.quote(tf)}",
+            "full_chart": f"/charting?venue={urllib.parse.quote(venue_norm)}&symbol={urllib.parse.quote(symbol_norm)}&timeframe={urllib.parse.quote(tf)}",
             "bars_history_api": f"/api/v1/bars/history?venue={urllib.parse.quote(venue_norm)}&symbol={urllib.parse.quote(symbol_norm)}&timeframe={urllib.parse.quote(tf)}&limit=500",
         },
         "generated_at": datetime.now(timezone.utc).isoformat(),

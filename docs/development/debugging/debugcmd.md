@@ -1011,3 +1011,15 @@ For every future development/debugging session, append new entries to this file 
 | 2026-05-01 00:55:44 +0330 | `make test-dev-0068 && make enforce-section-5-1 && make session-bootstrap` | Re-run paired DEV-00068/DEV-00124 verification and policy/session gates after ticket/doc closeout updates. | Success |
 | 2026-05-01 01:06:10 +0330 | `apply_patch` on charting/control-panel frontend+router + docs + tickets + kanban/memory + `cat > tests/dev-0069/run.sh` + Makefile update | Implement `DEV-00069` + `DEV-00141` reliability contracts (session lifecycle and websocket/session policy controls) with control-panel paired ops surfaces and verification target wiring. | Success |
 | 2026-05-01 01:06:10 +0330 | `scripts/frontend/build_control_panel_frontend.sh && make test-dev-0069 && make enforce-section-5-1 && make session-bootstrap` | Build frontend dist and execute reliability gate + policy/session integrity checks for closeout. | Success |
+| 2026-05-01 11:22:58 +0330 | `make session-bootstrap` | Reload mandatory context baseline and validate memory/ruleset readiness before routing/UI changes. | Success (`SESSION_BOOTSTRAP_OK`) |
+| 2026-05-01 11:22:58 +0330 | `sed -n '1,260p' docs/ruleset.md` | Re-check global ruleset before planning and code edits. | Success |
+| 2026-05-01 11:22:58 +0330 | `sed -n '1,260p' docs/development/02-execution/KANBAN.md` | Confirm ticket workflow state and identify where to register new completed scope. | Success |
+| 2026-05-01 11:22:58 +0330 | `rg -n "8110|control-panel|charting|/control-panel|/api/v1/charting" services/control-panel services/charting docker-compose.yml` | Locate route ownership and chart-control UI call sites for requested behavior swap. | Success |
+| 2026-05-01 11:22:58 +0330 | `apply_patch` on `services/control-panel/app/main.py` | Make `/` serve control panel and add dedicated `/charting` chart route. | Success |
+| 2026-05-01 11:22:58 +0330 | `apply_patch` on `services/charting/app.py` | Update chart deep-link contract from `/` to `/charting`. | Success |
+| 2026-05-01 11:22:58 +0330 | `apply_patch` on `services/control-panel/frontend/src/control-panel.html` | Add general-context chart button to open charting in a new browser tab. | Success |
+| 2026-05-01 11:22:58 +0330 | `apply_patch` on `services/control-panel/frontend/src/app/control-panel.js` | Replace inline chart actions with instrument-aware new-tab launch and default-first-market fallback. | Success |
+| 2026-05-01 11:22:58 +0330 | `scripts/frontend/build_control_panel_frontend.sh` | Sync control-panel frontend runtime assets (`src -> dist`). | Success |
+| 2026-05-01 11:22:58 +0330 | `python -m py_compile services/control-panel/app/main.py services/charting/app.py` | Syntax-check updated Python modules. | Failed (`Permission denied` writing `__pycache__`) |
+| 2026-05-01 11:22:58 +0330 | `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/control-panel/app/main.py services/charting/app.py` | Re-run syntax checks with writable pycache path. | Success |
+| 2026-05-01 11:22:58 +0330 | `make session-bootstrap` | Final readiness re-check after code/docs/ticket updates. | Success (`SESSION_BOOTSTRAP_OK`) |
