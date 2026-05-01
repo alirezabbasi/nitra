@@ -3783,9 +3783,9 @@
       window.addEventListener("resize", () => fitChart());
 
       applyUiPrefs();
-      applyUrlContext();
       liquidityLayerToggleEl.checked = state.liquidityLayerEnabled;
       applyLayoutPreferences(loadLayoutState(), { includeMarket: true });
+      applyUrlContext();
       setActiveTimeframe(state.timeframe);
       syncDrawingToolSelectionUi();
       setCursorMode(true);

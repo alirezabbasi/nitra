@@ -104,7 +104,7 @@ const metricOrder = [
         connectorBody.innerHTML = "";
         for (const row of tableSlice(data.connector_health, 40)) {
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${row.venue}</td><td>${row.symbol} <button class="btn mini" onclick="openChartTab('${row.venue}','${row.symbol}','1m')">Chart Tab</button></td><td><span class="status ${row.status === "online" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td><td>${row.updated_at || "-"}</td>`;
+          tr.innerHTML = `<td>${row.venue}</td><td>${row.symbol} <button class="btn mini" onclick="openChartTab('${row.venue}','${row.symbol}','5m')">Chart Tab</button></td><td><span class="status ${row.status === "online" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td><td>${row.updated_at || "-"}</td>`;
           connectorBody.appendChild(tr);
         }
 
@@ -321,7 +321,7 @@ const metricOrder = [
           const tr = document.createElement("tr");
           const kpiState = row.meets_both_kpi ? "PASS" : "WARN";
           const kpiClass = row.meets_both_kpi ? "online" : "degraded";
-          tr.innerHTML = `<td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartTab('${row.venue}','${row.symbol}','1m')">Chart Tab</button></td><td>${fmt(row.ohlcv_1m_count)} / ${fmt(row.ohlcv_target)}</td><td>${fmt(row.ohlcv_progress_pct)}%</td><td>${row.last_ohlcv_bucket || "-"}</td><td>${fmt(row.ticks_5m)}</td><td>${row.last_tick_ts || "-"}</td><td>${row.tick_lag_seconds ?? "-"}</td><td><span class="status ${kpiClass}">${kpiState}</span></td>`;
+          tr.innerHTML = `<td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartTab('${row.venue}','${row.symbol}','5m')">Chart Tab</button></td><td>${fmt(row.ohlcv_1m_count)} / ${fmt(row.ohlcv_target)}</td><td>${fmt(row.ohlcv_progress_pct)}%</td><td>${row.last_ohlcv_bucket || "-"}</td><td>${fmt(row.ticks_5m)}</td><td>${row.last_tick_ts || "-"}</td><td>${row.tick_lag_seconds ?? "-"}</td><td><span class="status ${kpiClass}">${kpiState}</span></td>`;
           body.appendChild(tr);
         }
       }
@@ -366,7 +366,7 @@ const metricOrder = [
         strategyBody.innerHTML = "";
         for (const row of tableSlice(data.strategy_rows, 40)) {
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartTab('${row.venue}','${row.symbol}','1m')">Chart Tab</button></td><td>${row.decisions_24h}</td><td>${fmt(row.avg_confidence)}</td><td>${row.violations_24h}</td><td><span class="status ${row.status === "healthy" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td>`;
+          tr.innerHTML = `<td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartTab('${row.venue}','${row.symbol}','5m')">Chart Tab</button></td><td>${row.decisions_24h}</td><td>${fmt(row.avg_confidence)}</td><td>${row.violations_24h}</td><td><span class="status ${row.status === "healthy" ? "online" : "degraded"}">${row.status.toUpperCase()}</span></td>`;
           strategyBody.appendChild(tr);
         }
 
@@ -478,7 +478,7 @@ const metricOrder = [
         ordersBody.innerHTML = "";
         for (const row of tableSlice(data.order_rows, 40)) {
           const tr = document.createElement("tr");
-          tr.innerHTML = `<td>${row.order_id}</td><td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartTab('${row.venue}','${row.symbol}','1m')">Chart Tab</button></td><td>${row.side}</td><td>${row.status}</td><td>${fmt(row.requested_notional)}</td><td>${row.updated_at || "-"}</td>`;
+          tr.innerHTML = `<td>${row.order_id}</td><td>${row.venue}:${row.symbol} <button class="btn mini" onclick="openChartTab('${row.venue}','${row.symbol}','5m')">Chart Tab</button></td><td>${row.side}</td><td>${row.status}</td><td>${fmt(row.requested_notional)}</td><td>${row.updated_at || "-"}</td>`;
           ordersBody.appendChild(tr);
         }
 
@@ -579,7 +579,7 @@ const metricOrder = [
         if (timeframe) document.getElementById("cwTimeframe").value = timeframe;
         const v = document.getElementById("cwVenue").value.trim();
         const s = document.getElementById("cwSymbol").value.trim();
-        const tf = document.getElementById("cwTimeframe").value.trim() || "1m";
+        const tf = document.getElementById("cwTimeframe").value.trim() || "5m";
 
         const qs = new URLSearchParams({venue: v, symbol: s, timeframe: tf});
         const res = await authedFetch(`/api/v1/control-panel/charting/profile?${qs.toString()}`);
@@ -1002,12 +1002,12 @@ const metricOrder = [
         switchSection("charting");
         loadChartingWorkbench(venue, symbol, timeframe).catch(console.error);
       }
-      function chartUrl(venue, symbol, timeframe = "1m") {
+      function chartUrl(venue, symbol, timeframe = "5m") {
         const qs = new URLSearchParams({ venue, symbol, timeframe });
         return `/charting?${qs.toString()}`;
       }
-      async function openChartTab(venue, symbol, timeframe = "1m") {
-        const tf = (timeframe || document.getElementById("cwTimeframe").value.trim() || "1m").trim();
+      async function openChartTab(venue, symbol, timeframe = "5m") {
+        const tf = (timeframe || document.getElementById("cwTimeframe").value.trim() || "5m").trim();
         const inputVenue = (venue || document.getElementById("cwVenue").value.trim()).trim().toLowerCase();
         const inputSymbol = (symbol || document.getElementById("cwSymbol").value.trim()).trim().toUpperCase();
         if (inputVenue && inputSymbol) {
