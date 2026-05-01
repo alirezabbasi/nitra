@@ -73,6 +73,7 @@ Applies to: chart layer semantics, rulebooks, scenario labeling, schema outputs,
 - Every completed pullback yields one minor pair:
   - Minor Low: lowest price immediately before pullback start (typically reference low)
   - Minor High: highest price reached during pullback before termination
+- Minor pullbacks are evaluated independently at each eligible sequence and MUST be recorded even when they occur inside an active pullback or inside a major pullback context.
 - Minor structure archive is append-only.
 - Prior pairs are never discarded; only active pair changes.
 

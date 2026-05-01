@@ -5454,108 +5454,162 @@ def _build_ontology_liquidity_model(bars: list[dict]) -> dict:
         return {"bias": "bearish", "minor_pairs": [], "major_pairs": [], "active_pair": None}
 
     bias = _resolve_liquidity_bias(bars)
-    series: list[dict] = []
-    for b in bars:
-        if bias == "bullish":
-            series.append(
-                {
-                    "high": -float(b["low"]),
-                    "low": -float(b["high"]),
-                }
-            )
-        else:
-            series.append(
-                {
-                    "high": float(b["high"]),
-                    "low": float(b["low"]),
-                }
-            )
+    series_bear = [{"high": float(b["high"]), "low": float(b["low"])} for b in bars]
+    series_bull = [{"high": -float(b["low"]), "low": -float(b["high"])} for b in bars]
 
-    minor_pairs: list[dict] = []
-    major_pairs: list[dict] = []
-    active_pair: dict | None = None
-    structural_high_archive: list[float] = []
-    ref_idx = 0
-    active: dict | None = None
+    def detect_pairs(series: list[dict]) -> tuple[list[dict], dict | None]:
+        detected: list[dict] = []
+        active_candidates: list[dict] = []
 
-    for i in range(1, len(series)):
-        prev = series[i - 1]
-        cur = series[i]
+        for ref_idx in range(0, len(series) - 1):
+            ref = series[ref_idx]
+            start_idx: int | None = None
+            termination_ref_idx = ref_idx
+            max_high = float("-inf")
+            max_high_idx = -1
+            outside_base_idx: int | None = None
+            outside_resolved = False
+            inside_equal_low_ref_idx: int | None = None
 
-        if active is None:
-            is_inside = cur["high"] <= series[ref_idx]["high"] and cur["low"] >= series[ref_idx]["low"]
-            if is_inside and cur["low"] == series[ref_idx]["low"]:
-                ref_idx = i
-                continue
-            is_outside = cur["high"] > series[ref_idx]["high"] and cur["low"] < series[ref_idx]["low"]
-            if is_outside:
-                active = {
-                    "ref_idx": ref_idx,
-                    "termination_ref_idx": ref_idx,
-                    "max_high": cur["high"],
-                    "max_high_idx": i,
-                    "outside_base_idx": i,
-                    "outside_resolved": False,
-                }
-                continue
-            if cur["high"] > series[ref_idx]["high"] and cur["low"] >= series[ref_idx]["low"]:
-                active = {
-                    "ref_idx": ref_idx,
-                    "termination_ref_idx": ref_idx,
-                    "max_high": cur["high"],
-                    "max_high_idx": i,
-                    "outside_base_idx": None,
-                    "outside_resolved": False,
-                }
-            continue
+            for i in range(ref_idx + 1, len(series)):
+                cur = series[i]
 
-        if active["outside_base_idx"] is not None and not active["outside_resolved"]:
-            base_idx = int(active["outside_base_idx"])
-            if cur["high"] > series[base_idx]["high"]:
-                active["termination_ref_idx"] = base_idx
-            active["outside_resolved"] = True
+                if start_idx is None:
+                    effective_ref_idx = inside_equal_low_ref_idx if inside_equal_low_ref_idx is not None else ref_idx
+                    effective_ref = series[effective_ref_idx]
+                    is_inside = cur["high"] <= effective_ref["high"] and cur["low"] >= effective_ref["low"]
+                    if is_inside and cur["low"] == effective_ref["low"]:
+                        inside_equal_low_ref_idx = i
+                        continue
 
-        if cur["high"] > float(active["max_high"]):
-            active["max_high"] = cur["high"]
-            active["max_high_idx"] = i
+                    is_outside = cur["high"] > effective_ref["high"] and cur["low"] < effective_ref["low"]
+                    if is_outside:
+                        start_idx = i
+                        termination_ref_idx = effective_ref_idx
+                        outside_base_idx = i
+                        outside_resolved = False
+                        max_high = float(cur["high"])
+                        max_high_idx = i
+                        continue
 
-        termination_ref_idx = int(active["termination_ref_idx"])
-        terminated = cur["low"] < series[termination_ref_idx]["low"]
-        if terminated:
-            minor_low_idx = int(active["ref_idx"])
-            minor_high_idx = int(active["max_high_idx"])
-            minor_low = float(series[minor_low_idx]["low"])
-            minor_high = float(series[minor_high_idx]["high"])
+                    if cur["high"] > effective_ref["high"] and cur["low"] >= effective_ref["low"]:
+                        start_idx = i
+                        termination_ref_idx = effective_ref_idx
+                        max_high = float(cur["high"])
+                        max_high_idx = i
+                        continue
+                    continue
 
-            pair = {
-                "low_idx": minor_low_idx,
-                "high_idx": minor_high_idx,
-                "low_value": -minor_low if bias == "bullish" else minor_low,
-                "high_value": -minor_high if bias == "bullish" else minor_high,
+                if outside_base_idx is not None and not outside_resolved:
+                    if cur["high"] > series[outside_base_idx]["high"]:
+                        termination_ref_idx = outside_base_idx
+                    outside_resolved = True
+
+                if cur["high"] > max_high:
+                    max_high = float(cur["high"])
+                    max_high_idx = i
+
+                if cur["low"] < series[termination_ref_idx]["low"]:
+                    detected.append(
+                        {
+                            "low_idx": int(termination_ref_idx),
+                            "high_idx": int(max_high_idx),
+                            "low_value": float(series[termination_ref_idx]["low"]),
+                            "high_value": float(series[max_high_idx]["high"]),
+                        }
+                    )
+                    break
+            else:
+                if start_idx is not None and max_high_idx >= 0:
+                    active_candidates.append(
+                        {
+                            "low_idx": int(termination_ref_idx),
+                            "high_idx": int(max_high_idx),
+                            "low_value": float(series[termination_ref_idx]["low"]),
+                            "high_value": float(series[max_high_idx]["high"]),
+                        }
+                    )
+
+        dedup_detected: dict[tuple[int, int], dict] = {}
+        for pair in detected:
+            key = (int(pair["low_idx"]), int(pair["high_idx"]))
+            dedup_detected[key] = pair
+        detected_sorted = sorted(dedup_detected.values(), key=lambda p: (int(p["high_idx"]), int(p["low_idx"])))
+
+        active_local = None
+        if active_candidates:
+            active_local = max(active_candidates, key=lambda p: (int(p["high_idx"]), int(p["low_idx"])))
+
+        return detected_sorted, active_local
+
+    bear_pairs, bear_active = detect_pairs(series_bear)
+    bull_pairs, bull_active = detect_pairs(series_bull)
+
+    # Convert bullish-inverse projection back to natural price scale.
+    bull_pairs_natural: list[dict] = []
+    for p in bull_pairs:
+        bull_pairs_natural.append(
+            {
+                "low_idx": int(p["low_idx"]),
+                "high_idx": int(p["high_idx"]),
+                "low_value": -float(p["low_value"]),
+                "high_value": -float(p["high_value"]),
             }
-            minor_pairs.append(pair)
+        )
 
-            broke_prior_high = any(minor_high > archived for archived in structural_high_archive)
-            structural_high_archive.append(minor_high)
-            if broke_prior_high:
-                major_pairs.append(dict(pair))
+    # Merge independent minor pullbacks from both directional mappings.
+    dedup: dict[tuple[int, int], dict] = {}
+    for p in bear_pairs:
+        key = (int(p["low_idx"]), int(p["high_idx"]))
+        dedup[key] = {
+            "low_idx": int(p["low_idx"]),
+            "high_idx": int(p["high_idx"]),
+            "low_value": float(p["low_value"]),
+            "high_value": float(p["high_value"]),
+        }
+    for p in bull_pairs_natural:
+        key = (int(p["low_idx"]), int(p["high_idx"]))
+        if key not in dedup:
+            dedup[key] = p
+    minor_pairs = sorted(dedup.values(), key=lambda p: (int(p["high_idx"]), int(p["low_idx"])))
 
-            ref_idx = i
-            active = None
-            continue
-
-    if active is not None:
-        active_low_idx = int(active["ref_idx"])
-        active_high_idx = int(active["max_high_idx"])
-        active_low = float(series[active_low_idx]["low"])
-        active_high = float(series[active_high_idx]["high"])
+    # Active pair remains objective-directional.
+    active_pair = None
+    if bias == "bullish" and bull_active is not None:
         active_pair = {
-            "low_idx": active_low_idx,
-            "high_idx": active_high_idx,
-            "low_value": -active_low if bias == "bullish" else active_low,
-            "high_value": -active_high if bias == "bullish" else active_high,
+            "low_idx": int(bull_active["low_idx"]),
+            "high_idx": int(bull_active["high_idx"]),
+            "low_value": -float(bull_active["low_value"]),
+            "high_value": -float(bull_active["high_value"]),
             "status": "active",
         }
+    if bias == "bearish" and bear_active is not None:
+        active_pair = {
+            "low_idx": int(bear_active["low_idx"]),
+            "high_idx": int(bear_active["high_idx"]),
+            "low_value": float(bear_active["low_value"]),
+            "high_value": float(bear_active["high_value"]),
+            "status": "active",
+        }
+
+    # Major structure derived from objective-directional completed minors.
+    objective_pairs = bull_pairs_natural if bias == "bullish" else [
+        {
+            "low_idx": int(p["low_idx"]),
+            "high_idx": int(p["high_idx"]),
+            "low_value": float(p["low_value"]),
+            "high_value": float(p["high_value"]),
+        }
+        for p in bear_pairs
+    ]
+    structural_high_archive: list[float] = []
+    major_pairs: list[dict] = []
+    for pair in objective_pairs:
+        minor_high = -float(pair["high_value"]) if bias == "bullish" else float(pair["high_value"])
+        broke_prior_high = any(minor_high > archived for archived in structural_high_archive)
+        structural_high_archive.append(minor_high)
+        if broke_prior_high:
+            major_pairs.append(dict(pair))
 
     return {
         "bias": bias,
