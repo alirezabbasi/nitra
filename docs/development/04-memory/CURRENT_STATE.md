@@ -13,6 +13,12 @@ Last updated: 2026-05-01
 
 ### Recent
 
+- Opened reliability closure program for the full market-data cycle:
+  - `DEV-00155` Ingestion->Charting clockwork reliability epic,
+  - `DEV-00156` executable reliability gate + burn-in harness.
+- Execution intent is now explicit: prove sustained pass/fail reliability for
+  `ingestion -> normalization -> bars -> gaps -> backfill -> replay -> charting`
+  using measurable thresholds, not one-off snapshots.
 - Rechecked and refined ontology-driven liquidity engine semantics:
   - directional bias now resolved from liquidity-taken event ordering (upper-taken => bearish objective, lower-taken => bullish objective),
   - outside-bar pullback start handling is explicit in projection state machine,
@@ -219,6 +225,8 @@ Last updated: 2026-05-01
 
 ### Current
 
+- Active focus shifted to end-to-end loop reliability closure via `DEV-00155/DEV-00156`.
+- Existing runtime is functional but not yet validated as "clockwork reliable" under sustained burn-in criteria.
 - Liquidity-layer engine is now refactored to tighter ontology alignment with explicit bullish inverse semantics and active/in-progress pair visibility contracts.
 - SDLC governance now hard-enforces DoD presence for backlog/in-progress tasks via bootstrap validation and ticket-template policy, reducing long-gap process drift risk.
 - `DEV-00154` is closed with backend-driven liquidity overlay projection replacing chart-local 48h heuristic rendering path.

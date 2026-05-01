@@ -118,7 +118,8 @@ Last updated: 2026-05-01
 
 ## In Progress
 
-- [ ] (No active items)
+- [ ] `DEV-00155` Ingestion->Charting clockwork reliability epic (end-to-end deterministic reliability closure program).
+- [ ] `DEV-00156` Clockwork loop reliability gate and burn-in harness (objective pass/fail for cycle reliability).
 
 ## Done
 

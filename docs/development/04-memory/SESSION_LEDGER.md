@@ -1735,3 +1735,22 @@ Append one entry at the end of each substantial session.
   - live checks on `/api/v1/liquidity-layer` and `/charting?...` confirm new mode/summary contract.
 - Next recommended action:
   - add deterministic fixture tests for ontology edge-cases (inside equal-low, outside-bar next-candle precedence, major activation archive-break logic).
+
+---
+
+## 2026-05-01 — Session Entry 017
+
+- Objective:
+  - open an explicit reliability-closure epic for the full ingestion-to-charting loop and start executable reliability gating.
+- Work completed:
+  - created `DEV-00155` epic ticket for end-to-end cycle reliability closure:
+    - `docs/development/tickets/DEV-00155-ingestion-to-charting-clockwork-reliability-epic.md`
+  - created `DEV-00156` child ticket for objective pass/fail gate and burn-in harness:
+    - `docs/development/tickets/DEV-00156-clockwork-loop-reliability-gate-and-burn-in-harness.md`
+  - moved both items to active execution in Kanban `In Progress`.
+  - updated `CURRENT_STATE` to reflect reliability-first focus and non-clockwork current status.
+- Verification:
+  - ticket docs include acceptance criteria, DoD, and verification sections.
+  - Kanban and memory artifacts synchronized for active execution handoff.
+- Next recommended action:
+  - implement `DEV-00156` reliability gate runner and define first burn-in threshold set (>=60 min) with evidence output under debugging reports.
