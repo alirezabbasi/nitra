@@ -222,6 +222,22 @@ const metricOrder = [
           rlBody.appendChild(tr);
         }
 
+        const kafkaMetrics = document.getElementById("kafkaPolicyMetrics");
+        const kafkaRuntime = data.kafka_runtime || {};
+        kafkaMetrics.innerHTML = `
+          <div class="small">Enabled Topic Policies: <strong>${fmt(kafkaRuntime.configured_enabled_topics)}</strong></div>
+          <div class="small">Disabled Topic Policies: <strong>${fmt(kafkaRuntime.configured_disabled_topics)}</strong></div>
+          <div class="small">Avg Target Partitions: <strong>${fmt(kafkaRuntime.avg_target_partitions)}</strong></div>
+          <div class="small">Avg Retention (ms): <strong>${fmt(kafkaRuntime.avg_retention_ms)}</strong></div>
+        `;
+        const kafkaBody = document.querySelector("#kafkaTopicPolicyTable tbody");
+        kafkaBody.innerHTML = "";
+        for (const row of tableSlice(data.kafka_topic_policies || [], 40)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.topic_name}</td><td>${row.enabled ? "ON" : "OFF"}</td><td>${row.target_partitions}</td><td>${row.retention_ms}</td><td>${row.cleanup_policy}</td><td>${fmt(row.max_consumer_lag_messages)}</td><td>${fmt(row.max_consumer_lag_seconds)}</td><td>${fmt(row.min_insync_replicas)}</td><td>${row.updated_by}</td>`;
+          kafkaBody.appendChild(tr);
+        }
+
         const retentionBody = document.querySelector("#retentionPolicyTable tbody");
         retentionBody.innerHTML = "";
         for (const row of tableSlice(data.raw_lake_retention_policies || [], 20)) {
@@ -389,6 +405,34 @@ const metricOrder = [
           return;
         }
         out.textContent = `Updated venue=${data.result?.venue || "-"} by ${data.result?.updated_by || "-"}`;
+        await loadIngestion();
+      }
+
+      async function submitKafkaTopicPolicy() {
+        const payload = {
+          topic_name: document.getElementById("kpTopic").value.trim(),
+          enabled: document.getElementById("kpEnabled").value.trim().toLowerCase() === "true",
+          target_partitions: Number(document.getElementById("kpPartitions").value || 6),
+          retention_ms: Number(document.getElementById("kpRetentionMs").value || -1),
+          cleanup_policy: document.getElementById("kpCleanupPolicy").value.trim(),
+          max_consumer_lag_messages: Number(document.getElementById("kpLagMessages").value || 10000),
+          max_consumer_lag_seconds: Number(document.getElementById("kpLagSeconds").value || 60),
+          min_insync_replicas: Number(document.getElementById("kpMinIsr").value || 1),
+          justification: document.getElementById("kpJustification").value.trim(),
+        };
+        const out = document.getElementById("kpResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/kafka-topic-policy", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Updated topic=${data.result?.topic_name || "-"} by ${data.result?.updated_by || "-"}`;
         await loadIngestion();
       }
 
@@ -1241,6 +1285,7 @@ const metricOrder = [
       document.getElementById("spSubmitBtn").addEventListener("click", () => submitSessionPolicy().catch(console.error));
       document.getElementById("wpSubmitBtn").addEventListener("click", () => submitWsPolicy().catch(console.error));
       document.getElementById("rpSubmitBtn").addEventListener("click", () => submitRateLimitPolicy().catch(console.error));
+      document.getElementById("kpSubmitBtn").addEventListener("click", () => submitKafkaTopicPolicy().catch(console.error));
       document.getElementById("rmBuildBtn").addEventListener("click", () => buildReplayManifest().catch(console.error));
       document.getElementById("rtSubmitBtn").addEventListener("click", () => submitRawLakeRetentionPolicy().catch(console.error));
       document.getElementById("rdSubmitBtn").addEventListener("click", () => submitRawLakeRestoreDrill().catch(console.error));

@@ -1,5 +1,6 @@
 import os
 import json
+import csv
 import hashlib
 import secrets
 import uuid
@@ -387,12 +388,14 @@ def control_panel_ingestion(
         "raw_capture_rows_24h": 0,
         "sequence_anomalies_24h": 0,
         "raw_lake_objects_24h": 0,
+        "kafka_topics_tracked": 0,
     }
     connector_health: list[dict] = []
     failover_policies: list[dict] = []
     session_policies: list[dict] = []
     ws_policies: list[dict] = []
     rate_limit_policies: list[dict] = []
+    kafka_topic_policies: list[dict] = []
     failover_runtime: dict = {
         "configured_enabled_venues": 0,
         "configured_disabled_venues": 0,
@@ -417,6 +420,13 @@ def control_panel_ingestion(
         "configured_enabled_venues": 0,
         "configured_disabled_venues": 0,
         "avg_effective_poll_interval_ms": 0,
+        "updated_at": None,
+    }
+    kafka_runtime: dict = {
+        "configured_enabled_topics": 0,
+        "configured_disabled_topics": 0,
+        "avg_target_partitions": 0,
+        "avg_retention_ms": 0,
         "updated_at": None,
     }
     connector_feed_sla: list[dict] = []
@@ -450,6 +460,7 @@ def control_panel_ingestion(
             ensure_ingestion_session_seed_data(conn)
             ensure_ingestion_ws_seed_data(conn)
             ensure_ingestion_rate_limit_seed_data(conn)
+            ensure_ingestion_kafka_topic_seed_data(conn)
             ensure_raw_lake_replay_manifest_index_table(conn)
             ensure_raw_lake_retention_tables(conn)
             with conn.cursor() as cur:
@@ -568,6 +579,7 @@ def control_panel_ingestion(
                 session_runtime = ingestion_session_runtime(conn)
                 ws_runtime = ingestion_ws_runtime(conn)
                 rate_limit_runtime = ingestion_rate_limit_runtime(conn)
+                kafka_runtime = ingestion_kafka_runtime(conn)
                 cur.execute(
                     """
                     SELECT
@@ -616,6 +628,49 @@ def control_panel_ingestion(
                             "classify_403": str(classify_403),
                             "classify_429": str(classify_429),
                             "classify_5xx": str(classify_5xx),
+                            "updated_by": str(updated_by),
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    SELECT
+                      topic_name,
+                      enabled,
+                      target_partitions,
+                      retention_ms,
+                      cleanup_policy,
+                      max_consumer_lag_messages,
+                      max_consumer_lag_seconds,
+                      min_insync_replicas,
+                      updated_by,
+                      updated_at
+                    FROM control_panel_ingestion_kafka_topic_policy
+                    ORDER BY topic_name ASC
+                    """
+                )
+                for (
+                    topic_name,
+                    enabled,
+                    target_partitions,
+                    retention_ms,
+                    cleanup_policy,
+                    max_consumer_lag_messages,
+                    max_consumer_lag_seconds,
+                    min_insync_replicas,
+                    updated_by,
+                    updated_at,
+                ) in cur.fetchall():
+                    kafka_topic_policies.append(
+                        {
+                            "topic_name": str(topic_name),
+                            "enabled": bool(enabled),
+                            "target_partitions": int(target_partitions or 0),
+                            "retention_ms": int(retention_ms or 0),
+                            "cleanup_policy": str(cleanup_policy),
+                            "max_consumer_lag_messages": int(max_consumer_lag_messages or 0),
+                            "max_consumer_lag_seconds": int(max_consumer_lag_seconds or 0),
+                            "min_insync_replicas": int(min_insync_replicas or 0),
                             "updated_by": str(updated_by),
                             "updated_at": updated_at.isoformat() if updated_at else None,
                         }
@@ -1097,6 +1152,7 @@ def control_panel_ingestion(
                     """
                 )
                 metrics["raw_lake_objects_24h"] = int(cur.fetchone()[0] or 0)
+                metrics["kafka_topics_tracked"] = len(kafka_topic_policies)
     except Exception:
         mode = "degraded"
 
@@ -1115,6 +1171,8 @@ def control_panel_ingestion(
         "ws_runtime": ws_runtime,
         "rate_limit_policies": rate_limit_policies,
         "rate_limit_runtime": rate_limit_runtime,
+        "kafka_runtime": kafka_runtime,
+        "kafka_topic_policies": kafka_topic_policies,
         "connector_feed_sla": connector_feed_sla,
         "raw_capture_recent": raw_capture_recent,
         "raw_lake_manifest_recent": raw_lake_manifest_recent,
@@ -1709,6 +1767,92 @@ def control_panel_ingestion_rate_limit_policy_update(
         )
         conn.commit()
     return {"status": "accepted", "session": session, "result": {"venue": venue, "enabled": enabled, "updated_by": str(session["user_id"])}}
+
+
+@app.post("/api/v1/control-panel/ingestion/kafka-topic-policy")
+def control_panel_ingestion_kafka_topic_policy_update(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    topic_name = str(payload.get("topic_name", "")).strip()
+    enabled = bool(payload.get("enabled", True))
+    target_partitions = int(payload.get("target_partitions", 6))
+    retention_ms = int(payload.get("retention_ms", -1))
+    cleanup_policy = str(payload.get("cleanup_policy", "delete")).strip().lower()
+    max_consumer_lag_messages = int(payload.get("max_consumer_lag_messages", 10000))
+    max_consumer_lag_seconds = int(payload.get("max_consumer_lag_seconds", 60))
+    min_insync_replicas = int(payload.get("min_insync_replicas", 1))
+    justification = str(payload.get("justification", "")).strip()
+
+    known_topics = {row["name"] for row in kafka_topic_defaults()}
+    if topic_name not in known_topics:
+        raise HTTPException(status_code=400, detail="unknown topic_name")
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if target_partitions < 1 or target_partitions > 96:
+        raise HTTPException(status_code=400, detail="target_partitions out of bounds")
+    if retention_ms != -1 and (retention_ms < 60000 or retention_ms > 31536000000):
+        raise HTTPException(status_code=400, detail="retention_ms out of bounds")
+    if cleanup_policy not in {"delete", "compact", "compact,delete", "delete,compact"}:
+        raise HTTPException(status_code=400, detail="cleanup_policy invalid")
+    if max_consumer_lag_messages < 1 or max_consumer_lag_messages > 100000000:
+        raise HTTPException(status_code=400, detail="max_consumer_lag_messages out of bounds")
+    if max_consumer_lag_seconds < 1 or max_consumer_lag_seconds > 86400:
+        raise HTTPException(status_code=400, detail="max_consumer_lag_seconds out of bounds")
+    if min_insync_replicas < 1 or min_insync_replicas > 5:
+        raise HTTPException(status_code=400, detail="min_insync_replicas out of bounds")
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_ingestion_kafka_topic_seed_data(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_kafka_topic_policy (
+                  topic_name, enabled, target_partitions, retention_ms, cleanup_policy,
+                  max_consumer_lag_messages, max_consumer_lag_seconds, min_insync_replicas,
+                  updated_by, updated_at
+                ) VALUES (
+                  %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
+                )
+                ON CONFLICT (topic_name) DO UPDATE
+                SET enabled = EXCLUDED.enabled,
+                    target_partitions = EXCLUDED.target_partitions,
+                    retention_ms = EXCLUDED.retention_ms,
+                    cleanup_policy = EXCLUDED.cleanup_policy,
+                    max_consumer_lag_messages = EXCLUDED.max_consumer_lag_messages,
+                    max_consumer_lag_seconds = EXCLUDED.max_consumer_lag_seconds,
+                    min_insync_replicas = EXCLUDED.min_insync_replicas,
+                    updated_by = EXCLUDED.updated_by,
+                    updated_at = now()
+                """,
+                (
+                    topic_name,
+                    enabled,
+                    target_partitions,
+                    retention_ms,
+                    cleanup_policy,
+                    max_consumer_lag_messages,
+                    max_consumer_lag_seconds,
+                    min_insync_replicas,
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.kafka_topic_policy.update",
+            section="ingestion",
+            target=topic_name,
+            status="approved",
+            reason=None,
+            metadata={"justification": justification, "enabled": enabled},
+        )
+        conn.commit()
+    return {"status": "accepted", "session": session, "result": {"topic_name": topic_name, "enabled": enabled, "updated_by": str(session["user_id"])}}
 
 
 @app.post("/api/v1/control-panel/ingestion/raw-lake/replay-manifest")
@@ -2492,6 +2636,26 @@ def ensure_control_panel_ingestion_rate_limit_policy_table(conn: psycopg.Connect
         )
 
 
+def ensure_control_panel_ingestion_kafka_topic_policy_table(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_ingestion_kafka_topic_policy (
+              topic_name TEXT PRIMARY KEY,
+              enabled BOOLEAN NOT NULL DEFAULT TRUE,
+              target_partitions INTEGER NOT NULL DEFAULT 6,
+              retention_ms BIGINT NOT NULL DEFAULT -1,
+              cleanup_policy TEXT NOT NULL DEFAULT 'delete',
+              max_consumer_lag_messages BIGINT NOT NULL DEFAULT 10000,
+              max_consumer_lag_seconds INTEGER NOT NULL DEFAULT 60,
+              min_insync_replicas INTEGER NOT NULL DEFAULT 1,
+              updated_by TEXT NOT NULL,
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+
 def ensure_raw_lake_replay_manifest_index_table(conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -2698,6 +2862,55 @@ def ensure_ingestion_rate_limit_seed_data(conn: psycopg.Connection) -> None:
             )
 
 
+def kafka_topic_defaults() -> list[dict]:
+    topics_file = BASE_DIR.parent.parent / "infra" / "kafka" / "topics.csv"
+    rows: list[dict] = []
+    if not topics_file.exists():
+        return rows
+    with topics_file.open("r", encoding="utf-8") as fh:
+        reader = csv.reader(fh)
+        for raw in reader:
+            if not raw or not raw[0] or raw[0].strip().startswith("#"):
+                continue
+            if len(raw) < 5:
+                continue
+            try:
+                rows.append(
+                    {
+                        "name": raw[0].strip(),
+                        "partitions": int(raw[1]),
+                        "cleanup_policy": raw[3].strip() or "delete",
+                        "retention_ms": int(raw[4]),
+                    }
+                )
+            except ValueError:
+                continue
+    return rows
+
+
+def ensure_ingestion_kafka_topic_seed_data(conn: psycopg.Connection) -> None:
+    ensure_control_panel_ingestion_kafka_topic_policy_table(conn)
+    with conn.cursor() as cur:
+        for row in kafka_topic_defaults():
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_kafka_topic_policy (
+                  topic_name, enabled, target_partitions, retention_ms, cleanup_policy,
+                  max_consumer_lag_messages, max_consumer_lag_seconds, min_insync_replicas, updated_by
+                ) VALUES (
+                  %s, TRUE, %s, %s, %s, 10000, 60, 1, 'seed'
+                )
+                ON CONFLICT (topic_name) DO NOTHING
+                """,
+                (
+                    row["name"],
+                    int(row["partitions"]),
+                    int(row["retention_ms"]),
+                    str(row["cleanup_policy"]),
+                ),
+            )
+
+
 def parse_secondary_endpoints(raw: object) -> list[str]:
     if raw is None:
         return []
@@ -2820,6 +3033,30 @@ def ingestion_rate_limit_runtime(conn: psycopg.Connection) -> dict:
         "configured_enabled_venues": int(enabled_count or 0),
         "configured_disabled_venues": int(disabled_count or 0),
         "avg_effective_poll_interval_ms": int(avg_effective_poll_interval_ms or 0),
+        "updated_at": updated_at.isoformat() if updated_at else None,
+    }
+
+
+def ingestion_kafka_runtime(conn: psycopg.Connection) -> dict:
+    ensure_ingestion_kafka_topic_seed_data(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              COUNT(*) FILTER (WHERE enabled = TRUE),
+              COUNT(*) FILTER (WHERE enabled = FALSE),
+              COALESCE(AVG(target_partitions)::bigint, 0),
+              COALESCE(AVG(CASE WHEN retention_ms < 0 THEN NULL ELSE retention_ms END)::bigint, 0),
+              COALESCE(MAX(updated_at), now())
+            FROM control_panel_ingestion_kafka_topic_policy
+            """
+        )
+        enabled_count, disabled_count, avg_target_partitions, avg_retention_ms, updated_at = cur.fetchone()
+    return {
+        "configured_enabled_topics": int(enabled_count or 0),
+        "configured_disabled_topics": int(disabled_count or 0),
+        "avg_target_partitions": int(avg_target_partitions or 0),
+        "avg_retention_ms": int(avg_retention_ms or 0),
         "updated_at": updated_at.isoformat() if updated_at else None,
     }
 

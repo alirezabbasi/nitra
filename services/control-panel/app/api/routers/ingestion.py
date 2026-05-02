@@ -40,6 +40,11 @@ async def control_panel_ingestion_rate_limit_policy(request: Request) -> Respons
     return await proxy_to_legacy(request)
 
 
+@router.post("/api/v1/control-panel/ingestion/kafka-topic-policy")
+async def control_panel_ingestion_kafka_topic_policy(request: Request) -> Response:
+    return await proxy_to_legacy(request)
+
+
 @router.post("/api/v1/control-panel/ingestion/raw-lake/replay-manifest")
 async def control_panel_ingestion_raw_lake_replay_manifest(request: Request) -> Response:
     return await proxy_to_legacy(request)

@@ -210,6 +210,32 @@
               <div class="small" id="rpResult" style="margin-top:8px">No rate-limit policy update submitted.</div>
             </article>
             <article class="card">
+              <div><strong>Kafka Topic SLO + Partition/Retention Policy</strong></div>
+              <div class="small">Topic-level right-sizing and lag-SLO governance controls.</div>
+              <div id="kafkaPolicyMetrics" style="margin-top:8px"></div>
+              <table class="table" id="kafkaTopicPolicyTable">
+                <thead><tr><th>Topic</th><th>Enabled</th><th>Partitions</th><th>Retention(ms)</th><th>Cleanup</th><th>Lag Msg SLO</th><th>Lag Sec SLO</th><th>Min ISR</th><th>Updated By</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="form-row" style="margin-top:8px">
+                <input id="kpTopic" value="raw.market.coinbase" placeholder="topic_name" />
+                <input id="kpEnabled" value="true" placeholder="enabled true|false" />
+                <input id="kpPartitions" value="6" placeholder="target_partitions" />
+                <input id="kpRetentionMs" value="-1" placeholder="retention_ms (-1 infinite)" />
+              </div>
+              <div class="form-row">
+                <input id="kpCleanupPolicy" value="delete" placeholder="cleanup_policy" />
+                <input id="kpLagMessages" value="10000" placeholder="max_consumer_lag_messages" />
+                <input id="kpLagSeconds" value="60" placeholder="max_consumer_lag_seconds" />
+                <input id="kpMinIsr" value="1" placeholder="min_insync_replicas" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="kpJustification" placeholder="justification (required)" />
+                <button class="btn" id="kpSubmitBtn">Update Kafka Policy</button>
+              </div>
+              <div class="small" id="kpResult" style="margin-top:8px">No Kafka topic policy update submitted.</div>
+            </article>
+            <article class="card">
               <div><strong>Backfill Queue (Recent)</strong></div>
               <table class="table" id="backfillTable">
                 <thead><tr><th>Status</th><th>Market</th><th>Attempts</th></tr></thead>
