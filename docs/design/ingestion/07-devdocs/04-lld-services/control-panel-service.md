@@ -294,6 +294,16 @@ Rollback policy:
   - `kafka_lag_recovery_recent`
   - `kafka_dead_letter_replay_recent`
   - `kafka_recovery_runtime`
+
+## DEV-00076 Kafka Schema Gate Ops
+
+- Ingestion workspace now includes:
+  - `Kafka Schema Compatibility CI Gate` trigger form + recent check table.
+- Control-panel API contract addition:
+  - `POST /api/v1/control-panel/ingestion/kafka-schema-compat-check`
+- `GET /api/v1/control-panel/ingestion` now includes:
+  - `kafka_schema_runtime`
+  - `kafka_schema_compat_recent`
 - Surface intent:
   - build deterministic range-scoped replay object selections,
   - persist checksum-verifiable manifest indices for reproducible replay runs.

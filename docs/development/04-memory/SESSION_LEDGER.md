@@ -1922,3 +1922,25 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap`
 - Next recommended action:
   - execute `DEV-00076` Kafka schema compatibility CI gate hardening.
+
+---
+
+## 2026-05-03 — Session Entry 036
+
+- Objective:
+  - execute `DEV-00076` Kafka schema compatibility CI gate for backward/forward validation across runtime topics.
+- Work completed:
+  - added executable schema compatibility gate scripts (`scripts/kafka/schema_compat_gate.py`, `.sh`) and schema contract tree under `infra/kafka/schemas/{current,baseline}`.
+  - added ingestion control-plane schema gate endpoint:
+    - `POST /api/v1/control-panel/ingestion/kafka-schema-compat-check`
+  - added persisted schema gate evidence contract (`control_panel_ingestion_kafka_schema_compat_log`) and runtime/read-model exposure.
+  - added control-panel ingestion UI trigger + recent schema-check table.
+  - added schema migration `infra/timescaledb/init/025_kafka_schema_compat_log.sql`.
+  - added verification gate `tests/dev-0076/run.sh` and `make test-dev-0076` target; plus `make kafka-schema-compat-gate`.
+  - synced Kafka backbone/LLD docs and execution memory artifacts to next sequence item.
+- Verification:
+  - `make test-dev-0076`
+  - `make enforce-section-5-1`
+  - `make session-bootstrap`
+- Next recommended action:
+  - execute `DEV-00125` control-panel raw-lake module companion scope.

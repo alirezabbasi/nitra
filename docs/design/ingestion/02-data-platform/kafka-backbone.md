@@ -58,3 +58,17 @@ The script uses `--if-not-exists`, making repeated runs safe.
   - privileged updates require operator role + justification.
 - Control-plane mutation endpoint:
   - `POST /api/v1/control-panel/ingestion/kafka-topic-policy`
+
+## Schema Compatibility CI Gate Contract (DEV-00076)
+
+- Gate scripts:
+  - `scripts/kafka/schema_compat_gate.py`
+  - `scripts/kafka/schema_compat_gate.sh`
+- Gate validates backward/forward compatibility for every topic listed in `infra/kafka/topics.csv` by checking:
+  - current schema file exists under `infra/kafka/schemas/current`,
+  - baseline schema file exists under `infra/kafka/schemas/baseline`,
+  - object property type stability,
+  - no backward-incompatible required-field additions,
+  - no forward-incompatible required-field removals.
+- Control-plane mutation endpoint:
+  - `POST /api/v1/control-panel/ingestion/kafka-schema-compat-check`

@@ -69,6 +69,7 @@ Last updated: 2026-05-03
 
 ## Current
 
+- `DEV-00076` closed (`test-dev-0076`).
 - `DEV-00075` closed (`test-dev-0075`).
 - `DEV-00074` closed (`test-dev-0074`).
 - `DEV-00073` closed (`test-dev-0073`).
@@ -125,7 +126,7 @@ Last updated: 2026-05-03
 
 ## Next
 
-1. Continue with `DEV-00076` before moving deeper into Kafka reliability priorities.
+1. Continue with `DEV-00125` control-panel raw-lake module companion scope.
 
 ## Risks/Blocks
 

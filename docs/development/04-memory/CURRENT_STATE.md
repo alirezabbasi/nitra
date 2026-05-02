@@ -13,6 +13,10 @@ Last updated: 2026-05-03
 
 ### Recent
 
+- Completed `DEV-00076` Kafka schema compatibility CI gate contract:
+  - executable schema compatibility gate across all runtime topics in `infra/kafka/topics.csv`,
+  - control-panel schema gate trigger and recent-check visibility in ingestion workspace,
+  - persisted schema-compat check evidence log with status/summary tracking.
 - Completed `DEV-00075` Kafka lag-recovery automation and dead-letter replay hardening contract:
   - lag-recovery request queue contract with bounded replay offset and DLQ target validation,
   - dead-letter replay request contract with dry-run/execute mode + bounded replay volume,
