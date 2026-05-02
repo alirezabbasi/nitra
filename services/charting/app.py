@@ -389,6 +389,8 @@ def control_panel_ingestion(
         "sequence_anomalies_24h": 0,
         "raw_lake_objects_24h": 0,
         "kafka_topics_tracked": 0,
+        "kafka_lag_recovery_open": 0,
+        "kafka_dlq_replays_24h": 0,
     }
     connector_health: list[dict] = []
     failover_policies: list[dict] = []
@@ -396,6 +398,8 @@ def control_panel_ingestion(
     ws_policies: list[dict] = []
     rate_limit_policies: list[dict] = []
     kafka_topic_policies: list[dict] = []
+    kafka_lag_recovery_recent: list[dict] = []
+    kafka_dead_letter_replay_recent: list[dict] = []
     failover_runtime: dict = {
         "configured_enabled_venues": 0,
         "configured_disabled_venues": 0,
@@ -427,6 +431,11 @@ def control_panel_ingestion(
         "configured_disabled_topics": 0,
         "avg_target_partitions": 0,
         "avg_retention_ms": 0,
+        "updated_at": None,
+    }
+    kafka_recovery_runtime: dict = {
+        "open_lag_recovery": 0,
+        "dlq_replays_24h": 0,
         "updated_at": None,
     }
     connector_feed_sla: list[dict] = []
@@ -461,6 +470,7 @@ def control_panel_ingestion(
             ensure_ingestion_ws_seed_data(conn)
             ensure_ingestion_rate_limit_seed_data(conn)
             ensure_ingestion_kafka_topic_seed_data(conn)
+            ensure_control_panel_ingestion_kafka_recovery_tables(conn)
             ensure_raw_lake_replay_manifest_index_table(conn)
             ensure_raw_lake_retention_tables(conn)
             with conn.cursor() as cur:
@@ -580,6 +590,7 @@ def control_panel_ingestion(
                 ws_runtime = ingestion_ws_runtime(conn)
                 rate_limit_runtime = ingestion_rate_limit_runtime(conn)
                 kafka_runtime = ingestion_kafka_runtime(conn)
+                kafka_recovery_runtime = ingestion_kafka_recovery_runtime(conn)
                 cur.execute(
                     """
                     SELECT
@@ -673,6 +684,96 @@ def control_panel_ingestion(
                             "min_insync_replicas": int(min_insync_replicas or 0),
                             "updated_by": str(updated_by),
                             "updated_at": updated_at.isoformat() if updated_at else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    SELECT
+                      recovery_id,
+                      topic_name,
+                      consumer_group,
+                      observed_lag_messages,
+                      observed_lag_seconds,
+                      dlq_topic,
+                      replay_from_offset,
+                      replay_to_offset,
+                      status,
+                      created_by,
+                      created_at
+                    FROM control_panel_ingestion_kafka_lag_recovery_log
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for (
+                    recovery_id,
+                    topic_name,
+                    consumer_group,
+                    observed_lag_messages,
+                    observed_lag_seconds,
+                    dlq_topic,
+                    replay_from_offset,
+                    replay_to_offset,
+                    status,
+                    created_by,
+                    created_at,
+                ) in cur.fetchall():
+                    kafka_lag_recovery_recent.append(
+                        {
+                            "recovery_id": str(recovery_id),
+                            "topic_name": str(topic_name),
+                            "consumer_group": str(consumer_group),
+                            "observed_lag_messages": int(observed_lag_messages or 0),
+                            "observed_lag_seconds": int(observed_lag_seconds or 0),
+                            "dlq_topic": str(dlq_topic),
+                            "replay_from_offset": int(replay_from_offset) if replay_from_offset is not None else None,
+                            "replay_to_offset": int(replay_to_offset) if replay_to_offset is not None else None,
+                            "status": str(status),
+                            "created_by": str(created_by),
+                            "created_at": created_at.isoformat() if created_at else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    SELECT
+                      replay_id,
+                      source_topic,
+                      dlq_topic,
+                      target_consumer_group,
+                      replay_mode,
+                      message_count,
+                      status,
+                      created_by,
+                      created_at
+                    FROM control_panel_ingestion_kafka_dead_letter_replay_log
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for (
+                    replay_id,
+                    source_topic,
+                    dlq_topic,
+                    target_consumer_group,
+                    replay_mode,
+                    message_count,
+                    status,
+                    created_by,
+                    created_at,
+                ) in cur.fetchall():
+                    kafka_dead_letter_replay_recent.append(
+                        {
+                            "replay_id": str(replay_id),
+                            "source_topic": str(source_topic),
+                            "dlq_topic": str(dlq_topic),
+                            "target_consumer_group": str(target_consumer_group),
+                            "replay_mode": str(replay_mode),
+                            "message_count": int(message_count or 0),
+                            "status": str(status),
+                            "created_by": str(created_by),
+                            "created_at": created_at.isoformat() if created_at else None,
                         }
                     )
                 cur.execute(
@@ -1153,6 +1254,8 @@ def control_panel_ingestion(
                 )
                 metrics["raw_lake_objects_24h"] = int(cur.fetchone()[0] or 0)
                 metrics["kafka_topics_tracked"] = len(kafka_topic_policies)
+                metrics["kafka_lag_recovery_open"] = int(kafka_recovery_runtime.get("open_lag_recovery", 0))
+                metrics["kafka_dlq_replays_24h"] = int(kafka_recovery_runtime.get("dlq_replays_24h", 0))
     except Exception:
         mode = "degraded"
 
@@ -1172,7 +1275,10 @@ def control_panel_ingestion(
         "rate_limit_policies": rate_limit_policies,
         "rate_limit_runtime": rate_limit_runtime,
         "kafka_runtime": kafka_runtime,
+        "kafka_recovery_runtime": kafka_recovery_runtime,
         "kafka_topic_policies": kafka_topic_policies,
+        "kafka_lag_recovery_recent": kafka_lag_recovery_recent,
+        "kafka_dead_letter_replay_recent": kafka_dead_letter_replay_recent,
         "connector_feed_sla": connector_feed_sla,
         "raw_capture_recent": raw_capture_recent,
         "raw_lake_manifest_recent": raw_lake_manifest_recent,
@@ -1853,6 +1959,152 @@ def control_panel_ingestion_kafka_topic_policy_update(
         )
         conn.commit()
     return {"status": "accepted", "session": session, "result": {"topic_name": topic_name, "enabled": enabled, "updated_by": str(session["user_id"])}}
+
+
+@app.post("/api/v1/control-panel/ingestion/kafka-lag-recovery")
+def control_panel_ingestion_kafka_lag_recovery_request(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    topic_name = str(payload.get("topic_name", "")).strip()
+    consumer_group = str(payload.get("consumer_group", "")).strip()
+    observed_lag_messages = int(payload.get("observed_lag_messages", 0))
+    observed_lag_seconds = int(payload.get("observed_lag_seconds", 0))
+    dlq_topic = str(payload.get("dlq_topic", "")).strip()
+    replay_from_offset_raw = payload.get("replay_from_offset")
+    replay_to_offset_raw = payload.get("replay_to_offset")
+    replay_from_offset = int(replay_from_offset_raw) if replay_from_offset_raw not in (None, "") else None
+    replay_to_offset = int(replay_to_offset_raw) if replay_to_offset_raw not in (None, "") else None
+    justification = str(payload.get("justification", "")).strip()
+
+    known_topics = {row["name"] for row in kafka_topic_defaults()}
+    if topic_name not in known_topics:
+        raise HTTPException(status_code=400, detail="unknown topic_name")
+    if not consumer_group:
+        raise HTTPException(status_code=400, detail="consumer_group is required")
+    if observed_lag_messages < 1 or observed_lag_messages > 1000000000:
+        raise HTTPException(status_code=400, detail="observed_lag_messages out of bounds")
+    if observed_lag_seconds < 1 or observed_lag_seconds > 172800:
+        raise HTTPException(status_code=400, detail="observed_lag_seconds out of bounds")
+    if not dlq_topic or not dlq_topic.endswith(".dlq"):
+        raise HTTPException(status_code=400, detail="dlq_topic must end with .dlq")
+    if replay_from_offset is not None and replay_from_offset < 0:
+        raise HTTPException(status_code=400, detail="replay_from_offset out of bounds")
+    if replay_to_offset is not None and replay_to_offset < 0:
+        raise HTTPException(status_code=400, detail="replay_to_offset out of bounds")
+    if replay_from_offset is not None and replay_to_offset is not None and replay_to_offset < replay_from_offset:
+        raise HTTPException(status_code=400, detail="invalid replay offset range")
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+
+    recovery_id = uuid.uuid4()
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_ingestion_kafka_recovery_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_kafka_lag_recovery_log (
+                  recovery_id, topic_name, consumer_group, observed_lag_messages, observed_lag_seconds,
+                  dlq_topic, replay_from_offset, replay_to_offset, status, created_by, created_at
+                ) VALUES (
+                  %s::uuid, %s, %s, %s, %s, %s, %s, %s, 'queued', %s, now()
+                )
+                """,
+                (
+                    str(recovery_id),
+                    topic_name,
+                    consumer_group,
+                    observed_lag_messages,
+                    observed_lag_seconds,
+                    dlq_topic,
+                    replay_from_offset,
+                    replay_to_offset,
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.kafka_lag_recovery.request",
+            section="ingestion",
+            target=f"{topic_name}:{consumer_group}",
+            status="approved",
+            reason=None,
+            metadata={"justification": justification, "recovery_id": str(recovery_id)},
+        )
+        conn.commit()
+    return {"status": "accepted", "session": session, "result": {"recovery_id": str(recovery_id), "topic_name": topic_name, "consumer_group": consumer_group}}
+
+
+@app.post("/api/v1/control-panel/ingestion/kafka-dead-letter-replay")
+def control_panel_ingestion_kafka_dead_letter_replay_request(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    source_topic = str(payload.get("source_topic", "")).strip()
+    dlq_topic = str(payload.get("dlq_topic", "")).strip()
+    target_consumer_group = str(payload.get("target_consumer_group", "")).strip()
+    replay_mode = str(payload.get("replay_mode", "dry_run")).strip().lower()
+    message_count = int(payload.get("message_count", 0))
+    justification = str(payload.get("justification", "")).strip()
+
+    known_topics = {row["name"] for row in kafka_topic_defaults()}
+    if source_topic not in known_topics:
+        raise HTTPException(status_code=400, detail="unknown source_topic")
+    if not dlq_topic or not dlq_topic.endswith(".dlq"):
+        raise HTTPException(status_code=400, detail="dlq_topic must end with .dlq")
+    if not target_consumer_group:
+        raise HTTPException(status_code=400, detail="target_consumer_group is required")
+    if replay_mode not in {"dry_run", "execute"}:
+        raise HTTPException(status_code=400, detail="replay_mode must be dry_run|execute")
+    if message_count < 1 or message_count > 10000000:
+        raise HTTPException(status_code=400, detail="message_count out of bounds")
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+
+    replay_id = uuid.uuid4()
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_ingestion_kafka_recovery_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_kafka_dead_letter_replay_log (
+                  replay_id, source_topic, dlq_topic, target_consumer_group, replay_mode,
+                  message_count, status, created_by, created_at
+                ) VALUES (
+                  %s::uuid, %s, %s, %s, %s, %s, 'queued', %s, now()
+                )
+                """,
+                (
+                    str(replay_id),
+                    source_topic,
+                    dlq_topic,
+                    target_consumer_group,
+                    replay_mode,
+                    message_count,
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.kafka_dead_letter_replay.request",
+            section="ingestion",
+            target=f"{source_topic}:{target_consumer_group}",
+            status="approved",
+            reason=None,
+            metadata={"justification": justification, "replay_id": str(replay_id), "replay_mode": replay_mode},
+        )
+        conn.commit()
+    return {"status": "accepted", "session": session, "result": {"replay_id": str(replay_id), "source_topic": source_topic, "replay_mode": replay_mode}}
 
 
 @app.post("/api/v1/control-panel/ingestion/raw-lake/replay-manifest")
@@ -2656,6 +2908,54 @@ def ensure_control_panel_ingestion_kafka_topic_policy_table(conn: psycopg.Connec
         )
 
 
+def ensure_control_panel_ingestion_kafka_recovery_tables(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_ingestion_kafka_lag_recovery_log (
+              recovery_id UUID PRIMARY KEY,
+              topic_name TEXT NOT NULL,
+              consumer_group TEXT NOT NULL,
+              observed_lag_messages BIGINT NOT NULL,
+              observed_lag_seconds BIGINT NOT NULL,
+              dlq_topic TEXT NOT NULL,
+              replay_from_offset BIGINT,
+              replay_to_offset BIGINT,
+              status TEXT NOT NULL,
+              created_by TEXT NOT NULL,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_ingestion_kafka_dead_letter_replay_log (
+              replay_id UUID PRIMARY KEY,
+              source_topic TEXT NOT NULL,
+              dlq_topic TEXT NOT NULL,
+              target_consumer_group TEXT NOT NULL,
+              replay_mode TEXT NOT NULL,
+              message_count BIGINT NOT NULL,
+              status TEXT NOT NULL,
+              created_by TEXT NOT NULL,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_control_panel_kafka_lag_recovery_created_at
+              ON control_panel_ingestion_kafka_lag_recovery_log (created_at DESC)
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_control_panel_kafka_dlq_replay_created_at
+              ON control_panel_ingestion_kafka_dead_letter_replay_log (created_at DESC)
+            """
+        )
+
+
 def ensure_raw_lake_replay_manifest_index_table(conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -3057,6 +3357,34 @@ def ingestion_kafka_runtime(conn: psycopg.Connection) -> dict:
         "configured_disabled_topics": int(disabled_count or 0),
         "avg_target_partitions": int(avg_target_partitions or 0),
         "avg_retention_ms": int(avg_retention_ms or 0),
+        "updated_at": updated_at.isoformat() if updated_at else None,
+    }
+
+
+def ingestion_kafka_recovery_runtime(conn: psycopg.Connection) -> dict:
+    ensure_control_panel_ingestion_kafka_recovery_tables(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              COUNT(*) FILTER (WHERE status IN ('queued', 'running')),
+              COUNT(*) FILTER (WHERE created_at >= now() - interval '24 hours'),
+              COALESCE(MAX(created_at), now())
+            FROM control_panel_ingestion_kafka_lag_recovery_log
+            """
+        )
+        open_recovery, _lag_recovery_24h, updated_at = cur.fetchone()
+        cur.execute(
+            """
+            SELECT
+              COUNT(*) FILTER (WHERE created_at >= now() - interval '24 hours')
+            FROM control_panel_ingestion_kafka_dead_letter_replay_log
+            """
+        )
+        dlq_replays_24h = int(cur.fetchone()[0] or 0)
+    return {
+        "open_lag_recovery": int(open_recovery or 0),
+        "dlq_replays_24h": int(dlq_replays_24h),
         "updated_at": updated_at.isoformat() if updated_at else None,
     }
 

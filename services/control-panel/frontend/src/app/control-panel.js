@@ -238,6 +238,27 @@ const metricOrder = [
           kafkaBody.appendChild(tr);
         }
 
+        const recoveryMetrics = document.getElementById("kafkaRecoveryMetrics");
+        const recoveryRuntime = data.kafka_recovery_runtime || {};
+        recoveryMetrics.innerHTML = `
+          <div class="small">Open Lag Recovery: <strong>${fmt(recoveryRuntime.open_lag_recovery)}</strong></div>
+          <div class="small">DLQ Replays (24h): <strong>${fmt(recoveryRuntime.dlq_replays_24h)}</strong></div>
+        `;
+        const lagBody = document.querySelector("#kafkaLagRecoveryTable tbody");
+        lagBody.innerHTML = "";
+        for (const row of tableSlice(data.kafka_lag_recovery_recent || [], 30)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td title="${row.recovery_id}">${row.recovery_id.slice(0, 8)}</td><td>${row.topic_name}</td><td>${row.consumer_group}</td><td>${fmt(row.observed_lag_messages)}/${fmt(row.observed_lag_seconds)}</td><td>${row.replay_from_offset ?? "-"}..${row.replay_to_offset ?? "-"}</td><td>${row.status}</td>`;
+          lagBody.appendChild(tr);
+        }
+        const dlqBody = document.querySelector("#kafkaDeadLetterReplayTable tbody");
+        dlqBody.innerHTML = "";
+        for (const row of tableSlice(data.kafka_dead_letter_replay_recent || [], 30)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td title="${row.replay_id}">${row.replay_id.slice(0, 8)}</td><td>${row.source_topic} / ${row.dlq_topic}</td><td>${row.target_consumer_group}</td><td>${row.replay_mode}</td><td>${fmt(row.message_count)}</td><td>${row.status}</td>`;
+          dlqBody.appendChild(tr);
+        }
+
         const retentionBody = document.querySelector("#retentionPolicyTable tbody");
         retentionBody.innerHTML = "";
         for (const row of tableSlice(data.raw_lake_retention_policies || [], 20)) {
@@ -433,6 +454,58 @@ const metricOrder = [
           return;
         }
         out.textContent = `Updated topic=${data.result?.topic_name || "-"} by ${data.result?.updated_by || "-"}`;
+        await loadIngestion();
+      }
+
+      async function submitKafkaLagRecovery() {
+        const payload = {
+          topic_name: document.getElementById("klTopic").value.trim(),
+          consumer_group: document.getElementById("klConsumerGroup").value.trim(),
+          observed_lag_messages: Number(document.getElementById("klLagMessages").value || 0),
+          observed_lag_seconds: Number(document.getElementById("klLagSeconds").value || 0),
+          dlq_topic: document.getElementById("klDlqTopic").value.trim(),
+          replay_from_offset: document.getElementById("klFromOffset").value.trim(),
+          replay_to_offset: document.getElementById("klToOffset").value.trim(),
+          justification: document.getElementById("klJustification").value.trim(),
+        };
+        const out = document.getElementById("klResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/kafka-lag-recovery", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Queued recovery=${(data.result?.recovery_id || "-").slice(0, 8)} topic=${data.result?.topic_name || "-"} group=${data.result?.consumer_group || "-"}`;
+        await loadIngestion();
+      }
+
+      async function submitKafkaDeadLetterReplay() {
+        const payload = {
+          source_topic: document.getElementById("kdSourceTopic").value.trim(),
+          dlq_topic: document.getElementById("kdDlqTopic").value.trim(),
+          target_consumer_group: document.getElementById("kdTargetGroup").value.trim(),
+          replay_mode: document.getElementById("kdReplayMode").value.trim(),
+          message_count: Number(document.getElementById("kdMessageCount").value || 0),
+          justification: document.getElementById("kdJustification").value.trim(),
+        };
+        const out = document.getElementById("kdResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/kafka-dead-letter-replay", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Queued replay=${(data.result?.replay_id || "-").slice(0, 8)} source=${data.result?.source_topic || "-"} mode=${data.result?.replay_mode || "-"}`;
         await loadIngestion();
       }
 
@@ -1286,6 +1359,8 @@ const metricOrder = [
       document.getElementById("wpSubmitBtn").addEventListener("click", () => submitWsPolicy().catch(console.error));
       document.getElementById("rpSubmitBtn").addEventListener("click", () => submitRateLimitPolicy().catch(console.error));
       document.getElementById("kpSubmitBtn").addEventListener("click", () => submitKafkaTopicPolicy().catch(console.error));
+      document.getElementById("klSubmitBtn").addEventListener("click", () => submitKafkaLagRecovery().catch(console.error));
+      document.getElementById("kdSubmitBtn").addEventListener("click", () => submitKafkaDeadLetterReplay().catch(console.error));
       document.getElementById("rmBuildBtn").addEventListener("click", () => buildReplayManifest().catch(console.error));
       document.getElementById("rtSubmitBtn").addEventListener("click", () => submitRawLakeRetentionPolicy().catch(console.error));
       document.getElementById("rdSubmitBtn").addEventListener("click", () => submitRawLakeRestoreDrill().catch(console.error));

@@ -236,6 +236,53 @@
               <div class="small" id="kpResult" style="margin-top:8px">No Kafka topic policy update submitted.</div>
             </article>
             <article class="card">
+              <div><strong>Kafka Lag Recovery Automation</strong></div>
+              <div class="small">Queue deterministic lag recovery actions with replay range and DLQ target.</div>
+              <div id="kafkaRecoveryMetrics" style="margin-top:8px"></div>
+              <div class="form-row" style="margin-top:8px">
+                <input id="klTopic" value="raw.market.coinbase" placeholder="topic_name" />
+                <input id="klConsumerGroup" value="nitra-market-normalization-v1" placeholder="consumer_group" />
+                <input id="klLagMessages" value="10000" placeholder="observed_lag_messages" />
+                <input id="klLagSeconds" value="60" placeholder="observed_lag_seconds" />
+              </div>
+              <div class="form-row">
+                <input id="klDlqTopic" value="raw.market.coinbase.dlq" placeholder="dlq_topic" />
+                <input id="klFromOffset" placeholder="replay_from_offset (optional)" />
+                <input id="klToOffset" placeholder="replay_to_offset (optional)" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="klJustification" placeholder="justification (required)" />
+                <button class="btn" id="klSubmitBtn">Queue Lag Recovery</button>
+              </div>
+              <div class="small" id="klResult" style="margin-top:8px">No lag recovery request submitted.</div>
+              <table class="table" id="kafkaLagRecoveryTable" style="margin-top:8px">
+                <thead><tr><th>Recovery</th><th>Topic</th><th>Group</th><th>Lag Msg/Sec</th><th>Offsets</th><th>Status</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Kafka Dead-Letter Replay</strong></div>
+              <div class="small">Queue DLQ replay requests for dry-run or execute mode.</div>
+              <div class="form-row" style="margin-top:8px">
+                <input id="kdSourceTopic" value="raw.market.coinbase" placeholder="source_topic" />
+                <input id="kdDlqTopic" value="raw.market.coinbase.dlq" placeholder="dlq_topic" />
+                <input id="kdTargetGroup" value="nitra-market-normalization-v1" placeholder="target_consumer_group" />
+                <input id="kdReplayMode" value="dry_run" placeholder="replay_mode dry_run|execute" />
+              </div>
+              <div class="form-row">
+                <input id="kdMessageCount" value="500" placeholder="message_count" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="kdJustification" placeholder="justification (required)" />
+                <button class="btn" id="kdSubmitBtn">Queue DLQ Replay</button>
+              </div>
+              <div class="small" id="kdResult" style="margin-top:8px">No DLQ replay request submitted.</div>
+              <table class="table" id="kafkaDeadLetterReplayTable" style="margin-top:8px">
+                <thead><tr><th>Replay</th><th>Source/DLQ</th><th>Group</th><th>Mode</th><th>Messages</th><th>Status</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
               <div><strong>Backfill Queue (Recent)</strong></div>
               <table class="table" id="backfillTable">
                 <thead><tr><th>Status</th><th>Market</th><th>Attempts</th></tr></thead>
