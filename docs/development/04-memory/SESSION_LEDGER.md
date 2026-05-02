@@ -1754,3 +1754,128 @@ Append one entry at the end of each substantial session.
   - Kanban and memory artifacts synchronized for active execution handoff.
 - Next recommended action:
   - implement `DEV-00156` reliability gate runner and define first burn-in threshold set (>=60 min) with evidence output under debugging reports.
+
+---
+
+## 2026-05-02 — Session Entry 018
+
+- Objective:
+  - execute paired P0 feed-operations slice `DEV-00070` + `DEV-00142`.
+- Work completed:
+  - upgraded `market-ingestion` runtime health contract with `feed_quality` telemetry (latency, drop estimate, sequence discontinuity, heartbeat age, fetch-error counters).
+  - implemented adaptive throttling runtime behavior in `market-ingestion` with bounded backoff/recovery/cooldown and policy refresh support.
+  - added control-panel ingestion API/UI contract for feed SLA visibility (`connector_feed_sla` table view).
+  - added per-venue rate-limit governance contract:
+    - table + seed + runtime aggregation in charting backend,
+    - guarded mutation endpoint `POST /api/v1/control-panel/ingestion/rate-limit-policy`,
+    - control-panel router pass-through and UI management surface.
+  - added executable verification packs `tests/dev-0070/run.sh` and `tests/dev-0142/run.sh` with Make targets.
+  - synchronized docs/tickets/Kanban/memory artifacts for both ticket closures.
+- Verification:
+  - `cargo check --manifest-path services/market-ingestion/Cargo.toml` passes.
+  - `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/charting/app.py` passes.
+  - `make test-dev-0070` passes.
+  - `make test-dev-0142` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute `DEV-00143` raw message capture conformance to continue P0 sequence.
+
+---
+
+## 2026-05-02 — Session Entry 019
+
+- Objective:
+  - execute next P0 ticket `DEV-00143` raw message capture conformance.
+- Work completed:
+  - implemented raw-message capture persistence contract in `market-normalization` (`raw_message_capture`) including untouched inbound message text, parsed envelope JSON, and parsed payload JSON.
+  - implemented sequence provenance checks and persistence (`sequence_numeric`, `previous_sequence_numeric`, `sequence_gap`, `sequence_status`) for per-market stream conformance triage.
+  - added schema contract file `infra/timescaledb/init/019_raw_message_capture.sql`.
+  - expanded control-panel ingestion operations visibility with:
+    - metrics: `raw_capture_rows_24h`, `sequence_anomalies_24h`,
+    - table: `raw_capture_recent` in backend payload and UI `Raw Capture Provenance (Recent)` rendering.
+  - added verification pack `tests/dev-0143/run.sh` and Make target `test-dev-0143`.
+  - synchronized docs, ticket status, Kanban, and memory artifacts for `DEV-00143` closure.
+- Verification:
+  - `cargo check --manifest-path services/market-normalization/Cargo.toml` passes.
+  - `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/charting/app.py` passes.
+  - `make test-dev-0143` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute `DEV-00071` (raw data lake canonical partitioning/object-key strategy) as the next P0 slice.
+
+---
+
+## 2026-05-02 — Session Entry 020
+
+- Objective:
+  - execute next P0 ticket `DEV-00071` raw data lake canonical parquet partitioning/object-key strategy.
+- Work completed:
+  - implemented deterministic canonical raw-lake object-key strategy in `market-normalization` using partitioned parquet path template by venue/topic/partition/symbol/year/month/day/hour.
+  - implemented replay-grade manifest projection contract `raw_lake_object_manifest` with per-object provenance fields:
+    - source topic/partition,
+    - min/max source offsets,
+    - first/last event timestamps,
+    - row counts.
+  - added schema contract file `infra/timescaledb/init/020_raw_lake_object_manifest.sql`.
+  - expanded control-panel ingestion operations visibility with:
+    - metric `raw_lake_objects_24h`,
+    - table payload `raw_lake_manifest_recent`,
+    - UI section `Raw Lake Object Manifest (Recent)`.
+  - added executable verification pack `tests/dev-0071/run.sh` and make target `test-dev-0071`.
+  - synchronized docs/ticket/Kanban/memory artifacts for `DEV-00071` closure.
+- Verification:
+  - `cargo check --manifest-path services/market-normalization/Cargo.toml` passes.
+  - `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/charting/app.py` passes.
+  - `make test-dev-0071` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute `DEV-00072` replay manifest/index service for deterministic range selection and provenance checks.
+
+---
+
+## 2026-05-02 — Session Entry 021
+
+- Objective:
+  - execute next P0 ticket `DEV-00072` raw-lake replay manifest/index service.
+- Work completed:
+  - implemented deterministic replay manifest build endpoint:
+    - `POST /api/v1/control-panel/ingestion/raw-lake/replay-manifest`.
+  - implemented replay manifest index persistence contract `raw_lake_replay_manifest_index` with:
+    - range window,
+    - ordered selected object keys,
+    - row/offset provenance summary,
+    - deterministic checksum (`checksum_sha256`).
+  - added SQL contract file `infra/timescaledb/init/021_raw_lake_replay_manifest_index.sql`.
+  - expanded control-panel ingestion ops visibility with replay manifest controls and recent-manifest table.
+  - added executable verification pack `tests/dev-0072/run.sh` and make target `test-dev-0072`.
+  - synchronized docs/ticket/Kanban/memory artifacts for `DEV-00072` closure.
+- Verification:
+  - `cargo check --manifest-path services/market-normalization/Cargo.toml` passes.
+  - `PYTHONPYCACHEPREFIX=/tmp/pycache python -m py_compile services/charting/app.py` passes.
+  - `make test-dev-0072` passes.
+  - `make enforce-section-5-1` passes.
+  - `make session-bootstrap` passes.
+- Next recommended action:
+  - execute `DEV-00073` retention/tiering/restore runbook with validation evidence.
+
+---
+
+## 2026-05-03 — Session Entry 033
+
+- Objective:
+  - execute `DEV-00073` raw-lake retention/tiering/restore-drill validation contract with control-panel companion surfaces.
+- Work completed:
+  - added retention policy and restore-drill ingestion API contracts in charting legacy control-plane backend and control-panel proxy router.
+  - added SQL contract `infra/timescaledb/init/022_raw_lake_retention_restore.sql` for policy and restore evidence tables with guard constraints and environment seed rows.
+  - completed control-panel ingestion UI wiring for retention policy rendering/update and restore-drill logging/recent-evidence rendering.
+  - added verification pack `tests/dev-0073/run.sh` and Make target `test-dev-0073`.
+  - updated lakehouse contract doc, backup/DR runbook, control-panel LLD, ticket status, and memory/kanban focus artifacts.
+- Verification:
+  - `make test-dev-0073`
+  - `make enforce-section-5-1`
+  - `make session-bootstrap`
+- Next recommended action:
+  - execute `DEV-00074` Kafka topic SLO and partition/retention right-sizing policy with control-panel companion scope.

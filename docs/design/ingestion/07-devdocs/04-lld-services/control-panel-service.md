@@ -217,3 +217,59 @@ Rollback policy:
   - `session_policies`, `session_runtime`
   - `ws_policies`, `ws_runtime`
 - Both mutation endpoints require operator role minimum, justification, and audit trail records.
+
+## DEV-00070 + DEV-00142 Feed Quality + Throttling Ops
+
+- Ingestion workspace now includes:
+  - `Feed Quality SLA` table for per-market latency/drop/sequence/heartbeat posture.
+  - `Adaptive Rate-Limit Policy` table and guarded update form.
+- Control-panel API contract additions:
+  - `POST /api/v1/control-panel/ingestion/rate-limit-policy`
+- `GET /api/v1/control-panel/ingestion` now includes:
+  - `connector_feed_sla`
+  - `rate_limit_policies`, `rate_limit_runtime`
+- Mutation endpoint requires operator role minimum, justification, and audit trail records.
+
+## DEV-00143 Raw Capture Ops
+
+- Ingestion workspace includes `Raw Capture Provenance (Recent)` operator table.
+- `GET /api/v1/control-panel/ingestion` now includes:
+  - `raw_capture_recent`
+  - `metrics.raw_capture_rows_24h`
+  - `metrics.sequence_anomalies_24h`
+- Surface intent:
+  - verify untouched inbound message capture continuity,
+  - triage sequence-provenance anomalies (`gap`, `out_of_order`, `duplicate`) quickly from control panel.
+
+## DEV-00071 Raw Lake Ops
+
+- Ingestion workspace includes `Raw Lake Object Manifest (Recent)` operator table.
+- `GET /api/v1/control-panel/ingestion` now includes:
+  - `raw_lake_manifest_recent`
+  - `metrics.raw_lake_objects_24h`
+- Surface intent:
+  - verify canonical partition/object-key progression,
+  - confirm replay-grade offset range provenance per object partition window.
+
+## DEV-00072 Replay Manifest Ops
+
+- Ingestion workspace includes `Replay Manifest Index Builder` controls and `replay manifest recent` table.
+- Control-panel API contract addition:
+  - `POST /api/v1/control-panel/ingestion/raw-lake/replay-manifest`
+- `GET /api/v1/control-panel/ingestion` now includes:
+  - `replay_manifest_recent`
+
+## DEV-00073 Raw Lake Retention Ops
+
+- Ingestion workspace now includes:
+  - `Raw Lake Retention/Tiering Policy` table + guarded update form.
+  - `Restore Drill Evidence` log form + recent drill table.
+- Control-panel API contract additions:
+  - `POST /api/v1/control-panel/ingestion/raw-lake/retention-policy`
+  - `POST /api/v1/control-panel/ingestion/raw-lake/restore-drill`
+- `GET /api/v1/control-panel/ingestion` now includes:
+  - `raw_lake_retention_policies`
+  - `raw_lake_restore_drills`
+- Surface intent:
+  - build deterministic range-scoped replay object selections,
+  - persist checksum-verifiable manifest indices for reproducible replay runs.

@@ -1,17 +1,12 @@
 # NITRA Project Kanban
 
-Last updated: 2026-05-01
+Last updated: 2026-05-03
 
 ## Backlog
 
 ### Priority 0 — Non-Negotiable Core (Data Acquisition)
 
-- [ ] `DEV-00070` Exchange/Broker Feeds - inbound feed quality SLA metrics (latency, drop, sequence discontinuity, venue heartbeat).
-- [ ] `DEV-00142` Exchange/Broker Feeds - rate-limit governance and adaptive throttling policy with per-venue configuration contracts.
-- [ ] `DEV-00143` Exchange/Broker Feeds - raw message capture conformance (full untouched payload persistence and sequence provenance checks).
-- [ ] `DEV-00071` Raw Data Lake - canonical Parquet partitioning and object-key strategy for replay-grade raw archives.
-- [ ] `DEV-00072` Raw Data Lake - replay manifest/index service for deterministic range selection and provenance checks.
-- [ ] `DEV-00073` Raw Data Lake - retention/tiering/restore runbook with validation evidence for dev/staging/prod.
+- [x] `DEV-00073` Raw Data Lake - retention/tiering/restore runbook with validation evidence for dev/staging/prod.
 - [ ] `DEV-00074` Kafka Backbone - topic-level SLO and partition/retention right-sizing policy with enforcement checks.
 - [ ] `DEV-00075` Kafka Backbone - consumer lag recovery automation and dead-letter replay workflow hardening.
 - [ ] `DEV-00076` Kafka Backbone - schema compatibility CI gate for backward/forward validation across all runtime topics.
@@ -189,6 +184,11 @@ Last updated: 2026-05-01
 - [x] `DEV-00124` control-panel feeds ops failover controls delivered (policy table/runtime metrics + guarded update form in ingestion workspace).
 - [x] `DEV-00069` credential/session lifecycle hardening delivered (session policy contract, guarded update endpoint, runtime visibility, `test-dev-0069`).
 - [x] `DEV-00141` websocket/session manager hardening delivered (heartbeat/stale/reconnect policy contract + control-panel policy controls, `test-dev-0069`).
+- [x] `DEV-00070` exchange/broker feed quality SLA metrics delivered (latency/drop/sequence-discontinuity/heartbeat contracts in ingestion + control-panel surface, `test-dev-0070`).
+- [x] `DEV-00142` rate-limit governance and adaptive throttling policy delivered (per-venue policy contract + guarded control-panel updates + runtime adaptive backoff/recovery, `test-dev-0142`).
+- [x] `DEV-00143` raw message capture conformance delivered (untouched payload persistence + sequence provenance checks + control-panel ops visibility, `test-dev-0143`).
+- [x] `DEV-00071` raw data lake canonical partition/object-key strategy delivered (deterministic parquet key contract + replay-grade manifest provenance + control-panel ops visibility, `test-dev-0071`).
+- [x] `DEV-00072` replay manifest/index service delivered (deterministic range selection index + checksum provenance + control-panel build workflow, `test-dev-0072`).
 - [x] `DEV-00153` control-panel root routing + chart-tab handoff delivered (`/` now serves control panel, chart launches moved to new-tab flow with instrument-aware/default fallback).
 - [x] `DEV-00154` liquidity-layer backend projection delivered (ontology-derived today+yesterday closed-`M5` API + chart consumption replacing local heuristic overlay path).
 - [x] `DEV-00139` control-panel unified configuration registry super-scope retired (split into `DEV-00151` core + `DEV-00152` adoption rollout).

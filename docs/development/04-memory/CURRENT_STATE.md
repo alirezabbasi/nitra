@@ -1,6 +1,6 @@
 # Current State Snapshot
 
-Last updated: 2026-05-01
+Last updated: 2026-05-03
 
 ## Where Are We Snapshot
 
@@ -13,6 +13,25 @@ Last updated: 2026-05-01
 
 ### Recent
 
+- Completed `DEV-00073` raw-lake retention/tiering/restore validation contract:
+  - environment retention policy persistence and guarded control-panel mutation workflow,
+  - restore drill evidence logging contract with checksum/duration/status traceability,
+  - control-panel ingestion visibility for retention policy and recent restore drills.
+- Completed `DEV-00072` raw-lake replay manifest/index service:
+  - deterministic range-based object selection endpoint for replay manifests,
+  - persisted replay manifest index records with ordered object-keys and checksum provenance,
+  - added control-panel ingestion replay-manifest build workflow and recent-manifest visibility.
+- Completed `DEV-00071` raw data lake canonical partition/object-key strategy:
+  - deterministic parquet object-key partition contract emitted in normalization runtime,
+  - replay-grade provenance manifest (`raw_lake_object_manifest`) persisted with per-object offset/time bounds and row counts,
+  - control-panel ingestion ops visibility added for raw-lake manifest progression.
+- Completed `DEV-00143` raw message capture conformance:
+  - persisted untouched raw inbound messages and parsed envelope/payload contracts in `raw_message_capture`,
+  - added sequence provenance checks (`initial/ok/gap/out_of_order/duplicate/unavailable`) with persisted previous-sequence linkage,
+  - surfaced raw-capture ops visibility in control-panel ingestion workspace.
+- Completed paired P0 slice:
+  - `DEV-00070` inbound feed-quality SLA metrics (latency, drop estimate, sequence discontinuity, venue heartbeat) in ingestion runtime and control-panel ingestion visibility.
+  - `DEV-00142` adaptive rate-limit governance with per-venue policy contracts, guarded control-panel updates, and runtime backoff/recovery/cooldown behavior.
 - Opened reliability closure program for the full market-data cycle:
   - `DEV-00155` Ingestion->Charting clockwork reliability epic,
   - `DEV-00156` executable reliability gate + burn-in harness.
@@ -225,6 +244,11 @@ Last updated: 2026-05-01
 
 ### Current
 
+- `DEV-00072` is closed with executable verification pack `test-dev-0072`.
+- `DEV-00071` is closed with executable verification pack `test-dev-0071`.
+- `DEV-00143` is closed with executable verification pack `test-dev-0143`.
+- `DEV-00070` is closed with executable verification pack `test-dev-0070`.
+- `DEV-00142` is closed with executable verification pack `test-dev-0142`.
 - Active focus shifted to end-to-end loop reliability closure via `DEV-00155/DEV-00156`.
 - Existing runtime is functional but not yet validated as "clockwork reliable" under sustained burn-in criteria.
 - Liquidity-layer engine is now refactored to tighter ontology alignment with explicit bullish inverse semantics and active/in-progress pair visibility contracts.

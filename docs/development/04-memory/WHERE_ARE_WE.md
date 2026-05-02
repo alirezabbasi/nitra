@@ -1,6 +1,6 @@
 # Where Are We
 
-Last updated: 2026-05-01
+Last updated: 2026-05-03
 
 ## Completed
 
@@ -10,6 +10,12 @@ Last updated: 2026-05-01
 
 ## Recent
 
+- Completed `DEV-00072` replay manifest/index service with deterministic selection ordering, checksum provenance, and control-panel build workflow.
+- Completed `DEV-00071` raw data lake canonical partition/object-key strategy with manifest-level replay provenance and control-panel ops visibility.
+- Completed `DEV-00143` raw message capture conformance with untouched payload persistence and sequence provenance checks plus control-panel ops visibility.
+- Completed paired P0 feed-operations slice:
+  - `DEV-00070` feed-quality SLA metrics contract (latency/drop/sequence/heartbeat) in connector health + control-panel ingestion API/UI.
+  - `DEV-00142` rate-limit governance + adaptive throttling contract with per-venue policy controls.
 - Latest delivery commit for baseline scope: `f51c5f5`.
 - HLD Section 5 coverage reviewed and synchronized into roadmap.
 - `DEV-00010` completed: `market-ingestion` connector runtime migrated to Rust.
@@ -63,6 +69,12 @@ Last updated: 2026-05-01
 
 ## Current
 
+- `DEV-00073` closed (`test-dev-0073`).
+- `DEV-00072` closed (`test-dev-0072`).
+- `DEV-00071` closed (`test-dev-0071`).
+- `DEV-00143` closed (`test-dev-0143`).
+- `DEV-00070` closed (`test-dev-0070`).
+- `DEV-00142` closed (`test-dev-0142`).
 - Section 5.1 hard-gate enforcement active with deterministic-core migration batch completed.
 - `DEV-00013` is closed with live runtime evidence and explicit surfaced external-network adapter error diagnostics.
 - `DEV-00014` is closed with live runtime adapter-check and coverage evidence.
@@ -111,8 +123,7 @@ Last updated: 2026-05-01
 
 ## Next
 
-1. Start paired P0 slice: `DEV-00070` + `DEV-00142`.
-2. Continue with `DEV-00143` before moving to raw-lake/Kafka priorities.
+1. Continue with `DEV-00074` before moving deeper into Kafka reliability priorities.
 
 ## Risks/Blocks
 

@@ -20,6 +20,19 @@
 - Cold restore plan for catastrophic failure.
 - Quarterly recovery drills with evidence logs.
 
+## DEV-00073 Backup/DR Restore Drill Runbook
+
+- Run restore drill evidence logging through control panel:
+  - `POST /api/v1/control-panel/ingestion/raw-lake/restore-drill`
+- Maintain per-environment retention/tiering policy through control panel:
+  - `POST /api/v1/control-panel/ingestion/raw-lake/retention-policy`
+- Required evidence fields for each drill:
+  - environment, validation window, object/row counts, checksum match, restore duration, final status, operator notes.
+- Minimum cadence:
+  - `dev`: every 24h validation window.
+  - `staging`: weekly validation.
+  - `prod`: monthly validation with checksum evidence retention.
+
 ## Operational Readiness Criteria
 
 - Rollback procedure tested.
