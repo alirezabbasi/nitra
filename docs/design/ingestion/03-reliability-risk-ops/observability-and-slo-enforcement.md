@@ -53,3 +53,19 @@ These are auto-loaded from `infra/observability/grafana/dashboards/`.
 ## Drill Expectation
 
 Use the dashboard + alert set to complete detection -> diagnosis -> recovery drills with evidence captured in EPIC logs.
+
+## DEV-00074 Enforcement Checks
+
+- Kafka topic policy updates are guarded by validation checks on:
+  - allowed topic names (must exist in `infra/kafka/topics.csv`),
+  - partition bounds,
+  - retention bounds,
+  - lag SLO bounds,
+  - cleanup policy bounds,
+  - ISR bounds.
+- Control-panel endpoint:
+  - `POST /api/v1/control-panel/ingestion/kafka-topic-policy`
+- Ingestion payload visibility includes:
+  - `kafka_topic_policies`
+  - `kafka_runtime`
+  - `metrics.kafka_topics_tracked`

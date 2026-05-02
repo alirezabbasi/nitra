@@ -13,6 +13,10 @@ Last updated: 2026-05-03
 
 ### Recent
 
+- Completed `DEV-00074` Kafka topic-level SLO and partition/retention right-sizing policy contract:
+  - topic-scoped Kafka policy persistence and guarded control-panel mutation workflow,
+  - enforcement checks for topic allowlist, partitions, retention, lag SLO, cleanup policy, and ISR bounds,
+  - control-panel ingestion visibility for Kafka topic policy and runtime metrics.
 - Completed `DEV-00073` raw-lake retention/tiering/restore validation contract:
   - environment retention policy persistence and guarded control-panel mutation workflow,
   - restore drill evidence logging contract with checksum/duration/status traceability,

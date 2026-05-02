@@ -1879,3 +1879,23 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap`
 - Next recommended action:
   - execute `DEV-00074` Kafka topic SLO and partition/retention right-sizing policy with control-panel companion scope.
+
+---
+
+## 2026-05-03 — Session Entry 034
+
+- Objective:
+  - execute `DEV-00074` Kafka topic-level SLO and partition/retention right-sizing policy with enforcement checks.
+- Work completed:
+  - added Kafka topic policy contract in ingestion control-plane backend with seeded topic defaults from `infra/kafka/topics.csv`.
+  - added guarded mutation endpoint `POST /api/v1/control-panel/ingestion/kafka-topic-policy` with strict enforcement checks and audit logging.
+  - added control-panel ingestion UI card/table/form for topic SLO and right-sizing updates.
+  - added schema contract `infra/timescaledb/init/023_kafka_topic_policy.sql`.
+  - added verification gate `tests/dev-0074/run.sh` and `make test-dev-0074` target.
+  - updated Kafka backbone, SLO enforcement, and control-panel LLD docs plus ticket/kanban/memory sync.
+- Verification:
+  - `make test-dev-0074`
+  - `make enforce-section-5-1`
+  - `make session-bootstrap`
+- Next recommended action:
+  - execute `DEV-00075` Kafka lag-recovery + dead-letter replay hardening.

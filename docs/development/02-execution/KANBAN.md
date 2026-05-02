@@ -7,7 +7,7 @@ Last updated: 2026-05-03
 ### Priority 0 — Non-Negotiable Core (Data Acquisition)
 
 - [x] `DEV-00073` Raw Data Lake - retention/tiering/restore runbook with validation evidence for dev/staging/prod.
-- [ ] `DEV-00074` Kafka Backbone - topic-level SLO and partition/retention right-sizing policy with enforcement checks.
+- [x] `DEV-00074` Kafka Backbone - topic-level SLO and partition/retention right-sizing policy with enforcement checks.
 - [ ] `DEV-00075` Kafka Backbone - consumer lag recovery automation and dead-letter replay workflow hardening.
 - [ ] `DEV-00076` Kafka Backbone - schema compatibility CI gate for backward/forward validation across all runtime topics.
 - [ ] `DEV-00125` Control Panel (P0) - raw data lake module (partition browser, replay manifest, retention controls).

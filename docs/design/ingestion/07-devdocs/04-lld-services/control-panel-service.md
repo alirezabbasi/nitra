@@ -270,6 +270,17 @@ Rollback policy:
 - `GET /api/v1/control-panel/ingestion` now includes:
   - `raw_lake_retention_policies`
   - `raw_lake_restore_drills`
+
+## DEV-00074 Kafka Topic Policy Ops
+
+- Ingestion workspace now includes:
+  - `Kafka Topic SLO + Partition/Retention Policy` table + guarded update form.
+- Control-panel API contract addition:
+  - `POST /api/v1/control-panel/ingestion/kafka-topic-policy`
+- `GET /api/v1/control-panel/ingestion` now includes:
+  - `kafka_topic_policies`
+  - `kafka_runtime`
+  - `metrics.kafka_topics_tracked`
 - Surface intent:
   - build deterministic range-scoped replay object selections,
   - persist checksum-verifiable manifest indices for reproducible replay runs.

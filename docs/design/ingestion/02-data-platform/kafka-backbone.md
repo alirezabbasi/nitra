@@ -43,3 +43,18 @@ The script uses `--if-not-exists`, making repeated runs safe.
 - Start runtime first: `docker compose up -d`.
 - Bootstrap is intentionally Kafka-native and avoids Redpanda-specific dependencies.
 - Only topics required by currently wired ingestion path are defined.
+
+## Kafka Topic SLO + Right-Sizing Contract (DEV-00074)
+
+- Policy contract table:
+  - `control_panel_ingestion_kafka_topic_policy`
+- Policy fields per topic:
+  - `target_partitions`, `retention_ms`, `cleanup_policy`,
+  - `max_consumer_lag_messages`, `max_consumer_lag_seconds`,
+  - `min_insync_replicas`, `enabled`.
+- Enforcement checks:
+  - topic must exist in `infra/kafka/topics.csv`,
+  - bounded partitions/retention/lag SLO/ISR values,
+  - privileged updates require operator role + justification.
+- Control-plane mutation endpoint:
+  - `POST /api/v1/control-panel/ingestion/kafka-topic-policy`
