@@ -1,0 +1,13 @@
+{
+  "": "https://json-schema.org/draft/2020-12/schema",
+  "title": "exec.reconciliation_issue.v1",
+  "type": "object",
+  "required": ["message_id", "emitted_at", "schema_version", "payload"],
+  "properties": {
+    "message_id": {"type": "string"},
+    "emitted_at": {"type": "string"},
+    "schema_version": {"type": "integer"},
+    "payload": {"type": "object"}
+  },
+  "additionalProperties": true
+}
