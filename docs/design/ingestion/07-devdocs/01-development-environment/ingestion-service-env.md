@@ -56,6 +56,15 @@ Shared:
 - `DATABASE_URL` required for DB-backed venue/market config reads
 - `INGESTION_SYMBOL_SOURCE` default `database` (`database` = load active symbols from `venue_market`; `env` = use `*_ENABLED_INSTRUMENTS`)
 - `INGESTION_DB_REFRESH_SECS` default `30` (reload cadence for active market config)
+- `INGESTION_RATE_LIMIT_POLICY_ENABLED` default `true`
+- `INGESTION_RATE_LIMIT_POLICY_REFRESH_SECS` default `30` (reload cadence for DB-backed per-venue throttling contract)
+- `INGESTION_RATE_LIMIT_MIN_POLL_MS` default derived from venue poll interval (lower bound)
+- `INGESTION_RATE_LIMIT_MAX_POLL_MS` default `8000` (upper bound)
+- `INGESTION_RATE_LIMIT_BACKOFF_MULTIPLIER` default `1.6`
+- `INGESTION_RATE_LIMIT_RECOVERY_STEP_MS` default `100`
+- `INGESTION_RATE_LIMIT_BURST_COOLDOWN_SECONDS` default `30`
+- `INGESTION_RATE_LIMIT_MAX_CONSECUTIVE_HITS` default `3`
+- `INGESTION_RATE_LIMIT_SOFT_LIMIT_PER_MINUTE` default `120`
 - `FX_WEEKEND_START_ISO_DOW` default `6` (Saturday)
 - `FX_WEEKEND_START_HOUR_UTC` default `0`
 - `FX_WEEKEND_END_ISO_DOW` default `1` (Monday)

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Timelike, Utc};
 use futures_util::StreamExt;
 use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
 use rdkafka::message::BorrowedMessage;
@@ -9,6 +9,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
+use std::fmt::Write as _;
 use std::time::Duration;
 use tokio_postgres::{Client, NoTls};
 use uuid::Uuid;
@@ -81,6 +82,25 @@ fn parse_ts(value: Option<&str>) -> DateTime<Utc> {
     Utc::now()
 }
 
+fn sequence_to_numeric(raw: &str) -> Option<i64> {
+    let mut digits = String::new();
+    for ch in raw.chars().rev() {
+        if ch.is_ascii_digit() {
+            digits.push(ch);
+            if digits.len() >= 18 {
+                break;
+            }
+        } else if !digits.is_empty() {
+            break;
+        }
+    }
+    if digits.is_empty() {
+        return None;
+    }
+    let rev: String = digits.chars().rev().collect();
+    rev.parse::<i64>().ok()
+}
+
 fn build_envelope(payload: Value) -> Value {
     json!({
         "message_id": Uuid::new_v4().to_string(),
@@ -90,6 +110,42 @@ fn build_envelope(payload: Value) -> Value {
         "payload": payload,
         "retry": Value::Null,
     })
+}
+
+fn normalize_topic_segment(topic: &str) -> String {
+    topic
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+fn canonical_raw_lake_object_key(
+    venue: &str,
+    broker_symbol: &str,
+    source_topic: &str,
+    source_partition: i32,
+    event_ts_received: &DateTime<Utc>,
+) -> String {
+    let venue_part = venue.to_ascii_lowercase();
+    let symbol_part = canonical_symbol(broker_symbol);
+    let topic_part = normalize_topic_segment(source_topic);
+    format!(
+        "raw_capture/format=parquet/venue={}/topic={}/partition={}/symbol={}/year={:04}/month={:02}/day={:02}/hour={:02}/capture.parquet",
+        venue_part,
+        topic_part,
+        source_partition,
+        symbol_part,
+        event_ts_received.year(),
+        event_ts_received.month(),
+        event_ts_received.day(),
+        event_ts_received.hour()
+    )
 }
 
 fn load_symbol_registry(path: &str) -> HashMap<(String, String), String> {
@@ -292,6 +348,246 @@ async fn persist_market_entity(
     Ok(())
 }
 
+async fn ensure_raw_capture_tables(conn: &Client) -> Result<(), tokio_postgres::Error> {
+    conn.execute(
+        "
+        CREATE TABLE IF NOT EXISTS raw_message_capture (
+          capture_id UUID PRIMARY KEY,
+          message_id UUID NOT NULL,
+          service_name TEXT NOT NULL,
+          source_topic TEXT NOT NULL,
+          source_partition INTEGER NOT NULL,
+          source_offset BIGINT NOT NULL,
+          venue TEXT NOT NULL,
+          broker_symbol TEXT NOT NULL,
+          event_ts_received TIMESTAMPTZ NOT NULL,
+          sequence_id TEXT,
+          sequence_numeric BIGINT,
+          previous_sequence_numeric BIGINT,
+          sequence_gap BIGINT,
+          sequence_status TEXT NOT NULL,
+          raw_message_text TEXT NOT NULL,
+          raw_message_json JSONB NOT NULL,
+          raw_payload_json JSONB NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          UNIQUE (source_topic, source_partition, source_offset)
+        )
+        ",
+        &[],
+    )
+    .await?;
+    conn.execute(
+        "
+        CREATE INDEX IF NOT EXISTS idx_raw_message_capture_symbol_ts
+          ON raw_message_capture (venue, broker_symbol, created_at DESC)
+        ",
+        &[],
+    )
+    .await?;
+    conn.execute(
+        "
+        CREATE INDEX IF NOT EXISTS idx_raw_message_capture_sequence_status
+          ON raw_message_capture (sequence_status, created_at DESC)
+        ",
+        &[],
+    )
+    .await?;
+    Ok(())
+}
+
+async fn ensure_raw_lake_manifest_table(conn: &Client) -> Result<(), tokio_postgres::Error> {
+    conn.execute(
+        "
+        CREATE TABLE IF NOT EXISTS raw_lake_object_manifest (
+          object_key TEXT PRIMARY KEY,
+          format TEXT NOT NULL,
+          venue TEXT NOT NULL,
+          broker_symbol TEXT NOT NULL,
+          source_topic TEXT NOT NULL,
+          source_partition INTEGER NOT NULL,
+          partition_year INTEGER NOT NULL,
+          partition_month INTEGER NOT NULL,
+          partition_day INTEGER NOT NULL,
+          partition_hour INTEGER NOT NULL,
+          first_event_ts_received TIMESTAMPTZ NOT NULL,
+          last_event_ts_received TIMESTAMPTZ NOT NULL,
+          min_source_offset BIGINT NOT NULL,
+          max_source_offset BIGINT NOT NULL,
+          row_count BIGINT NOT NULL DEFAULT 0,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+        ",
+        &[],
+    )
+    .await?;
+    conn.execute(
+        "
+        CREATE INDEX IF NOT EXISTS idx_raw_lake_manifest_partition
+          ON raw_lake_object_manifest (venue, source_topic, source_partition, partition_year, partition_month, partition_day, partition_hour)
+        ",
+        &[],
+    )
+    .await?;
+    Ok(())
+}
+
+async fn persist_raw_message_capture(
+    conn: &Client,
+    service_name: &str,
+    source_topic: &str,
+    source_partition: i32,
+    source_offset: i64,
+    message_id: Uuid,
+    outer_raw: &str,
+    outer: &Value,
+    raw_event: &Value,
+) -> Result<(), tokio_postgres::Error> {
+    let venue = raw_event
+        .get("venue")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let broker_symbol = raw_event
+        .get("broker_symbol")
+        .and_then(|v| v.as_str())
+        .unwrap_or("UNKNOWN");
+    let payload = raw_event.get("payload").cloned().unwrap_or(Value::Null);
+    let event_ts_received = parse_ts(raw_event.get("event_ts_received").and_then(|v| v.as_str()));
+    let sequence_id = payload
+        .get("sequence_id")
+        .and_then(|v| v.as_str())
+        .map(|v| v.to_string());
+    let sequence_numeric = sequence_id
+        .as_deref()
+        .and_then(sequence_to_numeric);
+
+    let previous_sequence_numeric: Option<i64> = conn
+        .query_opt(
+            "
+            SELECT sequence_numeric
+            FROM raw_message_capture
+            WHERE venue = $1
+              AND broker_symbol = $2
+              AND sequence_numeric IS NOT NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+            ",
+            &[&venue, &broker_symbol],
+        )
+        .await?
+        .and_then(|row| row.get::<usize, Option<i64>>(0));
+
+    let (sequence_gap, sequence_status) = match (sequence_numeric, previous_sequence_numeric) {
+        (Some(curr), Some(prev)) if curr == prev => (Some(0), "duplicate"),
+        (Some(curr), Some(prev)) if curr < prev => (Some(prev - curr), "out_of_order"),
+        (Some(curr), Some(prev)) if curr - prev > 1 => (Some(curr - prev - 1), "gap"),
+        (Some(_), Some(_)) => (Some(0), "ok"),
+        (Some(_), None) => (None, "initial"),
+        _ => (None, "unavailable"),
+    };
+
+    conn.execute(
+        "
+        INSERT INTO raw_message_capture (
+          capture_id, message_id, service_name, source_topic, source_partition, source_offset,
+          venue, broker_symbol, event_ts_received, sequence_id, sequence_numeric,
+          previous_sequence_numeric, sequence_gap, sequence_status,
+          raw_message_text, raw_message_json, raw_payload_json
+        ) VALUES (
+          $1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+          $12, $13, $14, $15, $16::jsonb, $17::jsonb
+        )
+        ON CONFLICT (source_topic, source_partition, source_offset) DO NOTHING
+        ",
+        &[
+            &Uuid::new_v4(),
+            &message_id,
+            &service_name,
+            &source_topic,
+            &source_partition,
+            &source_offset,
+            &venue,
+            &broker_symbol,
+            &event_ts_received,
+            &sequence_id,
+            &sequence_numeric,
+            &previous_sequence_numeric,
+            &sequence_gap,
+            &sequence_status,
+            &outer_raw,
+            &outer.clone(),
+            &payload,
+        ],
+    )
+    .await?;
+
+    Ok(())
+}
+
+async fn persist_raw_lake_manifest_projection(
+    conn: &Client,
+    source_topic: &str,
+    source_partition: i32,
+    source_offset: i64,
+    raw_event: &Value,
+) -> Result<(), tokio_postgres::Error> {
+    let venue = raw_event
+        .get("venue")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let broker_symbol = raw_event
+        .get("broker_symbol")
+        .and_then(|v| v.as_str())
+        .unwrap_or("UNKNOWN");
+    let event_ts_received = parse_ts(raw_event.get("event_ts_received").and_then(|v| v.as_str()));
+    let object_key = canonical_raw_lake_object_key(
+        venue,
+        broker_symbol,
+        source_topic,
+        source_partition,
+        &event_ts_received,
+    );
+    let mut format = String::new();
+    let _ = write!(&mut format, "parquet");
+    conn.execute(
+        "
+        INSERT INTO raw_lake_object_manifest (
+          object_key, format, venue, broker_symbol, source_topic, source_partition,
+          partition_year, partition_month, partition_day, partition_hour,
+          first_event_ts_received, last_event_ts_received,
+          min_source_offset, max_source_offset, row_count, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6,
+          $7, $8, $9, $10,
+          $11, $11,
+          $12, $12, 1, now()
+        )
+        ON CONFLICT (object_key) DO UPDATE
+        SET first_event_ts_received = LEAST(raw_lake_object_manifest.first_event_ts_received, EXCLUDED.first_event_ts_received),
+            last_event_ts_received = GREATEST(raw_lake_object_manifest.last_event_ts_received, EXCLUDED.last_event_ts_received),
+            min_source_offset = LEAST(raw_lake_object_manifest.min_source_offset, EXCLUDED.min_source_offset),
+            max_source_offset = GREATEST(raw_lake_object_manifest.max_source_offset, EXCLUDED.max_source_offset),
+            row_count = raw_lake_object_manifest.row_count + 1,
+            updated_at = now()
+        ",
+        &[
+            &object_key,
+            &format,
+            &venue,
+            &broker_symbol,
+            &source_topic,
+            &source_partition,
+            &(event_ts_received.year() as i32),
+            &(event_ts_received.month() as i32),
+            &(event_ts_received.day() as i32),
+            &(event_ts_received.hour() as i32),
+            &event_ts_received,
+            &source_offset,
+        ],
+    )
+    .await?;
+    Ok(())
+}
+
 async fn publish_normalized(
     producer: &FutureProducer,
     output_topic: &str,
@@ -352,9 +648,10 @@ async fn publish_normalized(
     Ok(())
 }
 
-fn message_payload_json(msg: &BorrowedMessage<'_>) -> Option<Value> {
+fn message_payload_json(msg: &BorrowedMessage<'_>) -> Option<(String, Value)> {
     let payload = msg.payload_view::<str>()?.ok()?;
-    serde_json::from_str::<Value>(payload).ok()
+    let value = serde_json::from_str::<Value>(payload).ok()?;
+    Some((payload.to_string(), value))
 }
 
 #[tokio::main]
@@ -384,6 +681,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("postgres connection error: {e}");
         }
     });
+    ensure_raw_capture_tables(&conn).await?;
+    ensure_raw_lake_manifest_table(&conn).await?;
 
     let consumer: StreamConsumer = ClientConfig::new()
         .set("bootstrap.servers", &brokers)
@@ -414,7 +713,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let source_partition = msg.partition();
         let source_offset = msg.offset();
 
-        let Some(outer) = message_payload_json(&msg) else {
+        let Some((outer_raw, outer)) = message_payload_json(&msg) else {
             consumer.commit_message(&msg, CommitMode::Sync)?;
             continue;
         };
@@ -440,6 +739,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let entity_type = classify_market_payload(&market_payload);
 
         persist_market_entity(&conn, entity_type, message_id, &raw_event).await?;
+        persist_raw_message_capture(
+            &conn,
+            service_name,
+            &source_topic,
+            source_partition,
+            source_offset,
+            message_id,
+            &outer_raw,
+            &outer,
+            &raw_event,
+        )
+        .await?;
+        persist_raw_lake_manifest_projection(
+            &conn,
+            &source_topic,
+            source_partition,
+            source_offset,
+            &raw_event,
+        )
+        .await?;
         publish_normalized(&producer, &output_topic, &raw_event, &registry).await?;
         record_message_processed(
             &conn,

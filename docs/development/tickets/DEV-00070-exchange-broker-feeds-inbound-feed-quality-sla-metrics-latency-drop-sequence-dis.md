@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Done
 
 ## Goal
 
@@ -41,3 +41,5 @@ A ticket is complete only when all conditions below are true:
 ## Notes
 
 - This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+- Implemented feed-quality SLA metrics in ingestion health payload (`feed_quality`) and surfaced per-market SLA rows in control-panel ingestion API/UI.
+- Verification target added: `make test-dev-0070`.

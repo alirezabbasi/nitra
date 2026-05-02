@@ -54,6 +54,8 @@ All contributors and AI agents must read and follow this file before planning or
 - Keep changes small and reviewable with clear intent.
 - Every implemented change must be committed; completed work must not be left uncommitted.
 - When a task is finished in any chat/session, commit the related changes in that same session with a clear, scope-accurate commit message.
+- Commit messages are mandatory explanations of the change: what was changed, why it was changed, and the scope boundary.
+- This commit-with-explanation rule is permanent across restarts/resumes; session handoff does not relax commit requirements.
 - Separate commits by scope (runtime, tests, docs, infra/config) with auditable messages.
 - SDLC commit order per step should be: implementation -> tests -> docs (or a tightly scoped equivalent).
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Done
 
 ## Goal
 
@@ -41,3 +41,7 @@ A ticket is complete only when all conditions below are true:
 ## Notes
 
 - This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+- Implemented deterministic replay manifest/index build service over canonical raw-lake manifest partitions.
+- Added replay manifest index persistence contract (`raw_lake_replay_manifest_index`) with ordered object selection and checksum provenance.
+- Added control-panel ingestion endpoint and UI workflow for replay manifest build operations and recent manifest visibility.
+- Verification target added: `make test-dev-0072`.

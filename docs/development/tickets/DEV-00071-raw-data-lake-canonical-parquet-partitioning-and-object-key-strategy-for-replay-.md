@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Done
 
 ## Goal
 
@@ -41,3 +41,7 @@ A ticket is complete only when all conditions below are true:
 ## Notes
 
 - This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+- Implemented canonical partitioned parquet object-key strategy in normalization runtime via deterministic `raw_lake_object_manifest` projection.
+- Implemented replay-grade provenance persistence per object window (`source_topic/partition`, min/max offsets, first/last event timestamps, row count).
+- Added control-panel ingestion visibility for recent raw-lake manifest objects and 24h object count metric.
+- Verification target added: `make test-dev-0071`.

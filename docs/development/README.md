@@ -46,6 +46,7 @@ This workspace is governed by:
 - Domain ruleset (ingestion scope): `docs/design/ingestion/ruleset.md`
 
 All meaningful implementation changes must update the related docs here in the same change set.
+All completed implementation changes must also be committed in-session with an explanatory, scope-accurate commit message (what/why/scope), including after restart/resume.
 
 ## Ticket policy
 

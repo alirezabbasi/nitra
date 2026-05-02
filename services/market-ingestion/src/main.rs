@@ -22,6 +22,114 @@ struct VenueQuote {
     sequence_id: String,
 }
 
+#[derive(Clone, Debug)]
+struct FeedSlaState {
+    last_success_at: Option<chrono::DateTime<Utc>>,
+    max_fetch_latency_ms: i64,
+    total_fetches: u64,
+    fetch_errors: u64,
+    dropped_quotes: u64,
+    sequence_discontinuities: u64,
+    last_seq_by_symbol: HashMap<String, i64>,
+}
+
+impl FeedSlaState {
+    fn new() -> Self {
+        Self {
+            last_success_at: None,
+            max_fetch_latency_ms: 0,
+            total_fetches: 0,
+            fetch_errors: 0,
+            dropped_quotes: 0,
+            sequence_discontinuities: 0,
+            last_seq_by_symbol: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct RateLimitPolicy {
+    enabled: bool,
+    min_poll_interval_ms: u64,
+    max_poll_interval_ms: u64,
+    backoff_multiplier: f64,
+    recovery_step_ms: u64,
+    burst_cooldown_seconds: u64,
+    max_consecutive_rate_limit_hits: u32,
+    per_minute_soft_limit: i32,
+}
+
+impl RateLimitPolicy {
+    fn from_env(base_interval_secs: f64) -> Self {
+        let base_ms = (base_interval_secs * 1000.0).max(100.0) as u64;
+        let min_ms = env_or("INGESTION_RATE_LIMIT_MIN_POLL_MS", &base_ms.to_string())
+            .parse::<u64>()
+            .unwrap_or(base_ms)
+            .max(100);
+        let max_ms = env_or("INGESTION_RATE_LIMIT_MAX_POLL_MS", "8000")
+            .parse::<u64>()
+            .unwrap_or(8000)
+            .max(min_ms);
+        let backoff_multiplier = env_or("INGESTION_RATE_LIMIT_BACKOFF_MULTIPLIER", "1.6")
+            .parse::<f64>()
+            .unwrap_or(1.6)
+            .clamp(1.0, 5.0);
+        let recovery_step_ms = env_or("INGESTION_RATE_LIMIT_RECOVERY_STEP_MS", "100")
+            .parse::<u64>()
+            .unwrap_or(100)
+            .max(10);
+        let burst_cooldown_seconds = env_or("INGESTION_RATE_LIMIT_BURST_COOLDOWN_SECONDS", "30")
+            .parse::<u64>()
+            .unwrap_or(30)
+            .max(1);
+        let max_consecutive_rate_limit_hits =
+            env_or("INGESTION_RATE_LIMIT_MAX_CONSECUTIVE_HITS", "3")
+                .parse::<u32>()
+                .unwrap_or(3)
+                .max(1);
+        let per_minute_soft_limit = env_or("INGESTION_RATE_LIMIT_SOFT_LIMIT_PER_MINUTE", "120")
+            .parse::<i32>()
+            .unwrap_or(120)
+            .max(1);
+        let enabled = env_or("INGESTION_RATE_LIMIT_POLICY_ENABLED", "true")
+            .eq_ignore_ascii_case("true");
+
+        Self {
+            enabled,
+            min_poll_interval_ms: min_ms,
+            max_poll_interval_ms: max_ms,
+            backoff_multiplier,
+            recovery_step_ms,
+            burst_cooldown_seconds,
+            max_consecutive_rate_limit_hits,
+            per_minute_soft_limit,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct RateLimitState {
+    effective_poll_interval_ms: u64,
+    rate_limit_hits: u64,
+    consecutive_rate_limit_hits: u32,
+    last_rate_limited_at: Option<chrono::DateTime<Utc>>,
+    cooldown_until: Option<chrono::DateTime<Utc>>,
+    policy_last_loaded_at: Option<chrono::DateTime<Utc>>,
+}
+
+impl RateLimitState {
+    fn new(initial_poll_interval_ms: u64) -> Self {
+        Self {
+            effective_poll_interval_ms: initial_poll_interval_ms,
+            rate_limit_hits: 0,
+            consecutive_rate_limit_hits: 0,
+            last_rate_limited_at: None,
+            cooldown_until: None,
+            policy_last_loaded_at: None,
+        }
+    }
+}
+
 fn env_or(name: &str, default: &str) -> String {
     env::var(name).unwrap_or_else(|_| default.to_string())
 }
@@ -80,6 +188,33 @@ fn int_env(name: &str, default: i32) -> i32 {
         .ok()
         .and_then(|raw| raw.parse::<i32>().ok())
         .unwrap_or(default)
+}
+
+fn parse_sequence_number(sequence_id: &str) -> Option<i64> {
+    let mut digits = String::new();
+    for ch in sequence_id.chars().rev() {
+        if ch.is_ascii_digit() {
+            digits.push(ch);
+            if digits.len() >= 18 {
+                break;
+            }
+        } else if !digits.is_empty() {
+            break;
+        }
+    }
+    if digits.is_empty() {
+        return None;
+    }
+    let rev: String = digits.chars().rev().collect();
+    rev.parse::<i64>().ok()
+}
+
+fn looks_rate_limited(message: &str) -> bool {
+    let lower = message.to_ascii_lowercase();
+    lower.contains("429")
+        || lower.contains("too many requests")
+        || lower.contains("rate limit")
+        || lower.contains("throttl")
 }
 
 fn is_crypto_symbol(symbol: &str) -> bool {
@@ -717,7 +852,23 @@ async fn emit_health(
     mode: &str,
     emitted_count: usize,
     last_error: Option<&str>,
+    feed_sla_state: &FeedSlaState,
+    last_fetch_latency_ms: i64,
+    rate_policy: &RateLimitPolicy,
+    rate_state: &RateLimitState,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let now = Utc::now();
+    let heartbeat_age_seconds = feed_sla_state
+        .last_success_at
+        .map(|last| (now - last).num_seconds().max(0))
+        .unwrap_or(-1);
+    let last_rate_limited_at = rate_state
+        .last_rate_limited_at
+        .map(|v| v.to_rfc3339());
+    let cooldown_until = rate_state.cooldown_until.map(|v| v.to_rfc3339());
+    let policy_loaded_at = rate_state
+        .policy_last_loaded_at
+        .map(|v| v.to_rfc3339());
     let health_payload = json!({
         "service": "market-ingestion",
         "status": status,
@@ -726,6 +877,33 @@ async fn emit_health(
         "enabled_instruments": symbols,
         "emitted_count": emitted_count,
         "last_error": last_error,
+        "feed_quality": {
+            "latency_ms": last_fetch_latency_ms,
+            "max_latency_ms": feed_sla_state.max_fetch_latency_ms,
+            "drop_count": feed_sla_state.dropped_quotes,
+            "sequence_discontinuity_count": feed_sla_state.sequence_discontinuities,
+            "heartbeat_age_seconds": heartbeat_age_seconds,
+            "fetch_errors": feed_sla_state.fetch_errors,
+            "fetch_count": feed_sla_state.total_fetches
+        },
+        "rate_limit": {
+            "enabled": rate_policy.enabled,
+            "effective_poll_interval_ms": rate_state.effective_poll_interval_ms,
+            "rate_limit_hits": rate_state.rate_limit_hits,
+            "consecutive_rate_limit_hits": rate_state.consecutive_rate_limit_hits,
+            "cooldown_until": cooldown_until,
+            "last_rate_limited_at": last_rate_limited_at,
+            "policy_loaded_at": policy_loaded_at,
+            "policy": {
+                "min_poll_interval_ms": rate_policy.min_poll_interval_ms,
+                "max_poll_interval_ms": rate_policy.max_poll_interval_ms,
+                "backoff_multiplier": rate_policy.backoff_multiplier,
+                "recovery_step_ms": rate_policy.recovery_step_ms,
+                "burst_cooldown_seconds": rate_policy.burst_cooldown_seconds,
+                "max_consecutive_rate_limit_hits": rate_policy.max_consecutive_rate_limit_hits,
+                "per_minute_soft_limit": rate_policy.per_minute_soft_limit
+            }
+        },
         "ts": iso_now_utc(),
     });
 
@@ -736,6 +914,51 @@ async fn emit_health(
         &build_envelope(health_payload),
     )
     .await
+}
+
+async fn load_rate_limit_policy_from_db(
+    database_url: &str,
+    venue: &str,
+    fallback: &RateLimitPolicy,
+) -> Option<RateLimitPolicy> {
+    if database_url.trim().is_empty() {
+        return None;
+    }
+    let connect_result = tokio_postgres::connect(database_url, NoTls).await;
+    let Ok((client, connection)) = connect_result else {
+        return None;
+    };
+    tokio::spawn(async move {
+        let _ = connection.await;
+    });
+    let row = client
+        .query_opt(
+            "SELECT enabled, min_poll_interval_ms, max_poll_interval_ms, backoff_multiplier, recovery_step_ms, burst_cooldown_seconds, max_consecutive_rate_limit_hits, per_minute_soft_limit FROM control_panel_ingestion_rate_limit_policy WHERE venue = $1",
+            &[&venue],
+        )
+        .await
+        .ok()
+        .flatten()?;
+    let enabled: bool = row.get(0);
+    let min_poll_interval_ms: i32 = row.get(1);
+    let max_poll_interval_ms: i32 = row.get(2);
+    let backoff_multiplier: f64 = row.get(3);
+    let recovery_step_ms: i32 = row.get(4);
+    let burst_cooldown_seconds: i32 = row.get(5);
+    let max_consecutive_rate_limit_hits: i32 = row.get(6);
+    let per_minute_soft_limit: i32 = row.get(7);
+
+    Some(RateLimitPolicy {
+        enabled,
+        min_poll_interval_ms: (min_poll_interval_ms as u64).max(100),
+        max_poll_interval_ms: (max_poll_interval_ms as u64).max((min_poll_interval_ms as u64).max(100)),
+        backoff_multiplier: backoff_multiplier.clamp(1.0, 5.0),
+        recovery_step_ms: (recovery_step_ms as u64).max(10),
+        burst_cooldown_seconds: (burst_cooldown_seconds as u64).max(1),
+        max_consecutive_rate_limit_hits: (max_consecutive_rate_limit_hits as u32).max(1),
+        per_minute_soft_limit: per_minute_soft_limit.max(1),
+    })
+    .or_else(|| Some(fallback.clone()))
 }
 
 #[tokio::main]
@@ -784,8 +1007,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     let mut capital_headers: Option<HeaderMap> = None;
+    let mut feed_sla_state = FeedSlaState::new();
+    let mut rate_policy = RateLimitPolicy::from_env(interval_secs);
+    let mut rate_state = RateLimitState::new(rate_policy.min_poll_interval_ms);
+    let policy_refresh_secs = env_or("INGESTION_RATE_LIMIT_POLICY_REFRESH_SECS", "30")
+        .parse::<u64>()
+        .unwrap_or(30)
+        .max(5);
+    let mut last_policy_refresh = std::time::Instant::now() - Duration::from_secs(policy_refresh_secs);
+    let mut last_fetch_latency_ms: i64 = 0;
 
     loop {
+        if last_policy_refresh.elapsed() >= Duration::from_secs(policy_refresh_secs) {
+            if let Some(policy) =
+                load_rate_limit_policy_from_db(&database_url, &venue, &rate_policy).await
+            {
+                rate_policy = policy;
+                rate_state.policy_last_loaded_at = Some(Utc::now());
+                if rate_state.effective_poll_interval_ms < rate_policy.min_poll_interval_ms {
+                    rate_state.effective_poll_interval_ms = rate_policy.min_poll_interval_ms;
+                }
+                if rate_state.effective_poll_interval_ms > rate_policy.max_poll_interval_ms {
+                    rate_state.effective_poll_interval_ms = rate_policy.max_poll_interval_ms;
+                }
+            }
+            last_policy_refresh = std::time::Instant::now();
+        }
+
+        if let Some(cooldown_until) = rate_state.cooldown_until {
+            if cooldown_until > Utc::now() {
+                let wait_ms = (cooldown_until - Utc::now()).num_milliseconds().max(50) as u64;
+                sleep(Duration::from_millis(wait_ms)).await;
+            } else {
+                rate_state.cooldown_until = None;
+            }
+        }
+
         if symbol_source != "env"
             && !database_url.trim().is_empty()
             && last_db_refresh.elapsed() >= Duration::from_secs(db_refresh_secs)
@@ -835,12 +1092,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &connector_mode,
                 0,
                 Some(pause_reason),
+                &feed_sla_state,
+                last_fetch_latency_ms,
+                &rate_policy,
+                &rate_state,
             )
             .await?;
-            sleep(Duration::from_secs_f64(interval_secs)).await;
+            let sleep_ms = if rate_policy.enabled {
+                rate_state.effective_poll_interval_ms
+            } else {
+                (interval_secs * 1000.0) as u64
+            };
+            sleep(Duration::from_millis(sleep_ms.max(100))).await;
             continue;
         }
 
+        let fetch_started = std::time::Instant::now();
         let fetch_result = match venue.as_str() {
             "coinbase" => fetch_coinbase_quotes(&client, &active_symbols).await,
             "oanda" => fetch_oanda_quotes(&client, &active_symbols).await,
@@ -856,7 +1123,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         match fetch_result {
             Ok(quotes) => {
+                feed_sla_state.total_fetches += 1;
+                last_fetch_latency_ms = fetch_started.elapsed().as_millis() as i64;
+                feed_sla_state.max_fetch_latency_ms =
+                    feed_sla_state.max_fetch_latency_ms.max(last_fetch_latency_ms);
+                feed_sla_state.last_success_at = Some(Utc::now());
+                if quotes.len() < active_symbols.len() {
+                    feed_sla_state.dropped_quotes += (active_symbols.len() - quotes.len()) as u64;
+                }
                 for quote in &quotes {
+                    if let Some(seq) = parse_sequence_number(&quote.sequence_id) {
+                        let key = format!("{}:{}", venue, quote.broker_symbol);
+                        if let Some(prev) = feed_sla_state.last_seq_by_symbol.get(&key) {
+                            if seq <= *prev {
+                                feed_sla_state.sequence_discontinuities += 1;
+                            } else if seq - *prev > 100 {
+                                feed_sla_state.sequence_discontinuities += 1;
+                            }
+                        }
+                        feed_sla_state.last_seq_by_symbol.insert(key, seq);
+                    }
                     let raw_payload = json!({
                         "venue": venue,
                         "broker_symbol": quote.broker_symbol,
@@ -880,6 +1166,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     )
                     .await?;
                 }
+                if rate_policy.enabled {
+                    rate_state.consecutive_rate_limit_hits = 0;
+                    if rate_state.effective_poll_interval_ms > rate_policy.min_poll_interval_ms {
+                        rate_state.effective_poll_interval_ms = rate_state
+                            .effective_poll_interval_ms
+                            .saturating_sub(rate_policy.recovery_step_ms)
+                            .max(rate_policy.min_poll_interval_ms);
+                    }
+                }
 
                 let status = if quotes.is_empty() { "degraded" } else { "ok" };
                 let last_error = if quotes.is_empty() {
@@ -896,12 +1191,47 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &connector_mode,
                     quotes.len(),
                     last_error,
+                    &feed_sla_state,
+                    last_fetch_latency_ms,
+                    &rate_policy,
+                    &rate_state,
                 )
                 .await?;
             }
             Err(err) => {
                 let msg = err.to_string();
                 eprintln!("market-ingestion fetch error ({}): {}", venue, msg);
+                feed_sla_state.total_fetches += 1;
+                feed_sla_state.fetch_errors += 1;
+                last_fetch_latency_ms = fetch_started.elapsed().as_millis() as i64;
+                feed_sla_state.max_fetch_latency_ms =
+                    feed_sla_state.max_fetch_latency_ms.max(last_fetch_latency_ms);
+                if rate_policy.enabled {
+                    rate_state.effective_poll_interval_ms = ((rate_state.effective_poll_interval_ms
+                        as f64)
+                        * rate_policy.backoff_multiplier)
+                        .round() as u64;
+                    if rate_state.effective_poll_interval_ms > rate_policy.max_poll_interval_ms {
+                        rate_state.effective_poll_interval_ms = rate_policy.max_poll_interval_ms;
+                    }
+                    if looks_rate_limited(&msg) {
+                        rate_state.rate_limit_hits += 1;
+                        rate_state.consecutive_rate_limit_hits += 1;
+                        rate_state.last_rate_limited_at = Some(Utc::now());
+                        if rate_state.consecutive_rate_limit_hits
+                            >= rate_policy.max_consecutive_rate_limit_hits
+                        {
+                            rate_state.cooldown_until = Some(
+                                Utc::now()
+                                    + chrono::Duration::seconds(
+                                        rate_policy.burst_cooldown_seconds as i64,
+                                    ),
+                            );
+                        }
+                    } else {
+                        rate_state.consecutive_rate_limit_hits = 0;
+                    }
+                }
                 emit_health(
                     &producer,
                     &health_topic,
@@ -911,11 +1241,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     &connector_mode,
                     0,
                     Some(&msg),
+                    &feed_sla_state,
+                    last_fetch_latency_ms,
+                    &rate_policy,
+                    &rate_state,
                 )
                 .await?;
             }
         }
 
-        sleep(Duration::from_secs_f64(interval_secs)).await;
+        let sleep_ms = if rate_policy.enabled {
+            rate_state.effective_poll_interval_ms
+        } else {
+            (interval_secs * 1000.0) as u64
+        };
+        sleep(Duration::from_millis(sleep_ms.max(100))).await;
     }
 }

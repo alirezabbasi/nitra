@@ -77,6 +77,58 @@
   - `jitter_pct`
   - `max_consecutive_failures`
 
+## Inbound Feed Quality SLA Contract (DEV-00070)
+
+- Inbound connector health now includes explicit feed-quality telemetry:
+  - `feed_quality.latency_ms`
+  - `feed_quality.max_latency_ms`
+  - `feed_quality.drop_count`
+  - `feed_quality.sequence_discontinuity_count`
+  - `feed_quality.heartbeat_age_seconds`
+- Control-panel ingestion payload now includes `connector_feed_sla` rows per market with:
+  - latency,
+  - heartbeat age,
+  - sequence discontinuity count,
+  - drop estimate count,
+  - 24h tick volume.
+
+## Adaptive Rate-Limit Governance Contract (DEV-00142)
+
+- Per-venue adaptive throttling policy is operator-managed:
+  - `GET /api/v1/control-panel/ingestion`
+    - includes `rate_limit_policies` and `rate_limit_runtime`.
+  - `POST /api/v1/control-panel/ingestion/rate-limit-policy`
+    - guarded update path with RBAC + justification + audit trail.
+- Policy fields:
+  - `enabled`
+  - `min_poll_interval_ms`
+  - `max_poll_interval_ms`
+  - `backoff_multiplier`
+  - `recovery_step_ms`
+  - `burst_cooldown_seconds`
+  - `max_consecutive_rate_limit_hits`
+  - `per_minute_soft_limit`
+- Runtime behavior:
+  - connector increases poll interval on repeated upstream/rate-limit failures,
+  - connector recovers toward minimum poll interval after successful fetches,
+  - burst cooldown is applied after repeated rate-limit hits.
+
+## Raw Message Capture Conformance Contract (DEV-00143)
+
+- Full untouched inbound message persistence is enforced in normalization path:
+  - `raw_message_capture.raw_message_text` stores the unmodified consumed message body.
+  - `raw_message_capture.raw_message_json` stores parsed envelope JSON.
+  - `raw_message_capture.raw_payload_json` stores the extracted market payload JSON.
+- Sequence provenance checks are persisted per market stream:
+  - `sequence_numeric`
+  - `previous_sequence_numeric`
+  - `sequence_gap`
+  - `sequence_status` (`initial`, `ok`, `gap`, `out_of_order`, `duplicate`, `unavailable`)
+- Control-panel ingestion payload includes raw-capture operations visibility:
+  - `raw_capture_recent`
+  - `raw_capture_rows_24h`
+  - `sequence_anomalies_24h`
+
 ## Key Environment Variables
 
 Common:

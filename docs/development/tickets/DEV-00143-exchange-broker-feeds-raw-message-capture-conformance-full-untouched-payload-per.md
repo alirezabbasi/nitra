@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Done
 
 ## Goal
 
@@ -41,3 +41,7 @@ A ticket is complete only when all conditions below are true:
 ## Notes
 
 - This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+- Implemented raw-message capture persistence contract (`raw_message_capture`) with untouched raw message text + parsed JSON envelope/payload.
+- Implemented sequence provenance checks (`initial|ok|gap|out_of_order|duplicate|unavailable`) with persisted previous/next numeric linkage and gap size.
+- Added control-panel ingestion ops visibility for recent raw-capture provenance rows and anomaly counters.
+- Verification target added: `make test-dev-0143`.

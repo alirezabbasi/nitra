@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Done
 
 ## Goal
 
@@ -41,3 +41,6 @@ A ticket is complete only when all conditions below are true:
 ## Notes
 
 - This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+- Implemented per-venue adaptive throttling policy contract and guarded control-panel mutation endpoint.
+- Runtime now applies bounded backoff/recovery/cooldown behavior and publishes rate-limit state in connector health payload.
+- Verification target added: `make test-dev-0142`.

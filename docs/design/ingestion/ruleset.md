@@ -40,7 +40,8 @@ All contributors and AI agents working on ingestion scope must read and follow t
 
 - Every implemented change must be committed; completed work must not be left uncommitted.
 - Commit scope must stay tight and separated by subject (runtime, tests, docs, infra/config).
-- Each commit must have an auditable message.
+- Each commit must have an auditable explanatory message that states what changed, why, and the precise scope.
+- This commit-with-explanation requirement is mandatory in every session, including after restart/resume.
 - Step sequence should follow SDLC order: implementation -> tests -> docs (or tightly scoped equivalent).
 
 ## Rule 8: Safety and Operability First

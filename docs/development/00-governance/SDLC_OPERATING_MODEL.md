@@ -32,7 +32,8 @@ Each work unit (ticket/story) must include:
 2. implementation
 3. tests
 4. docs
-5. memory update (`CURRENT_STATE`, `SESSION_LEDGER`, decision/risk logs)
+5. commit with explanatory message (what changed, why, scope)
+6. memory update (`CURRENT_STATE`, `SESSION_LEDGER`, decision/risk logs)
 
 ## Definition of done
 
@@ -64,6 +65,12 @@ At end of each session:
 2. update `04-memory/CURRENT_STATE.md`
 3. update `04-memory/WHERE_ARE_WE.md`
 4. update board and any affected ticket status
+5. commit all completed scope in that same session with a scope-accurate explanatory message
+
+Commit persistence requirement:
+
+- Restarting/resuming a session never waives commit requirements.
+- Any completed implementation without an explanatory commit is considered non-compliant.
 
 ## Mandatory status command behavior
 
