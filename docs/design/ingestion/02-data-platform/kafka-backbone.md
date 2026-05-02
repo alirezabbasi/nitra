@@ -72,3 +72,13 @@ The script uses `--if-not-exists`, making repeated runs safe.
   - no forward-incompatible required-field removals.
 - Control-plane mutation endpoint:
   - `POST /api/v1/control-panel/ingestion/kafka-schema-compat-check`
+
+
+## Control-Panel Kafka Module Consolidation (DEV-00126)
+
+- Control-panel Kafka module consolidates delivery slices from:
+  - `DEV-00074` topic SLO + partition/retention policy,
+  - `DEV-00075` lag recovery + dead-letter replay workflows,
+  - `DEV-00076` schema compatibility CI gate.
+- Companion-scope verification target:
+  - `make test-dev-0126`.

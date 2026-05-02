@@ -67,3 +67,10 @@
   - DLQ naming enforcement (`*.dlq`),
   - bounded lag/replay volumes and bounded replay offset range validation,
   - privileged updates require operator role + justification + audit logging.
+
+
+## Control-Panel Kafka Module Companion (DEV-00126)
+
+- Kafka recovery/replay/schema controls are exposed as one operator module in control panel ingestion workspace.
+- Module-level closeout verification target:
+  - `make test-dev-0126`.

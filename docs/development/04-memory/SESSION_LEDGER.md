@@ -1962,3 +1962,22 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap`
 - Next recommended action:
   - execute `DEV-00126` control-panel Kafka module companion scope.
+
+
+---
+
+## 2026-05-03 — Session Entry 038
+
+- Objective:
+  - execute `DEV-00126` control-panel P0 Kafka module companion scope.
+- Work completed:
+  - validated consolidated Kafka module coverage across topic SLO, lag recovery, dead-letter replay, and schema compatibility controls.
+  - added dedicated verification gate `tests/dev-0126/run.sh` and `make test-dev-0126`.
+  - documented module-level consolidation in Kafka backbone, stream reliability contracts, and control-panel LLD.
+  - marked `DEV-00126` done and synchronized Kanban/current-state/where-are-we/active-focus to next sequence.
+- Verification:
+  - `make test-dev-0126`
+  - `make enforce-section-5-1`
+  - `make session-bootstrap`
+- Next recommended action:
+  - execute `DEV-00077` normalization/replay deterministic quarantine pipeline.

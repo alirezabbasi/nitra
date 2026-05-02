@@ -69,6 +69,7 @@ Last updated: 2026-05-03
 
 ## Current
 
+- `DEV-00126` closed (`test-dev-0126`).
 - `DEV-00125` closed (`test-dev-0125`).
 - `DEV-00076` closed (`test-dev-0076`).
 - `DEV-00075` closed (`test-dev-0075`).
@@ -127,7 +128,7 @@ Last updated: 2026-05-03
 
 ## Next
 
-1. Continue with `DEV-00126` control-panel Kafka module companion scope.
+1. Continue with `DEV-00077` normalization/replay deterministic quarantine scope.
 
 ## Risks/Blocks
 

@@ -319,6 +319,24 @@ Rollback policy:
 - `GET /api/v1/control-panel/ingestion` now includes:
   - `kafka_schema_runtime`
   - `kafka_schema_compat_recent`
+
+## DEV-00126 Kafka Module Consolidation
+
+- P0 control-panel Kafka module is consolidated in ingestion workspace with:
+  - topic SLO + partition/retention controls,
+  - lag recovery controls,
+  - dead-letter replay controls,
+  - schema compatibility CI gate controls.
+- Consolidated API dependencies:
+  - `GET /api/v1/control-panel/ingestion` includes:
+    - `kafka_topic_policies`, `kafka_runtime`,
+    - `kafka_lag_recovery_recent`, `kafka_dead_letter_replay_recent`, `kafka_recovery_runtime`,
+    - `kafka_schema_runtime`, `kafka_schema_compat_recent`.
+  - mutation endpoints:
+    - `POST /api/v1/control-panel/ingestion/kafka-topic-policy`
+    - `POST /api/v1/control-panel/ingestion/kafka-lag-recovery`
+    - `POST /api/v1/control-panel/ingestion/kafka-dead-letter-replay`
+    - `POST /api/v1/control-panel/ingestion/kafka-schema-compat-check`
 - Surface intent:
   - build deterministic range-scoped replay object selections,
   - persist checksum-verifiable manifest indices for reproducible replay runs.

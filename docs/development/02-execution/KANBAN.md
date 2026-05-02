@@ -11,7 +11,7 @@ Last updated: 2026-05-03
 - [x] `DEV-00075` Kafka Backbone - consumer lag recovery automation and dead-letter replay workflow hardening.
 - [x] `DEV-00076` Kafka Backbone - schema compatibility CI gate for backward/forward validation across all runtime topics.
 - [x] `DEV-00125` Control Panel (P0) - raw data lake module (partition browser, replay manifest, retention controls).
-- [ ] `DEV-00126` Control Panel (P0) - Kafka module (topic SLOs, lag recovery controls, partition/retention management).
+- [x] `DEV-00126` Control Panel (P0) - Kafka module (topic SLOs, lag recovery controls, partition/retention management).
 
 ### Priority 1 — Deterministic Market Data Foundation
 

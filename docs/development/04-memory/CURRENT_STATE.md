@@ -13,6 +13,9 @@ Last updated: 2026-05-03
 
 ### Recent
 
+- Completed `DEV-00126` control-panel Kafka module companion scope:
+  - consolidated topic SLO/partition-retention controls, lag-recovery controls, dead-letter replay controls, and schema-gate controls under ingestion workspace,
+  - formalized unified module contract and dedicated verification gate (`test-dev-0126`).
 - Completed `DEV-00125` control-panel raw-lake module companion scope:
   - consolidated partition browser, replay manifest controls, and retention controls under ingestion workspace,
   - formalized unified module contract and dedicated verification gate (`test-dev-0125`).
