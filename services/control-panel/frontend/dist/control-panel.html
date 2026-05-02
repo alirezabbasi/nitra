@@ -175,6 +175,41 @@
               <div class="small" id="wpResult" style="margin-top:8px">No websocket policy update submitted.</div>
             </article>
             <article class="card">
+              <div><strong>Feed Quality SLA</strong></div>
+              <div class="small">Latency, drop estimate, sequence discontinuity, and heartbeat age.</div>
+              <table class="table" id="feedSlaTable">
+                <thead><tr><th>Market</th><th>Latency(ms)</th><th>Heartbeat(s)</th><th>Seq Discont.</th><th>Drop Est.</th><th>Ticks(24h)</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Adaptive Rate-Limit Policy</strong></div>
+              <div class="small">Per-venue throttling governance with bounded backoff/recovery.</div>
+              <div id="rateLimitPolicyMetrics" style="margin-top:8px"></div>
+              <table class="table" id="rateLimitPolicyTable">
+                <thead><tr><th>Venue</th><th>Enabled</th><th>Min/Max Poll(ms)</th><th>Backoff</th><th>Recovery</th><th>Burst Cooldown</th><th>Max 429 Hits</th><th>Soft Limit/min</th><th>Updated By</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="form-row" style="margin-top:8px">
+                <input id="rpVenue" value="coinbase" placeholder="venue" />
+                <input id="rpEnabled" value="true" placeholder="enabled true|false" />
+                <input id="rpMinPollMs" value="300" placeholder="min_poll_interval_ms" />
+                <input id="rpMaxPollMs" value="8000" placeholder="max_poll_interval_ms" />
+              </div>
+              <div class="form-row">
+                <input id="rpBackoffMultiplier" value="1.6" placeholder="backoff_multiplier" />
+                <input id="rpRecoveryStepMs" value="100" placeholder="recovery_step_ms" />
+                <input id="rpBurstCooldown" value="30" placeholder="burst_cooldown_seconds" />
+                <input id="rpMax429Hits" value="3" placeholder="max_consecutive_rate_limit_hits" />
+                <input id="rpSoftLimit" value="120" placeholder="per_minute_soft_limit" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="rpJustification" placeholder="justification (required)" />
+                <button class="btn" id="rpSubmitBtn">Update Rate Policy</button>
+              </div>
+              <div class="small" id="rpResult" style="margin-top:8px">No rate-limit policy update submitted.</div>
+            </article>
+            <article class="card">
               <div><strong>Backfill Queue (Recent)</strong></div>
               <table class="table" id="backfillTable">
                 <thead><tr><th>Status</th><th>Market</th><th>Attempts</th></tr></thead>
@@ -185,6 +220,90 @@
               <div><strong>Replay Audit (Recent)</strong></div>
               <table class="table" id="replayTable">
                 <thead><tr><th>Status</th><th>Market</th><th>Started</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Raw Capture Provenance (Recent)</strong></div>
+              <table class="table" id="rawCaptureTable">
+                <thead><tr><th>Market</th><th>Seq Status</th><th>Seq</th><th>Prev</th><th>Gap</th><th>Topic@Offset</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Raw Lake Object Manifest (Recent)</strong></div>
+              <div class="small">Deterministic partition browser for replay-grade raw lake objects.</div>
+              <table class="table" id="rawLakeManifestTable">
+                <thead><tr><th>Partition</th><th>Market</th><th>Rows</th><th>Offsets</th><th>Object Key</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <div style="margin-top:8px"><strong>Replay Manifest Index Builder</strong></div>
+              <div class="form-row" style="margin-top:8px">
+                <input id="rmVenue" value="coinbase" placeholder="venue" />
+                <input id="rmSymbol" value="BTCUSD" placeholder="symbol" />
+                <input id="rmTopic" value="raw.market.coinbase" placeholder="source_topic" />
+                <input id="rmPartition" value="0" placeholder="source_partition" />
+              </div>
+              <div class="form-row">
+                <input id="rmFromTs" placeholder="range_from_ts ISO" />
+                <input id="rmToTs" placeholder="range_to_ts ISO" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="rmJustification" placeholder="justification (required)" />
+                <button class="btn" id="rmBuildBtn">Build Replay Manifest</button>
+              </div>
+              <div class="small" id="rmResult" style="margin-top:8px">No replay manifest build submitted.</div>
+              <table class="table" id="replayManifestTable" style="margin-top:8px">
+                <thead><tr><th>Manifest</th><th>Range</th><th>Objects</th><th>Rows</th><th>Offsets</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
+              <div><strong>Raw Lake Retention/Tiering Policy</strong></div>
+              <table class="table" id="retentionPolicyTable">
+                <thead><tr><th>Env</th><th>Enabled</th><th>Hot/Warm/Cold (days)</th><th>Tier</th><th>Restore SLA(min)</th><th>Validate(h)</th><th>Updated By</th></tr></thead>
+                <tbody></tbody>
+              </table>
+              <div class="form-row" style="margin-top:8px">
+                <input id="rtEnv" value="dev" placeholder="environment dev|staging|prod" />
+                <input id="rtEnabled" value="true" placeholder="enabled true|false" />
+                <input id="rtHotDays" value="14" placeholder="hot_retention_days" />
+                <input id="rtWarmDays" value="90" placeholder="warm_retention_days" />
+              </div>
+              <div class="form-row">
+                <input id="rtColdDays" value="365" placeholder="cold_retention_days" />
+                <input id="rtTier" value="standard" placeholder="archive_tier" />
+                <input id="rtRestoreSla" value="120" placeholder="restore_sla_minutes" />
+                <input id="rtValidationHours" value="24" placeholder="validation_interval_hours" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr auto">
+                <input id="rtJustification" placeholder="justification (required)" />
+                <button class="btn" id="rtSubmitBtn">Update Retention Policy</button>
+              </div>
+              <div class="small" id="rtResult" style="margin-top:8px">No retention policy update submitted.</div>
+            </article>
+            <article class="card">
+              <div><strong>Restore Drill Evidence</strong></div>
+              <div class="form-row">
+                <input id="rdEnv" value="dev" placeholder="environment dev|staging|prod" />
+                <input id="rdFromTs" placeholder="window_from_ts ISO" />
+                <input id="rdToTs" placeholder="window_to_ts ISO" />
+                <input id="rdObjects" value="0" placeholder="object_count_checked" />
+              </div>
+              <div class="form-row">
+                <input id="rdRows" value="0" placeholder="row_count_checked" />
+                <input id="rdChecksum" value="true" placeholder="checksum_match true|false" />
+                <input id="rdDuration" value="0" placeholder="restore_duration_seconds" />
+                <input id="rdStatus" value="completed" placeholder="status completed|failed|warning" />
+              </div>
+              <div class="form-row" style="grid-template-columns: 1fr 1fr auto">
+                <input id="rdNotes" placeholder="notes" />
+                <input id="rdJustification" placeholder="justification (required)" />
+                <button class="btn" id="rdSubmitBtn">Log Restore Drill</button>
+              </div>
+              <div class="small" id="rdResult" style="margin-top:8px">No restore drill submitted.</div>
+              <table class="table" id="restoreDrillTable" style="margin-top:8px">
+                <thead><tr><th>Drill</th><th>Env</th><th>Window</th><th>Objects/Rows</th><th>Checksum</th><th>Duration(s)</th><th>Status</th></tr></thead>
                 <tbody></tbody>
               </table>
             </article>

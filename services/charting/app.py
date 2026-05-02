@@ -1,5 +1,6 @@
 import os
 import json
+import hashlib
 import secrets
 import uuid
 import urllib.parse
@@ -383,11 +384,15 @@ def control_panel_ingestion(
         "replay_failed_24h": 0,
         "coverage_ratio_avg": 0.0,
         "symbols_with_open_gaps": 0,
+        "raw_capture_rows_24h": 0,
+        "sequence_anomalies_24h": 0,
+        "raw_lake_objects_24h": 0,
     }
     connector_health: list[dict] = []
     failover_policies: list[dict] = []
     session_policies: list[dict] = []
     ws_policies: list[dict] = []
+    rate_limit_policies: list[dict] = []
     failover_runtime: dict = {
         "configured_enabled_venues": 0,
         "configured_disabled_venues": 0,
@@ -408,6 +413,18 @@ def control_panel_ingestion(
         "active_markets": 0,
         "updated_at": None,
     }
+    rate_limit_runtime: dict = {
+        "configured_enabled_venues": 0,
+        "configured_disabled_venues": 0,
+        "avg_effective_poll_interval_ms": 0,
+        "updated_at": None,
+    }
+    connector_feed_sla: list[dict] = []
+    raw_capture_recent: list[dict] = []
+    raw_lake_manifest_recent: list[dict] = []
+    replay_manifest_recent: list[dict] = []
+    raw_lake_retention_policies: list[dict] = []
+    raw_lake_restore_drills: list[dict] = []
     backfill_recent: list[dict] = []
     replay_recent: list[dict] = []
     coverage_rows: list[dict] = []
@@ -432,6 +449,9 @@ def control_panel_ingestion(
             ensure_ingestion_failover_seed_data(conn)
             ensure_ingestion_session_seed_data(conn)
             ensure_ingestion_ws_seed_data(conn)
+            ensure_ingestion_rate_limit_seed_data(conn)
+            ensure_raw_lake_replay_manifest_index_table(conn)
+            ensure_raw_lake_retention_tables(conn)
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -547,6 +567,7 @@ def control_panel_ingestion(
                 failover_runtime = ingestion_failover_runtime(conn)
                 session_runtime = ingestion_session_runtime(conn)
                 ws_runtime = ingestion_ws_runtime(conn)
+                rate_limit_runtime = ingestion_rate_limit_runtime(conn)
                 cur.execute(
                     """
                     SELECT
@@ -642,6 +663,395 @@ def control_panel_ingestion(
                             "updated_at": updated_at.isoformat() if updated_at else None,
                         }
                     )
+                cur.execute(
+                    """
+                    SELECT
+                      venue,
+                      enabled,
+                      min_poll_interval_ms,
+                      max_poll_interval_ms,
+                      backoff_multiplier,
+                      recovery_step_ms,
+                      burst_cooldown_seconds,
+                      max_consecutive_rate_limit_hits,
+                      per_minute_soft_limit,
+                      updated_by,
+                      updated_at
+                    FROM control_panel_ingestion_rate_limit_policy
+                    ORDER BY venue ASC
+                    """
+                )
+                for (
+                    venue,
+                    enabled,
+                    min_poll_interval_ms,
+                    max_poll_interval_ms,
+                    backoff_multiplier,
+                    recovery_step_ms,
+                    burst_cooldown_seconds,
+                    max_consecutive_rate_limit_hits,
+                    per_minute_soft_limit,
+                    updated_by,
+                    updated_at,
+                ) in cur.fetchall():
+                    rate_limit_policies.append(
+                        {
+                            "venue": str(venue),
+                            "enabled": bool(enabled),
+                            "min_poll_interval_ms": int(min_poll_interval_ms or 0),
+                            "max_poll_interval_ms": int(max_poll_interval_ms or 0),
+                            "backoff_multiplier": float(backoff_multiplier or 0.0),
+                            "recovery_step_ms": int(recovery_step_ms or 0),
+                            "burst_cooldown_seconds": int(burst_cooldown_seconds or 0),
+                            "max_consecutive_rate_limit_hits": int(max_consecutive_rate_limit_hits or 0),
+                            "per_minute_soft_limit": int(per_minute_soft_limit or 0),
+                            "updated_by": str(updated_by),
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    WITH recent AS (
+                      SELECT
+                        lower(venue) AS venue,
+                        upper(broker_symbol) AS symbol,
+                        event_ts_received,
+                        event_ts_exchange,
+                        NULLIF(regexp_replace(COALESCE(sequence_id, ''), '[^0-9]', '', 'g'), '')::bigint AS seq_num
+                      FROM raw_tick
+                      WHERE event_ts_received >= now() - interval '24 hours'
+                    ),
+                    seq_calc AS (
+                      SELECT
+                        venue,
+                        symbol,
+                        event_ts_received,
+                        event_ts_exchange,
+                        seq_num,
+                        LAG(seq_num) OVER (PARTITION BY venue, symbol ORDER BY event_ts_received) AS prev_seq
+                      FROM recent
+                    ),
+                    agg AS (
+                      SELECT
+                        venue,
+                        symbol,
+                        MAX(event_ts_received) AS last_tick_ts,
+                        MAX(event_ts_exchange) AS last_exchange_ts,
+                        COUNT(*)::bigint AS ticks_24h,
+                        COUNT(*) FILTER (
+                          WHERE seq_num IS NOT NULL
+                            AND prev_seq IS NOT NULL
+                            AND (seq_num <= prev_seq OR seq_num - prev_seq > 1)
+                        )::bigint AS sequence_discontinuity_count,
+                        COALESCE(SUM(
+                          CASE
+                            WHEN seq_num IS NOT NULL AND prev_seq IS NOT NULL AND seq_num - prev_seq > 1
+                              THEN LEAST(seq_num - prev_seq - 1, 1000000)
+                            ELSE 0
+                          END
+                        ), 0)::bigint AS drop_estimate_count
+                      FROM seq_calc
+                      GROUP BY venue, symbol
+                    )
+                    SELECT
+                      venue,
+                      symbol,
+                      ticks_24h,
+                      sequence_discontinuity_count,
+                      drop_estimate_count,
+                      CASE
+                        WHEN last_tick_ts IS NULL THEN NULL
+                        ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (now() - last_tick_ts))))::bigint
+                      END AS heartbeat_age_seconds,
+                      CASE
+                        WHEN last_exchange_ts IS NULL OR last_tick_ts IS NULL THEN NULL
+                        ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (last_tick_ts - last_exchange_ts)) * 1000))::bigint
+                      END AS latency_ms
+                    FROM agg
+                    ORDER BY venue ASC, symbol ASC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for (
+                    venue,
+                    symbol,
+                    ticks_24h,
+                    sequence_discontinuity_count,
+                    drop_estimate_count,
+                    heartbeat_age_seconds,
+                    latency_ms,
+                ) in cur.fetchall():
+                    connector_feed_sla.append(
+                        {
+                            "venue": str(venue),
+                            "symbol": str(symbol),
+                            "ticks_24h": int(ticks_24h or 0),
+                            "sequence_discontinuity_count": int(sequence_discontinuity_count or 0),
+                            "drop_estimate_count": int(drop_estimate_count or 0),
+                            "heartbeat_age_seconds": int(heartbeat_age_seconds) if heartbeat_age_seconds is not None else None,
+                            "latency_ms": int(latency_ms) if latency_ms is not None else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    SELECT
+                      venue,
+                      broker_symbol,
+                      source_topic,
+                      source_partition,
+                      source_offset,
+                      sequence_id,
+                      sequence_numeric,
+                      previous_sequence_numeric,
+                      sequence_gap,
+                      sequence_status,
+                      event_ts_received,
+                      created_at
+                    FROM raw_message_capture
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for (
+                    venue,
+                    broker_symbol,
+                    source_topic,
+                    source_partition,
+                    source_offset,
+                    sequence_id,
+                    sequence_numeric,
+                    previous_sequence_numeric,
+                    sequence_gap,
+                    sequence_status,
+                    event_ts_received,
+                    created_at,
+                ) in cur.fetchall():
+                    raw_capture_recent.append(
+                        {
+                            "venue": str(venue),
+                            "symbol": str(broker_symbol),
+                            "source_topic": str(source_topic),
+                            "source_partition": int(source_partition),
+                            "source_offset": int(source_offset),
+                            "sequence_id": str(sequence_id) if sequence_id is not None else None,
+                            "sequence_numeric": int(sequence_numeric) if sequence_numeric is not None else None,
+                            "previous_sequence_numeric": int(previous_sequence_numeric) if previous_sequence_numeric is not None else None,
+                            "sequence_gap": int(sequence_gap) if sequence_gap is not None else None,
+                            "sequence_status": str(sequence_status),
+                            "event_ts_received": event_ts_received.isoformat() if event_ts_received else None,
+                            "created_at": created_at.isoformat() if created_at else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    SELECT
+                      object_key,
+                      format,
+                      venue,
+                      broker_symbol,
+                      source_topic,
+                      source_partition,
+                      partition_year,
+                      partition_month,
+                      partition_day,
+                      partition_hour,
+                      row_count,
+                      min_source_offset,
+                      max_source_offset,
+                      updated_at
+                    FROM raw_lake_object_manifest
+                    ORDER BY updated_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for (
+                    object_key,
+                    fmt,
+                    venue,
+                    broker_symbol,
+                    source_topic,
+                    source_partition,
+                    partition_year,
+                    partition_month,
+                    partition_day,
+                    partition_hour,
+                    row_count,
+                    min_source_offset,
+                    max_source_offset,
+                    updated_at,
+                ) in cur.fetchall():
+                    raw_lake_manifest_recent.append(
+                        {
+                            "object_key": str(object_key),
+                            "format": str(fmt),
+                            "venue": str(venue),
+                            "symbol": str(broker_symbol),
+                            "source_topic": str(source_topic),
+                            "source_partition": int(source_partition),
+                            "partition_year": int(partition_year),
+                            "partition_month": int(partition_month),
+                            "partition_day": int(partition_day),
+                            "partition_hour": int(partition_hour),
+                            "row_count": int(row_count or 0),
+                            "min_source_offset": int(min_source_offset),
+                            "max_source_offset": int(max_source_offset),
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    SELECT
+                      manifest_id,
+                      venue,
+                      broker_symbol,
+                      source_topic,
+                      source_partition,
+                      range_from_ts,
+                      range_to_ts,
+                      object_count,
+                      selected_row_count,
+                      min_source_offset,
+                      max_source_offset,
+                      checksum_sha256,
+                      created_by,
+                      created_at
+                    FROM raw_lake_replay_manifest_index
+                    ORDER BY created_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for (
+                    manifest_id,
+                    venue,
+                    broker_symbol,
+                    source_topic,
+                    source_partition,
+                    range_from_ts,
+                    range_to_ts,
+                    object_count,
+                    selected_row_count,
+                    min_source_offset,
+                    max_source_offset,
+                    checksum_sha256,
+                    created_by,
+                    created_at,
+                ) in cur.fetchall():
+                    replay_manifest_recent.append(
+                        {
+                            "manifest_id": str(manifest_id),
+                            "venue": str(venue),
+                            "symbol": str(broker_symbol),
+                            "source_topic": str(source_topic),
+                            "source_partition": int(source_partition),
+                            "range_from_ts": range_from_ts.isoformat() if range_from_ts else None,
+                            "range_to_ts": range_to_ts.isoformat() if range_to_ts else None,
+                            "object_count": int(object_count or 0),
+                            "selected_row_count": int(selected_row_count or 0),
+                            "min_source_offset": int(min_source_offset) if min_source_offset is not None else None,
+                            "max_source_offset": int(max_source_offset) if max_source_offset is not None else None,
+                            "checksum_sha256": str(checksum_sha256),
+                            "created_by": str(created_by),
+                            "created_at": created_at.isoformat() if created_at else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    SELECT
+                      environment,
+                      enabled,
+                      hot_retention_days,
+                      warm_retention_days,
+                      cold_retention_days,
+                      archive_tier,
+                      restore_sla_minutes,
+                      validation_interval_hours,
+                      updated_by,
+                      updated_at
+                    FROM raw_lake_retention_policy
+                    ORDER BY environment ASC
+                    """
+                )
+                for (
+                    environment,
+                    enabled,
+                    hot_retention_days,
+                    warm_retention_days,
+                    cold_retention_days,
+                    archive_tier,
+                    restore_sla_minutes,
+                    validation_interval_hours,
+                    updated_by,
+                    updated_at,
+                ) in cur.fetchall():
+                    raw_lake_retention_policies.append(
+                        {
+                            "environment": str(environment),
+                            "enabled": bool(enabled),
+                            "hot_retention_days": int(hot_retention_days or 0),
+                            "warm_retention_days": int(warm_retention_days or 0),
+                            "cold_retention_days": int(cold_retention_days or 0),
+                            "archive_tier": str(archive_tier),
+                            "restore_sla_minutes": int(restore_sla_minutes or 0),
+                            "validation_interval_hours": int(validation_interval_hours or 0),
+                            "updated_by": str(updated_by),
+                            "updated_at": updated_at.isoformat() if updated_at else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    SELECT
+                      drill_id,
+                      environment,
+                      window_from_ts,
+                      window_to_ts,
+                      object_count_checked,
+                      row_count_checked,
+                      checksum_match,
+                      restore_duration_seconds,
+                      status,
+                      notes,
+                      executed_by,
+                      executed_at
+                    FROM raw_lake_restore_validation_log
+                    ORDER BY executed_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for (
+                    drill_id,
+                    environment,
+                    window_from_ts,
+                    window_to_ts,
+                    object_count_checked,
+                    row_count_checked,
+                    checksum_match,
+                    restore_duration_seconds,
+                    status,
+                    notes,
+                    executed_by,
+                    executed_at,
+                ) in cur.fetchall():
+                    raw_lake_restore_drills.append(
+                        {
+                            "drill_id": str(drill_id),
+                            "environment": str(environment),
+                            "window_from_ts": window_from_ts.isoformat() if window_from_ts else None,
+                            "window_to_ts": window_to_ts.isoformat() if window_to_ts else None,
+                            "object_count_checked": int(object_count_checked or 0),
+                            "row_count_checked": int(row_count_checked or 0),
+                            "checksum_match": bool(checksum_match),
+                            "restore_duration_seconds": int(restore_duration_seconds or 0),
+                            "status": str(status),
+                            "notes": str(notes) if notes is not None else None,
+                            "executed_by": str(executed_by),
+                            "executed_at": executed_at.isoformat() if executed_at else None,
+                        }
+                    )
 
                 cur.execute(
                     """
@@ -662,6 +1072,31 @@ def control_panel_ingestion(
                     """
                 )
                 metrics["replay_failed_24h"] = int(cur.fetchone()[0] or 0)
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM raw_message_capture
+                    WHERE created_at >= now() - interval '24 hours'
+                    """
+                )
+                metrics["raw_capture_rows_24h"] = int(cur.fetchone()[0] or 0)
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM raw_message_capture
+                    WHERE created_at >= now() - interval '24 hours'
+                      AND sequence_status IN ('gap', 'out_of_order', 'duplicate')
+                    """
+                )
+                metrics["sequence_anomalies_24h"] = int(cur.fetchone()[0] or 0)
+                cur.execute(
+                    """
+                    SELECT COUNT(*)
+                    FROM raw_lake_object_manifest
+                    WHERE updated_at >= now() - interval '24 hours'
+                    """
+                )
+                metrics["raw_lake_objects_24h"] = int(cur.fetchone()[0] or 0)
     except Exception:
         mode = "degraded"
 
@@ -678,6 +1113,14 @@ def control_panel_ingestion(
         "session_runtime": session_runtime,
         "ws_policies": ws_policies,
         "ws_runtime": ws_runtime,
+        "rate_limit_policies": rate_limit_policies,
+        "rate_limit_runtime": rate_limit_runtime,
+        "connector_feed_sla": connector_feed_sla,
+        "raw_capture_recent": raw_capture_recent,
+        "raw_lake_manifest_recent": raw_lake_manifest_recent,
+        "replay_manifest_recent": replay_manifest_recent,
+        "raw_lake_retention_policies": raw_lake_retention_policies,
+        "raw_lake_restore_drills": raw_lake_restore_drills,
         "coverage_rows": coverage_rows,
         "backfill_recent": backfill_recent,
         "replay_recent": replay_recent,
@@ -1178,6 +1621,376 @@ def control_panel_ingestion_ws_policy_update(
     return {"status": "accepted", "session": session, "result": {"venue": venue, "enabled": enabled, "updated_by": str(session["user_id"])}}
 
 
+@app.post("/api/v1/control-panel/ingestion/rate-limit-policy")
+def control_panel_ingestion_rate_limit_policy_update(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    venue = str(payload.get("venue", "")).strip().lower()
+    if venue not in VALID_VENUES:
+        raise HTTPException(status_code=400, detail="invalid venue")
+    enabled = bool(payload.get("enabled", True))
+    min_poll_interval_ms = int(payload.get("min_poll_interval_ms", 300))
+    max_poll_interval_ms = int(payload.get("max_poll_interval_ms", 8000))
+    backoff_multiplier = float(payload.get("backoff_multiplier", 1.6))
+    recovery_step_ms = int(payload.get("recovery_step_ms", 100))
+    burst_cooldown_seconds = int(payload.get("burst_cooldown_seconds", 30))
+    max_consecutive_rate_limit_hits = int(payload.get("max_consecutive_rate_limit_hits", 3))
+    per_minute_soft_limit = int(payload.get("per_minute_soft_limit", 120))
+    justification = str(payload.get("justification", "")).strip()
+
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if min_poll_interval_ms < 100 or min_poll_interval_ms > 60000:
+        raise HTTPException(status_code=400, detail="min_poll_interval_ms out of bounds")
+    if max_poll_interval_ms < min_poll_interval_ms or max_poll_interval_ms > 120000:
+        raise HTTPException(status_code=400, detail="max_poll_interval_ms out of bounds")
+    if backoff_multiplier < 1.0 or backoff_multiplier > 5.0:
+        raise HTTPException(status_code=400, detail="backoff_multiplier out of bounds")
+    if recovery_step_ms < 10 or recovery_step_ms > 10000:
+        raise HTTPException(status_code=400, detail="recovery_step_ms out of bounds")
+    if burst_cooldown_seconds < 1 or burst_cooldown_seconds > 3600:
+        raise HTTPException(status_code=400, detail="burst_cooldown_seconds out of bounds")
+    if max_consecutive_rate_limit_hits < 1 or max_consecutive_rate_limit_hits > 100:
+        raise HTTPException(status_code=400, detail="max_consecutive_rate_limit_hits out of bounds")
+    if per_minute_soft_limit < 1 or per_minute_soft_limit > 100000:
+        raise HTTPException(status_code=400, detail="per_minute_soft_limit out of bounds")
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_ingestion_rate_limit_seed_data(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_rate_limit_policy (
+                  venue, enabled, min_poll_interval_ms, max_poll_interval_ms, backoff_multiplier,
+                  recovery_step_ms, burst_cooldown_seconds, max_consecutive_rate_limit_hits,
+                  per_minute_soft_limit, updated_by, updated_at
+                ) VALUES (
+                  %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
+                )
+                ON CONFLICT (venue) DO UPDATE
+                SET enabled = EXCLUDED.enabled,
+                    min_poll_interval_ms = EXCLUDED.min_poll_interval_ms,
+                    max_poll_interval_ms = EXCLUDED.max_poll_interval_ms,
+                    backoff_multiplier = EXCLUDED.backoff_multiplier,
+                    recovery_step_ms = EXCLUDED.recovery_step_ms,
+                    burst_cooldown_seconds = EXCLUDED.burst_cooldown_seconds,
+                    max_consecutive_rate_limit_hits = EXCLUDED.max_consecutive_rate_limit_hits,
+                    per_minute_soft_limit = EXCLUDED.per_minute_soft_limit,
+                    updated_by = EXCLUDED.updated_by,
+                    updated_at = now()
+                """,
+                (
+                    venue,
+                    enabled,
+                    min_poll_interval_ms,
+                    max_poll_interval_ms,
+                    backoff_multiplier,
+                    recovery_step_ms,
+                    burst_cooldown_seconds,
+                    max_consecutive_rate_limit_hits,
+                    per_minute_soft_limit,
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.rate_limit_policy.update",
+            section="ingestion",
+            target=venue,
+            status="approved",
+            reason=None,
+            metadata={"justification": justification, "enabled": enabled},
+        )
+        conn.commit()
+    return {"status": "accepted", "session": session, "result": {"venue": venue, "enabled": enabled, "updated_by": str(session["user_id"])}}
+
+
+@app.post("/api/v1/control-panel/ingestion/raw-lake/replay-manifest")
+def control_panel_ingestion_raw_lake_replay_manifest_build(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    venue = str(payload.get("venue", "")).strip().lower()
+    symbol = str(payload.get("symbol", "")).strip().upper()
+    source_topic = str(payload.get("source_topic", "")).strip()
+    source_partition = int(payload.get("source_partition", 0))
+    range_from_ts = parse_window_ts(str(payload.get("range_from_ts", "")).strip())
+    range_to_ts = parse_window_ts(str(payload.get("range_to_ts", "")).strip())
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if not venue or not symbol or not source_topic:
+        raise HTTPException(status_code=400, detail="venue, symbol, source_topic are required")
+    if source_partition < 0:
+        raise HTTPException(status_code=400, detail="source_partition out of bounds")
+    if range_to_ts < range_from_ts:
+        raise HTTPException(status_code=400, detail="invalid range")
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_raw_lake_replay_manifest_index_table(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                  object_key,
+                  row_count,
+                  min_source_offset,
+                  max_source_offset,
+                  first_event_ts_received,
+                  last_event_ts_received
+                FROM raw_lake_object_manifest
+                WHERE lower(venue) = %s
+                  AND upper(broker_symbol) = %s
+                  AND source_topic = %s
+                  AND source_partition = %s
+                  AND last_event_ts_received >= %s
+                  AND first_event_ts_received <= %s
+                ORDER BY partition_year, partition_month, partition_day, partition_hour, object_key
+                """,
+                (venue, symbol, source_topic, source_partition, range_from_ts, range_to_ts),
+            )
+            rows = cur.fetchall()
+            if not rows:
+                raise HTTPException(status_code=404, detail="no raw-lake objects match selection window")
+
+            object_keys = [str(row[0]) for row in rows]
+            object_count = len(object_keys)
+            selected_row_count = int(sum(int(row[1] or 0) for row in rows))
+            min_source_offset = min(int(row[2]) for row in rows if row[2] is not None)
+            max_source_offset = max(int(row[3]) for row in rows if row[3] is not None)
+            span_from = min(row[4] for row in rows if row[4] is not None)
+            span_to = max(row[5] for row in rows if row[5] is not None)
+            checksum_sha256 = hashlib.sha256("\n".join(object_keys).encode("utf-8")).hexdigest()
+            manifest_id = uuid.uuid4()
+
+            cur.execute(
+                """
+                INSERT INTO raw_lake_replay_manifest_index (
+                  manifest_id, venue, broker_symbol, source_topic, source_partition,
+                  range_from_ts, range_to_ts, object_keys,
+                  object_count, selected_row_count, min_source_offset, max_source_offset,
+                  span_from_ts, span_to_ts, checksum_sha256, created_by, created_at
+                ) VALUES (
+                  %s::uuid, %s, %s, %s, %s,
+                  %s, %s, %s::jsonb,
+                  %s, %s, %s, %s,
+                  %s, %s, %s, %s, now()
+                )
+                """,
+                (
+                    manifest_id,
+                    venue,
+                    symbol,
+                    source_topic,
+                    source_partition,
+                    range_from_ts,
+                    range_to_ts,
+                    json.dumps(object_keys),
+                    object_count,
+                    selected_row_count,
+                    min_source_offset,
+                    max_source_offset,
+                    span_from,
+                    span_to,
+                    checksum_sha256,
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.raw_lake.replay_manifest.build",
+            section="ingestion",
+            target=f"{venue}:{symbol}:{source_topic}:{source_partition}",
+            status="approved",
+            reason=None,
+            metadata={
+                "justification": justification,
+                "manifest_id": str(manifest_id),
+                "object_count": object_count,
+                "selected_row_count": selected_row_count,
+                "checksum_sha256": checksum_sha256,
+            },
+        )
+        conn.commit()
+
+    return {
+        "status": "accepted",
+        "session": session,
+        "result": {
+            "manifest_id": str(manifest_id),
+            "venue": venue,
+            "symbol": symbol,
+            "source_topic": source_topic,
+            "source_partition": source_partition,
+            "object_count": object_count,
+            "selected_row_count": selected_row_count,
+            "min_source_offset": min_source_offset,
+            "max_source_offset": max_source_offset,
+            "checksum_sha256": checksum_sha256,
+        },
+    }
+
+
+@app.post("/api/v1/control-panel/ingestion/raw-lake/retention-policy")
+def control_panel_ingestion_raw_lake_retention_policy_update(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    environment = str(payload.get("environment", "")).strip().lower()
+    enabled = bool(payload.get("enabled", True))
+    hot_retention_days = int(payload.get("hot_retention_days", 14))
+    warm_retention_days = int(payload.get("warm_retention_days", 90))
+    cold_retention_days = int(payload.get("cold_retention_days", 365))
+    archive_tier = str(payload.get("archive_tier", "standard")).strip().lower()
+    restore_sla_minutes = int(payload.get("restore_sla_minutes", 120))
+    validation_interval_hours = int(payload.get("validation_interval_hours", 24))
+    justification = str(payload.get("justification", "")).strip()
+
+    if environment not in {"dev", "staging", "prod"}:
+        raise HTTPException(status_code=400, detail="environment must be dev|staging|prod")
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+    if hot_retention_days < 1 or warm_retention_days < hot_retention_days or cold_retention_days < warm_retention_days:
+        raise HTTPException(status_code=400, detail="retention day ordering invalid")
+    if restore_sla_minutes < 1 or restore_sla_minutes > 10080:
+        raise HTTPException(status_code=400, detail="restore_sla_minutes out of bounds")
+    if validation_interval_hours < 1 or validation_interval_hours > 720:
+        raise HTTPException(status_code=400, detail="validation_interval_hours out of bounds")
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_raw_lake_retention_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO raw_lake_retention_policy (
+                  environment, enabled, hot_retention_days, warm_retention_days, cold_retention_days,
+                  archive_tier, restore_sla_minutes, validation_interval_hours, updated_by, updated_at
+                ) VALUES (
+                  %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
+                )
+                ON CONFLICT (environment) DO UPDATE
+                SET enabled = EXCLUDED.enabled,
+                    hot_retention_days = EXCLUDED.hot_retention_days,
+                    warm_retention_days = EXCLUDED.warm_retention_days,
+                    cold_retention_days = EXCLUDED.cold_retention_days,
+                    archive_tier = EXCLUDED.archive_tier,
+                    restore_sla_minutes = EXCLUDED.restore_sla_minutes,
+                    validation_interval_hours = EXCLUDED.validation_interval_hours,
+                    updated_by = EXCLUDED.updated_by,
+                    updated_at = now()
+                """,
+                (
+                    environment,
+                    enabled,
+                    hot_retention_days,
+                    warm_retention_days,
+                    cold_retention_days,
+                    archive_tier,
+                    restore_sla_minutes,
+                    validation_interval_hours,
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.raw_lake.retention_policy.update",
+            section="ingestion",
+            target=environment,
+            status="approved",
+            reason=None,
+            metadata={"justification": justification},
+        )
+        conn.commit()
+    return {"status": "accepted", "session": session, "result": {"environment": environment, "updated_by": str(session["user_id"])}}
+
+
+@app.post("/api/v1/control-panel/ingestion/raw-lake/restore-drill")
+def control_panel_ingestion_raw_lake_restore_drill_log(
+    payload: dict = Body(...),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+
+    environment = str(payload.get("environment", "")).strip().lower()
+    window_from_ts = parse_window_ts(str(payload.get("window_from_ts", "")).strip())
+    window_to_ts = parse_window_ts(str(payload.get("window_to_ts", "")).strip())
+    object_count_checked = int(payload.get("object_count_checked", 0))
+    row_count_checked = int(payload.get("row_count_checked", 0))
+    checksum_match = bool(payload.get("checksum_match", False))
+    restore_duration_seconds = int(payload.get("restore_duration_seconds", 0))
+    status = str(payload.get("status", "completed")).strip().lower()
+    notes = str(payload.get("notes", "")).strip()
+    justification = str(payload.get("justification", "")).strip()
+
+    if environment not in {"dev", "staging", "prod"}:
+        raise HTTPException(status_code=400, detail="environment must be dev|staging|prod")
+    if window_to_ts < window_from_ts:
+        raise HTTPException(status_code=400, detail="invalid drill window")
+    if status not in {"completed", "failed", "warning"}:
+        raise HTTPException(status_code=400, detail="status must be completed|failed|warning")
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+
+    drill_id = uuid.uuid4()
+    with psycopg.connect(db_url()) as conn:
+        ensure_raw_lake_retention_tables(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO raw_lake_restore_validation_log (
+                  drill_id, environment, window_from_ts, window_to_ts,
+                  object_count_checked, row_count_checked, checksum_match,
+                  restore_duration_seconds, status, notes, executed_by, executed_at
+                ) VALUES (
+                  %s::uuid, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now()
+                )
+                """,
+                (
+                    drill_id,
+                    environment,
+                    window_from_ts,
+                    window_to_ts,
+                    object_count_checked,
+                    row_count_checked,
+                    checksum_match,
+                    restore_duration_seconds,
+                    status,
+                    notes or None,
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.raw_lake.restore_drill.log",
+            section="ingestion",
+            target=environment,
+            status="approved",
+            reason=None,
+            metadata={"justification": justification, "drill_id": str(drill_id), "status": status},
+        )
+        conn.commit()
+    return {"status": "accepted", "session": session, "result": {"drill_id": str(drill_id), "environment": environment, "status": status}}
+
+
 def ensure_control_panel_risk_limits_table(conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -1658,6 +2471,117 @@ def ensure_control_panel_ingestion_ws_policy_table(conn: psycopg.Connection) -> 
         )
 
 
+def ensure_control_panel_ingestion_rate_limit_policy_table(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_ingestion_rate_limit_policy (
+              venue TEXT PRIMARY KEY,
+              enabled BOOLEAN NOT NULL DEFAULT TRUE,
+              min_poll_interval_ms INTEGER NOT NULL DEFAULT 300,
+              max_poll_interval_ms INTEGER NOT NULL DEFAULT 8000,
+              backoff_multiplier DOUBLE PRECISION NOT NULL DEFAULT 1.6,
+              recovery_step_ms INTEGER NOT NULL DEFAULT 100,
+              burst_cooldown_seconds INTEGER NOT NULL DEFAULT 30,
+              max_consecutive_rate_limit_hits INTEGER NOT NULL DEFAULT 3,
+              per_minute_soft_limit INTEGER NOT NULL DEFAULT 120,
+              updated_by TEXT NOT NULL,
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+
+
+def ensure_raw_lake_replay_manifest_index_table(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS raw_lake_replay_manifest_index (
+              manifest_id UUID PRIMARY KEY,
+              venue TEXT NOT NULL,
+              broker_symbol TEXT NOT NULL,
+              source_topic TEXT NOT NULL,
+              source_partition INTEGER NOT NULL,
+              range_from_ts TIMESTAMPTZ NOT NULL,
+              range_to_ts TIMESTAMPTZ NOT NULL,
+              object_keys JSONB NOT NULL DEFAULT '[]'::jsonb,
+              object_count INTEGER NOT NULL DEFAULT 0,
+              selected_row_count BIGINT NOT NULL DEFAULT 0,
+              min_source_offset BIGINT,
+              max_source_offset BIGINT,
+              span_from_ts TIMESTAMPTZ,
+              span_to_ts TIMESTAMPTZ,
+              checksum_sha256 TEXT NOT NULL,
+              created_by TEXT NOT NULL,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_raw_lake_replay_manifest_created_at
+              ON raw_lake_replay_manifest_index (created_at DESC)
+            """
+        )
+
+
+def ensure_raw_lake_retention_tables(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS raw_lake_retention_policy (
+              environment TEXT PRIMARY KEY,
+              enabled BOOLEAN NOT NULL DEFAULT TRUE,
+              hot_retention_days INTEGER NOT NULL DEFAULT 14,
+              warm_retention_days INTEGER NOT NULL DEFAULT 90,
+              cold_retention_days INTEGER NOT NULL DEFAULT 365,
+              archive_tier TEXT NOT NULL DEFAULT 'standard',
+              restore_sla_minutes INTEGER NOT NULL DEFAULT 120,
+              validation_interval_hours INTEGER NOT NULL DEFAULT 24,
+              updated_by TEXT NOT NULL,
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS raw_lake_restore_validation_log (
+              drill_id UUID PRIMARY KEY,
+              environment TEXT NOT NULL,
+              window_from_ts TIMESTAMPTZ NOT NULL,
+              window_to_ts TIMESTAMPTZ NOT NULL,
+              object_count_checked INTEGER NOT NULL DEFAULT 0,
+              row_count_checked BIGINT NOT NULL DEFAULT 0,
+              checksum_match BOOLEAN NOT NULL DEFAULT FALSE,
+              restore_duration_seconds INTEGER NOT NULL DEFAULT 0,
+              status TEXT NOT NULL,
+              notes TEXT,
+              executed_by TEXT NOT NULL,
+              executed_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_raw_lake_restore_validation_log_executed_at
+              ON raw_lake_restore_validation_log (executed_at DESC)
+            """
+        )
+        for env_name in ("dev", "staging", "prod"):
+            cur.execute(
+                """
+                INSERT INTO raw_lake_retention_policy (
+                  environment, enabled, hot_retention_days, warm_retention_days, cold_retention_days,
+                  archive_tier, restore_sla_minutes, validation_interval_hours, updated_by
+                ) VALUES (
+                  %s, TRUE, 14, 90, 365, 'standard', 120, 24, 'seed'
+                )
+                ON CONFLICT (environment) DO NOTHING
+                """,
+                (env_name,),
+            )
+
+
 def ensure_ingestion_failover_seed_data(conn: psycopg.Connection) -> None:
     ensure_control_panel_ingestion_failover_policy_table(conn)
     defaults = {
@@ -1748,6 +2672,25 @@ def ensure_ingestion_ws_seed_data(conn: psycopg.Connection) -> None:
                   reconnect_backoff_seconds, max_backoff_seconds, jitter_pct, max_consecutive_failures, updated_by
                 ) VALUES (
                   %s, TRUE, 15, 45, 5, 120, 0.2, 5, 'seed'
+                )
+                ON CONFLICT (venue) DO NOTHING
+                """,
+                (venue,),
+            )
+
+
+def ensure_ingestion_rate_limit_seed_data(conn: psycopg.Connection) -> None:
+    ensure_control_panel_ingestion_rate_limit_policy_table(conn)
+    with conn.cursor() as cur:
+        for venue in sorted(VALID_VENUES):
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_rate_limit_policy (
+                  venue, enabled, min_poll_interval_ms, max_poll_interval_ms, backoff_multiplier,
+                  recovery_step_ms, burst_cooldown_seconds, max_consecutive_rate_limit_hits,
+                  per_minute_soft_limit, updated_by
+                ) VALUES (
+                  %s, TRUE, 300, 8000, 1.6, 100, 30, 3, 120, 'seed'
                 )
                 ON CONFLICT (venue) DO NOTHING
                 """,
@@ -1855,6 +2798,28 @@ def ingestion_ws_runtime(conn: psycopg.Connection) -> dict:
         "configured_enabled_venues": int(enabled_count or 0),
         "configured_disabled_venues": int(disabled_count or 0),
         "active_markets": active_markets,
+        "updated_at": updated_at.isoformat() if updated_at else None,
+    }
+
+
+def ingestion_rate_limit_runtime(conn: psycopg.Connection) -> dict:
+    ensure_ingestion_rate_limit_seed_data(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              COUNT(*) FILTER (WHERE enabled = TRUE),
+              COUNT(*) FILTER (WHERE enabled = FALSE),
+              COALESCE(AVG(min_poll_interval_ms)::bigint, 0),
+              COALESCE(MAX(updated_at), now())
+            FROM control_panel_ingestion_rate_limit_policy
+            """
+        )
+        enabled_count, disabled_count, avg_effective_poll_interval_ms, updated_at = cur.fetchone()
+    return {
+        "configured_enabled_venues": int(enabled_count or 0),
+        "configured_disabled_venues": int(disabled_count or 0),
+        "avg_effective_poll_interval_ms": int(avg_effective_poll_interval_ms or 0),
         "updated_at": updated_at.isoformat() if updated_at else None,
     }
 

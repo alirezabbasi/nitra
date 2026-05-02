@@ -33,3 +33,23 @@ async def control_panel_ingestion_session_policy(request: Request) -> Response:
 @router.post("/api/v1/control-panel/ingestion/ws-policy")
 async def control_panel_ingestion_ws_policy(request: Request) -> Response:
     return await proxy_to_legacy(request)
+
+
+@router.post("/api/v1/control-panel/ingestion/rate-limit-policy")
+async def control_panel_ingestion_rate_limit_policy(request: Request) -> Response:
+    return await proxy_to_legacy(request)
+
+
+@router.post("/api/v1/control-panel/ingestion/raw-lake/replay-manifest")
+async def control_panel_ingestion_raw_lake_replay_manifest(request: Request) -> Response:
+    return await proxy_to_legacy(request)
+
+
+@router.post("/api/v1/control-panel/ingestion/raw-lake/retention-policy")
+async def control_panel_ingestion_raw_lake_retention_policy(request: Request) -> Response:
+    return await proxy_to_legacy(request)
+
+
+@router.post("/api/v1/control-panel/ingestion/raw-lake/restore-drill")
+async def control_panel_ingestion_raw_lake_restore_drill(request: Request) -> Response:
+    return await proxy_to_legacy(request)

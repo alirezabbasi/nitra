@@ -90,6 +90,9 @@ const metricOrder = [
           ["replay_failed_24h", "Replay Failed (24h)"],
           ["coverage_ratio_avg", "Coverage Ratio Avg"],
           ["symbols_with_open_gaps", "Symbols With Open Gaps"],
+          ["raw_capture_rows_24h", "Raw Captures (24h)"],
+          ["sequence_anomalies_24h", "Seq Anomalies (24h)"],
+          ["raw_lake_objects_24h", "Raw Lake Objects (24h)"],
         ];
         const m = document.getElementById("ingestionMetrics");
         m.innerHTML = "";
@@ -122,6 +125,30 @@ const metricOrder = [
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.status}</td><td>${row.venue}:${row.symbol}</td><td>${row.started_at || "-"}</td>`;
           replayBody.appendChild(tr);
+        }
+
+        const rawBody = document.querySelector("#rawCaptureTable tbody");
+        rawBody.innerHTML = "";
+        for (const row of tableSlice(data.raw_capture_recent || [], 30)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.venue}:${row.symbol}</td><td>${row.sequence_status}</td><td>${row.sequence_numeric ?? "-"}</td><td>${row.previous_sequence_numeric ?? "-"}</td><td>${row.sequence_gap ?? "-"}</td><td>${row.source_topic}:${row.source_partition}@${row.source_offset}</td>`;
+          rawBody.appendChild(tr);
+        }
+
+        const manifestBody = document.querySelector("#rawLakeManifestTable tbody");
+        manifestBody.innerHTML = "";
+        for (const row of tableSlice(data.raw_lake_manifest_recent || [], 30)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.partition_year}-${String(row.partition_month).padStart(2, "0")}-${String(row.partition_day).padStart(2, "0")} ${String(row.partition_hour).padStart(2, "0")}:00</td><td>${row.venue}:${row.symbol}</td><td>${fmt(row.row_count)}</td><td>${row.min_source_offset}..${row.max_source_offset}</td><td title="${row.object_key}">${row.object_key}</td>`;
+          manifestBody.appendChild(tr);
+        }
+
+        const replayManifestBody = document.querySelector("#replayManifestTable tbody");
+        replayManifestBody.innerHTML = "";
+        for (const row of tableSlice(data.replay_manifest_recent || [], 30)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td title="${row.manifest_id}">${row.manifest_id.slice(0, 8)}</td><td>${row.range_from_ts || "-"} .. ${row.range_to_ts || "-"}</td><td>${fmt(row.object_count)}</td><td>${fmt(row.selected_row_count)}</td><td>${row.min_source_offset ?? "-"}..${row.max_source_offset ?? "-"}</td>`;
+          replayManifestBody.appendChild(tr);
         }
 
         const policyMetrics = document.getElementById("failoverPolicyMetrics");
@@ -170,6 +197,45 @@ const metricOrder = [
           const tr = document.createElement("tr");
           tr.innerHTML = `<td>${row.venue}</td><td>${row.enabled ? "ON" : "OFF"}</td><td>${row.heartbeat_interval_seconds}</td><td>${row.stale_after_seconds}</td><td>${row.reconnect_backoff_seconds}/${row.max_backoff_seconds}</td><td>${fmt(row.jitter_pct)}</td><td>${row.max_consecutive_failures}</td><td>${row.updated_by}</td>`;
           wsBody.appendChild(tr);
+        }
+
+        const feedSlaBody = document.querySelector("#feedSlaTable tbody");
+        feedSlaBody.innerHTML = "";
+        for (const row of tableSlice(data.connector_feed_sla || [], 40)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.venue}:${row.symbol}</td><td>${row.latency_ms ?? "-"}</td><td>${row.heartbeat_age_seconds ?? "-"}</td><td>${fmt(row.sequence_discontinuity_count)}</td><td>${fmt(row.drop_estimate_count)}</td><td>${fmt(row.ticks_24h)}</td>`;
+          feedSlaBody.appendChild(tr);
+        }
+
+        const rlMetrics = document.getElementById("rateLimitPolicyMetrics");
+        const rlRuntime = data.rate_limit_runtime || {};
+        rlMetrics.innerHTML = `
+          <div class="small">Enabled Rate Policies: <strong>${fmt(rlRuntime.configured_enabled_venues)}</strong></div>
+          <div class="small">Disabled Rate Policies: <strong>${fmt(rlRuntime.configured_disabled_venues)}</strong></div>
+          <div class="small">Avg Effective Poll (ms): <strong>${fmt(rlRuntime.avg_effective_poll_interval_ms)}</strong></div>
+        `;
+        const rlBody = document.querySelector("#rateLimitPolicyTable tbody");
+        rlBody.innerHTML = "";
+        for (const row of tableSlice(data.rate_limit_policies || [], 20)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.venue}</td><td>${row.enabled ? "ON" : "OFF"}</td><td>${row.min_poll_interval_ms}/${row.max_poll_interval_ms}</td><td>${fmt(row.backoff_multiplier)}</td><td>${row.recovery_step_ms}</td><td>${row.burst_cooldown_seconds}</td><td>${row.max_consecutive_rate_limit_hits}</td><td>${row.per_minute_soft_limit}</td><td>${row.updated_by}</td>`;
+          rlBody.appendChild(tr);
+        }
+
+        const retentionBody = document.querySelector("#retentionPolicyTable tbody");
+        retentionBody.innerHTML = "";
+        for (const row of tableSlice(data.raw_lake_retention_policies || [], 20)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td>${row.environment}</td><td>${row.enabled ? "ON" : "OFF"}</td><td>${row.hot_retention_days}/${row.warm_retention_days}/${row.cold_retention_days}</td><td>${row.archive_tier}</td><td>${row.restore_sla_minutes}</td><td>${row.validation_interval_hours}</td><td>${row.updated_by}</td>`;
+          retentionBody.appendChild(tr);
+        }
+
+        const restoreBody = document.querySelector("#restoreDrillTable tbody");
+        restoreBody.innerHTML = "";
+        for (const row of tableSlice(data.raw_lake_restore_drills || [], 30)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td title="${row.drill_id}">${row.drill_id.slice(0, 8)}</td><td>${row.environment}</td><td>${row.window_from_ts || "-"} .. ${row.window_to_ts || "-"}</td><td>${fmt(row.object_count_checked)}/${fmt(row.row_count_checked)}</td><td>${row.checksum_match ? "MATCH" : "MISMATCH"}</td><td>${fmt(row.restore_duration_seconds)}</td><td>${row.status}</td>`;
+          restoreBody.appendChild(tr);
         }
       }
 
@@ -294,6 +360,118 @@ const metricOrder = [
           return;
         }
         out.textContent = `Updated venue=${data.result?.venue || "-"} by ${data.result?.updated_by || "-"}`;
+        await loadIngestion();
+      }
+
+      async function submitRateLimitPolicy() {
+        const payload = {
+          venue: document.getElementById("rpVenue").value.trim(),
+          enabled: document.getElementById("rpEnabled").value.trim().toLowerCase() === "true",
+          min_poll_interval_ms: Number(document.getElementById("rpMinPollMs").value || 300),
+          max_poll_interval_ms: Number(document.getElementById("rpMaxPollMs").value || 8000),
+          backoff_multiplier: Number(document.getElementById("rpBackoffMultiplier").value || 1.6),
+          recovery_step_ms: Number(document.getElementById("rpRecoveryStepMs").value || 100),
+          burst_cooldown_seconds: Number(document.getElementById("rpBurstCooldown").value || 30),
+          max_consecutive_rate_limit_hits: Number(document.getElementById("rpMax429Hits").value || 3),
+          per_minute_soft_limit: Number(document.getElementById("rpSoftLimit").value || 120),
+          justification: document.getElementById("rpJustification").value.trim(),
+        };
+        const out = document.getElementById("rpResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/rate-limit-policy", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Updated venue=${data.result?.venue || "-"} by ${data.result?.updated_by || "-"}`;
+        await loadIngestion();
+      }
+
+      async function buildReplayManifest() {
+        const payload = {
+          venue: document.getElementById("rmVenue").value.trim(),
+          symbol: document.getElementById("rmSymbol").value.trim(),
+          source_topic: document.getElementById("rmTopic").value.trim(),
+          source_partition: Number(document.getElementById("rmPartition").value || 0),
+          range_from_ts: document.getElementById("rmFromTs").value.trim(),
+          range_to_ts: document.getElementById("rmToTs").value.trim(),
+          justification: document.getElementById("rmJustification").value.trim(),
+        };
+        const out = document.getElementById("rmResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/raw-lake/replay-manifest", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Built manifest=${(data.result?.manifest_id || "-").slice(0, 8)} objects=${data.result?.object_count ?? "-"}`;
+        await loadIngestion();
+      }
+
+      async function submitRawLakeRetentionPolicy() {
+        const payload = {
+          environment: document.getElementById("rtEnv").value.trim(),
+          enabled: document.getElementById("rtEnabled").value.trim().toLowerCase() === "true",
+          hot_retention_days: Number(document.getElementById("rtHotDays").value || 14),
+          warm_retention_days: Number(document.getElementById("rtWarmDays").value || 90),
+          cold_retention_days: Number(document.getElementById("rtColdDays").value || 365),
+          archive_tier: document.getElementById("rtTier").value.trim(),
+          restore_sla_minutes: Number(document.getElementById("rtRestoreSla").value || 120),
+          validation_interval_hours: Number(document.getElementById("rtValidationHours").value || 24),
+          justification: document.getElementById("rtJustification").value.trim(),
+        };
+        const out = document.getElementById("rtResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/raw-lake/retention-policy", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Updated env=${data.result?.environment || "-"} by ${data.result?.updated_by || "-"}`;
+        await loadIngestion();
+      }
+
+      async function submitRawLakeRestoreDrill() {
+        const payload = {
+          environment: document.getElementById("rdEnv").value.trim(),
+          window_from_ts: document.getElementById("rdFromTs").value.trim(),
+          window_to_ts: document.getElementById("rdToTs").value.trim(),
+          object_count_checked: Number(document.getElementById("rdObjects").value || 0),
+          row_count_checked: Number(document.getElementById("rdRows").value || 0),
+          checksum_match: document.getElementById("rdChecksum").value.trim().toLowerCase() === "true",
+          restore_duration_seconds: Number(document.getElementById("rdDuration").value || 0),
+          status: document.getElementById("rdStatus").value.trim(),
+          notes: document.getElementById("rdNotes").value.trim(),
+          justification: document.getElementById("rdJustification").value.trim(),
+        };
+        const out = document.getElementById("rdResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/raw-lake/restore-drill", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          return;
+        }
+        out.textContent = `Logged drill=${(data.result?.drill_id || "-").slice(0, 8)} env=${data.result?.environment || "-"} status=${data.result?.status || "-"}`;
         await loadIngestion();
       }
 
@@ -1062,6 +1240,10 @@ const metricOrder = [
       document.getElementById("fpSubmitBtn").addEventListener("click", () => submitFailoverPolicy().catch(console.error));
       document.getElementById("spSubmitBtn").addEventListener("click", () => submitSessionPolicy().catch(console.error));
       document.getElementById("wpSubmitBtn").addEventListener("click", () => submitWsPolicy().catch(console.error));
+      document.getElementById("rpSubmitBtn").addEventListener("click", () => submitRateLimitPolicy().catch(console.error));
+      document.getElementById("rmBuildBtn").addEventListener("click", () => buildReplayManifest().catch(console.error));
+      document.getElementById("rtSubmitBtn").addEventListener("click", () => submitRawLakeRetentionPolicy().catch(console.error));
+      document.getElementById("rdSubmitBtn").addEventListener("click", () => submitRawLakeRestoreDrill().catch(console.error));
       document.getElementById("kpiLoadBtn").addEventListener("click", () => loadIngestionKpi().catch(console.error));
       document.getElementById("riskLimitsBtn").addEventListener("click", () => submitRiskLimits().catch(console.error));
       document.getElementById("killSwitchBtn").addEventListener("click", () => submitKillSwitch().catch(console.error));
