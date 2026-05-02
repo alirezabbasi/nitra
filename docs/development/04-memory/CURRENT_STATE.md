@@ -13,6 +13,10 @@ Last updated: 2026-05-03
 
 ### Recent
 
+- Completed `DEV-00075` Kafka lag-recovery automation and dead-letter replay hardening contract:
+  - lag-recovery request queue contract with bounded replay offset and DLQ target validation,
+  - dead-letter replay request contract with dry-run/execute mode + bounded replay volume,
+  - control-panel ingestion visibility for recovery queue posture and recent replay actions.
 - Completed `DEV-00074` Kafka topic-level SLO and partition/retention right-sizing policy contract:
   - topic-scoped Kafka policy persistence and guarded control-panel mutation workflow,
   - enforcement checks for topic allowlist, partitions, retention, lag SLO, cleanup policy, and ISR bounds,

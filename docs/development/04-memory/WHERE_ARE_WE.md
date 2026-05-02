@@ -69,6 +69,7 @@ Last updated: 2026-05-03
 
 ## Current
 
+- `DEV-00075` closed (`test-dev-0075`).
 - `DEV-00074` closed (`test-dev-0074`).
 - `DEV-00073` closed (`test-dev-0073`).
 - `DEV-00072` closed (`test-dev-0072`).
@@ -124,7 +125,7 @@ Last updated: 2026-05-03
 
 ## Next
 
-1. Continue with `DEV-00075` before moving deeper into Kafka reliability priorities.
+1. Continue with `DEV-00076` before moving deeper into Kafka reliability priorities.
 
 ## Risks/Blocks
 

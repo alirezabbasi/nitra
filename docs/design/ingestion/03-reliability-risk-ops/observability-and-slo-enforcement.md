@@ -69,3 +69,16 @@ Use the dashboard + alert set to complete detection -> diagnosis -> recovery dri
   - `kafka_topic_policies`
   - `kafka_runtime`
   - `metrics.kafka_topics_tracked`
+
+## DEV-00075 Lag-Recovery Enforcement
+
+- Kafka recovery workflow adds auditable control-panel actions for:
+  - lag recovery queueing (`kafka-lag-recovery`),
+  - dead-letter replay queueing (`kafka-dead-letter-replay`).
+- Runtime visibility contract includes:
+  - `kafka_lag_recovery_recent`,
+  - `kafka_dead_letter_replay_recent`,
+  - `kafka_recovery_runtime`,
+  - ingestion metrics:
+    - `kafka_lag_recovery_open`,
+    - `kafka_dlq_replays_24h`.

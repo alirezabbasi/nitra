@@ -1899,3 +1899,26 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap`
 - Next recommended action:
   - execute `DEV-00075` Kafka lag-recovery + dead-letter replay hardening.
+
+---
+
+## 2026-05-03 — Session Entry 035
+
+- Objective:
+  - execute `DEV-00075` Kafka consumer lag recovery automation and dead-letter replay workflow hardening.
+- Work completed:
+  - added ingestion control-plane contracts for:
+    - `POST /api/v1/control-panel/ingestion/kafka-lag-recovery`
+    - `POST /api/v1/control-panel/ingestion/kafka-dead-letter-replay`
+  - added persisted logs and indices for lag recovery + dead-letter replay queue evidence.
+  - extended ingestion payload with `kafka_recovery_runtime`, `kafka_lag_recovery_recent`, and `kafka_dead_letter_replay_recent`.
+  - added control-panel ingestion UI forms/tables for lag recovery and dead-letter replay queue workflows.
+  - added schema migration `infra/timescaledb/init/024_kafka_lag_recovery_dlq_replay.sql`.
+  - added test gate `tests/dev-0075/run.sh` and `make test-dev-0075` target.
+  - synchronized stream reliability/SLO/LLD docs and ticket/kanban/current-state/where-are-we.
+- Verification:
+  - `make test-dev-0075`
+  - `make enforce-section-5-1`
+  - `make session-bootstrap`
+- Next recommended action:
+  - execute `DEV-00076` Kafka schema compatibility CI gate hardening.

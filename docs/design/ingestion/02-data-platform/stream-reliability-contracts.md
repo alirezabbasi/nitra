@@ -53,3 +53,17 @@
 ## Schema Versioning
 
 `Envelope<T>` includes `schema_version` and explicit headers to support controlled evolution.
+
+## DLQ Recovery + Replay Hardening Contract (DEV-00075)
+
+- Lag recovery request contract:
+  - `POST /api/v1/control-panel/ingestion/kafka-lag-recovery`
+  - persists to `control_panel_ingestion_kafka_lag_recovery_log`.
+- Dead-letter replay request contract:
+  - `POST /api/v1/control-panel/ingestion/kafka-dead-letter-replay`
+  - persists to `control_panel_ingestion_kafka_dead_letter_replay_log`.
+- Guardrails:
+  - allowed source topics must exist in `infra/kafka/topics.csv`,
+  - DLQ naming enforcement (`*.dlq`),
+  - bounded lag/replay volumes and bounded replay offset range validation,
+  - privileged updates require operator role + justification + audit logging.

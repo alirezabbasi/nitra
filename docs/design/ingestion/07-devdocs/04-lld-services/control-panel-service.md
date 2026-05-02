@@ -281,6 +281,19 @@ Rollback policy:
   - `kafka_topic_policies`
   - `kafka_runtime`
   - `metrics.kafka_topics_tracked`
+
+## DEV-00075 Kafka Recovery Ops
+
+- Ingestion workspace now includes:
+  - `Kafka Lag Recovery Automation` form + recent queue table.
+  - `Kafka Dead-Letter Replay` form + recent queue table.
+- Control-panel API contract additions:
+  - `POST /api/v1/control-panel/ingestion/kafka-lag-recovery`
+  - `POST /api/v1/control-panel/ingestion/kafka-dead-letter-replay`
+- `GET /api/v1/control-panel/ingestion` now includes:
+  - `kafka_lag_recovery_recent`
+  - `kafka_dead_letter_replay_recent`
+  - `kafka_recovery_runtime`
 - Surface intent:
   - build deterministic range-scoped replay object selections,
   - persist checksum-verifiable manifest indices for reproducible replay runs.
