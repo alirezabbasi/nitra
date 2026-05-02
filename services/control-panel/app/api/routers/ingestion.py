@@ -55,6 +55,11 @@ async def control_panel_ingestion_kafka_dead_letter_replay(request: Request) -> 
     return await proxy_to_legacy(request)
 
 
+@router.post("/api/v1/control-panel/ingestion/kafka-schema-compat-check")
+async def control_panel_ingestion_kafka_schema_compat_check(request: Request) -> Response:
+    return await proxy_to_legacy(request)
+
+
 @router.post("/api/v1/control-panel/ingestion/raw-lake/replay-manifest")
 async def control_panel_ingestion_raw_lake_replay_manifest(request: Request) -> Response:
     return await proxy_to_legacy(request)

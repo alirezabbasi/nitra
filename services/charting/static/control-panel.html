@@ -283,6 +283,20 @@
               </table>
             </article>
             <article class="card">
+              <div><strong>Kafka Schema Compatibility CI Gate</strong></div>
+              <div class="small">Run backward/forward compatibility validation across all runtime topics.</div>
+              <div id="kafkaSchemaMetrics" style="margin-top:8px"></div>
+              <div class="form-row" style="grid-template-columns: 1fr auto; margin-top:8px">
+                <input id="ksJustification" placeholder="justification (required)" />
+                <button class="btn" id="ksSubmitBtn">Run Schema Compat Check</button>
+              </div>
+              <div class="small" id="ksResult" style="margin-top:8px">No schema compatibility check submitted.</div>
+              <table class="table" id="kafkaSchemaCompatTable" style="margin-top:8px">
+                <thead><tr><th>Check</th><th>Status</th><th>Topics</th><th>Failures</th><th>Checked By</th><th>Checked At</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </article>
+            <article class="card">
               <div><strong>Backfill Queue (Recent)</strong></div>
               <table class="table" id="backfillTable">
                 <thead><tr><th>Status</th><th>Market</th><th>Attempts</th></tr></thead>

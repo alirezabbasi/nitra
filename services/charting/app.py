@@ -2,6 +2,7 @@ import os
 import json
 import csv
 import hashlib
+import subprocess
 import secrets
 import uuid
 import urllib.parse
@@ -400,6 +401,7 @@ def control_panel_ingestion(
     kafka_topic_policies: list[dict] = []
     kafka_lag_recovery_recent: list[dict] = []
     kafka_dead_letter_replay_recent: list[dict] = []
+    kafka_schema_compat_recent: list[dict] = []
     failover_runtime: dict = {
         "configured_enabled_venues": 0,
         "configured_disabled_venues": 0,
@@ -438,6 +440,11 @@ def control_panel_ingestion(
         "dlq_replays_24h": 0,
         "updated_at": None,
     }
+    kafka_schema_runtime: dict = {
+        "last_status": "unknown",
+        "checks_24h": 0,
+        "updated_at": None,
+    }
     connector_feed_sla: list[dict] = []
     raw_capture_recent: list[dict] = []
     raw_lake_manifest_recent: list[dict] = []
@@ -471,6 +478,7 @@ def control_panel_ingestion(
             ensure_ingestion_rate_limit_seed_data(conn)
             ensure_ingestion_kafka_topic_seed_data(conn)
             ensure_control_panel_ingestion_kafka_recovery_tables(conn)
+            ensure_control_panel_ingestion_kafka_schema_gate_table(conn)
             ensure_raw_lake_replay_manifest_index_table(conn)
             ensure_raw_lake_retention_tables(conn)
             with conn.cursor() as cur:
@@ -591,6 +599,7 @@ def control_panel_ingestion(
                 rate_limit_runtime = ingestion_rate_limit_runtime(conn)
                 kafka_runtime = ingestion_kafka_runtime(conn)
                 kafka_recovery_runtime = ingestion_kafka_recovery_runtime(conn)
+                kafka_schema_runtime = ingestion_kafka_schema_runtime(conn)
                 cur.execute(
                     """
                     SELECT
@@ -774,6 +783,27 @@ def control_panel_ingestion(
                             "status": str(status),
                             "created_by": str(created_by),
                             "created_at": created_at.isoformat() if created_at else None,
+                        }
+                    )
+                cur.execute(
+                    """
+                    SELECT check_id, status, checked_topics, failure_count, summary, checked_by, checked_at
+                    FROM control_panel_ingestion_kafka_schema_compat_log
+                    ORDER BY checked_at DESC
+                    LIMIT %s
+                    """,
+                    (row_limit,),
+                )
+                for check_id, status, checked_topics, failure_count, summary, checked_by, checked_at in cur.fetchall():
+                    kafka_schema_compat_recent.append(
+                        {
+                            "check_id": str(check_id),
+                            "status": str(status),
+                            "checked_topics": int(checked_topics or 0),
+                            "failure_count": int(failure_count or 0),
+                            "summary": str(summary or ""),
+                            "checked_by": str(checked_by),
+                            "checked_at": checked_at.isoformat() if checked_at else None,
                         }
                     )
                 cur.execute(
@@ -1276,9 +1306,11 @@ def control_panel_ingestion(
         "rate_limit_runtime": rate_limit_runtime,
         "kafka_runtime": kafka_runtime,
         "kafka_recovery_runtime": kafka_recovery_runtime,
+        "kafka_schema_runtime": kafka_schema_runtime,
         "kafka_topic_policies": kafka_topic_policies,
         "kafka_lag_recovery_recent": kafka_lag_recovery_recent,
         "kafka_dead_letter_replay_recent": kafka_dead_letter_replay_recent,
+        "kafka_schema_compat_recent": kafka_schema_compat_recent,
         "connector_feed_sla": connector_feed_sla,
         "raw_capture_recent": raw_capture_recent,
         "raw_lake_manifest_recent": raw_lake_manifest_recent,
@@ -2105,6 +2137,67 @@ def control_panel_ingestion_kafka_dead_letter_replay_request(
         )
         conn.commit()
     return {"status": "accepted", "session": session, "result": {"replay_id": str(replay_id), "source_topic": source_topic, "replay_mode": replay_mode}}
+
+
+@app.post("/api/v1/control-panel/ingestion/kafka-schema-compat-check")
+def control_panel_ingestion_kafka_schema_compat_check(
+    payload: dict = Body(default={}),
+    x_control_panel_token: str | None = Header(default=None),
+) -> dict:
+    session = get_operator_session(x_control_panel_token)
+    require_min_role(session["role"], "operator")
+    justification = str(payload.get("justification", "")).strip()
+    if len(justification) < 12:
+        raise HTTPException(status_code=400, detail="justification must be at least 12 characters")
+
+    repo_root = BASE_DIR.parent.parent
+    proc = subprocess.run(
+        ["python3", "scripts/kafka/schema_compat_gate.py"],
+        cwd=str(repo_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = (proc.stdout or "") + (proc.stderr or "")
+    status = "passed" if proc.returncode == 0 else "failed"
+    checked_topics = len(kafka_topic_defaults())
+    failure_count = 0 if status == "passed" else 1
+    check_id = uuid.uuid4()
+
+    with psycopg.connect(db_url()) as conn:
+        ensure_control_panel_ingestion_kafka_schema_gate_table(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO control_panel_ingestion_kafka_schema_compat_log (
+                  check_id, status, checked_topics, failure_count, summary, checked_by, checked_at
+                ) VALUES (%s::uuid, %s, %s, %s, %s, %s, now())
+                """,
+                (
+                    str(check_id),
+                    status,
+                    checked_topics,
+                    failure_count,
+                    output[:4000],
+                    str(session["user_id"]),
+                ),
+            )
+        audit_control_panel_action(
+            conn,
+            user_id=session["user_id"],
+            role=session["role"],
+            action="ingestion.kafka_schema_compat.check",
+            section="ingestion",
+            target="kafka-schema-compat-gate",
+            status="approved" if status == "passed" else "denied",
+            reason=None if status == "passed" else "schema gate failure",
+            metadata={"justification": justification, "check_id": str(check_id), "status": status},
+        )
+        conn.commit()
+
+    if status != "passed":
+        raise HTTPException(status_code=409, detail=f"schema compatibility failed (check_id={check_id})")
+    return {"status": "accepted", "session": session, "result": {"check_id": str(check_id), "status": status, "checked_topics": checked_topics}}
 
 
 @app.post("/api/v1/control-panel/ingestion/raw-lake/replay-manifest")
@@ -2956,6 +3049,29 @@ def ensure_control_panel_ingestion_kafka_recovery_tables(conn: psycopg.Connectio
         )
 
 
+def ensure_control_panel_ingestion_kafka_schema_gate_table(conn: psycopg.Connection) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS control_panel_ingestion_kafka_schema_compat_log (
+              check_id UUID PRIMARY KEY,
+              status TEXT NOT NULL,
+              checked_topics INTEGER NOT NULL,
+              failure_count INTEGER NOT NULL DEFAULT 0,
+              summary TEXT,
+              checked_by TEXT NOT NULL,
+              checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_control_panel_kafka_schema_compat_checked_at
+              ON control_panel_ingestion_kafka_schema_compat_log (checked_at DESC)
+            """
+        )
+
+
 def ensure_raw_lake_replay_manifest_index_table(conn: psycopg.Connection) -> None:
     with conn.cursor() as cur:
         cur.execute(
@@ -3385,6 +3501,26 @@ def ingestion_kafka_recovery_runtime(conn: psycopg.Connection) -> dict:
     return {
         "open_lag_recovery": int(open_recovery or 0),
         "dlq_replays_24h": int(dlq_replays_24h),
+        "updated_at": updated_at.isoformat() if updated_at else None,
+    }
+
+
+def ingestion_kafka_schema_runtime(conn: psycopg.Connection) -> dict:
+    ensure_control_panel_ingestion_kafka_schema_gate_table(conn)
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+              COALESCE(MAX(status), 'unknown') FILTER (WHERE checked_at = (SELECT MAX(checked_at) FROM control_panel_ingestion_kafka_schema_compat_log)),
+              COUNT(*) FILTER (WHERE checked_at >= now() - interval '24 hours'),
+              COALESCE(MAX(checked_at), now())
+            FROM control_panel_ingestion_kafka_schema_compat_log
+            """
+        )
+        last_status, checks_24h, updated_at = cur.fetchone()
+    return {
+        "last_status": str(last_status or "unknown"),
+        "checks_24h": int(checks_24h or 0),
         "updated_at": updated_at.isoformat() if updated_at else None,
     }
 

@@ -259,6 +259,20 @@ const metricOrder = [
           dlqBody.appendChild(tr);
         }
 
+        const schemaMetrics = document.getElementById("kafkaSchemaMetrics");
+        const schemaRuntime = data.kafka_schema_runtime || {};
+        schemaMetrics.innerHTML = `
+          <div class="small">Last Status: <strong>${schemaRuntime.last_status || "unknown"}</strong></div>
+          <div class="small">Checks (24h): <strong>${fmt(schemaRuntime.checks_24h)}</strong></div>
+        `;
+        const schemaBody = document.querySelector("#kafkaSchemaCompatTable tbody");
+        schemaBody.innerHTML = "";
+        for (const row of tableSlice(data.kafka_schema_compat_recent || [], 30)) {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `<td title="${row.check_id}">${row.check_id.slice(0, 8)}</td><td>${row.status}</td><td>${fmt(row.checked_topics)}</td><td>${fmt(row.failure_count)}</td><td>${row.checked_by}</td><td>${row.checked_at || "-"}</td>`;
+          schemaBody.appendChild(tr);
+        }
+
         const retentionBody = document.querySelector("#retentionPolicyTable tbody");
         retentionBody.innerHTML = "";
         for (const row of tableSlice(data.raw_lake_retention_policies || [], 20)) {
@@ -506,6 +520,27 @@ const metricOrder = [
           return;
         }
         out.textContent = `Queued replay=${(data.result?.replay_id || "-").slice(0, 8)} source=${data.result?.source_topic || "-"} mode=${data.result?.replay_mode || "-"}`;
+        await loadIngestion();
+      }
+
+      async function submitKafkaSchemaCompatCheck() {
+        const payload = {
+          justification: document.getElementById("ksJustification").value.trim(),
+        };
+        const out = document.getElementById("ksResult");
+        out.textContent = "Submitting...";
+        const res = await authedFetch("/api/v1/control-panel/ingestion/kafka-schema-compat-check", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          out.textContent = `Denied/Error: ${data.detail || "unknown error"}`;
+          await loadIngestion();
+          return;
+        }
+        out.textContent = `Completed check=${(data.result?.check_id || "-").slice(0, 8)} topics=${fmt(data.result?.checked_topics || 0)} status=${data.result?.status || "-"}`;
         await loadIngestion();
       }
 
@@ -1361,6 +1396,7 @@ const metricOrder = [
       document.getElementById("kpSubmitBtn").addEventListener("click", () => submitKafkaTopicPolicy().catch(console.error));
       document.getElementById("klSubmitBtn").addEventListener("click", () => submitKafkaLagRecovery().catch(console.error));
       document.getElementById("kdSubmitBtn").addEventListener("click", () => submitKafkaDeadLetterReplay().catch(console.error));
+      document.getElementById("ksSubmitBtn").addEventListener("click", () => submitKafkaSchemaCompatCheck().catch(console.error));
       document.getElementById("rmBuildBtn").addEventListener("click", () => buildReplayManifest().catch(console.error));
       document.getElementById("rtSubmitBtn").addEventListener("click", () => submitRawLakeRetentionPolicy().catch(console.error));
       document.getElementById("rdSubmitBtn").addEventListener("click", () => submitRawLakeRestoreDrill().catch(console.error));
