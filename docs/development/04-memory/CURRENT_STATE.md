@@ -13,6 +13,9 @@ Last updated: 2026-05-03
 
 ### Recent
 
+- Completed `DEV-00125` control-panel raw-lake module companion scope:
+  - consolidated partition browser, replay manifest controls, and retention controls under ingestion workspace,
+  - formalized unified module contract and dedicated verification gate (`test-dev-0125`).
 - Completed `DEV-00076` Kafka schema compatibility CI gate contract:
   - executable schema compatibility gate across all runtime topics in `infra/kafka/topics.csv`,
   - control-panel schema gate trigger and recent-check visibility in ingestion workspace,

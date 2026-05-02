@@ -1944,3 +1944,21 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap`
 - Next recommended action:
   - execute `DEV-00125` control-panel raw-lake module companion scope.
+
+---
+
+## 2026-05-03 — Session Entry 037
+
+- Objective:
+  - execute `DEV-00125` control-panel P0 raw-lake module companion scope.
+- Work completed:
+  - validated that required runtime/module capabilities from `DEV-00071/DEV-00072/DEV-00073` are present and integrated.
+  - added dedicated verification gate `tests/dev-0125/run.sh` and Make target `test-dev-0125` for unified raw-lake module contract checks.
+  - added explicit consolidation documentation in lakehouse and control-panel LLD artifacts.
+  - marked `DEV-00125` done and synchronized Kanban/current-state/where-are-we/active-focus.
+- Verification:
+  - `make test-dev-0125`
+  - `make enforce-section-5-1`
+  - `make session-bootstrap`
+- Next recommended action:
+  - execute `DEV-00126` control-panel Kafka module companion scope.

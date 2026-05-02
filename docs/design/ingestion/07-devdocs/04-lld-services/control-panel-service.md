@@ -271,6 +271,21 @@ Rollback policy:
   - `raw_lake_retention_policies`
   - `raw_lake_restore_drills`
 
+## DEV-00125 Raw Lake Module Consolidation
+
+- P0 control-panel raw-lake module is consolidated in ingestion workspace with:
+  - partition browser (`Raw Lake Object Manifest (Recent)`),
+  - replay manifest builder/index visibility (`Replay Manifest Index Builder`),
+  - retention/tiering controls (`Raw Lake Retention/Tiering Policy`).
+- Consolidated API dependencies:
+  - `GET /api/v1/control-panel/ingestion` includes:
+    - `raw_lake_manifest_recent`,
+    - `replay_manifest_recent`,
+    - `raw_lake_retention_policies`.
+  - mutation endpoints:
+    - `POST /api/v1/control-panel/ingestion/raw-lake/replay-manifest`
+    - `POST /api/v1/control-panel/ingestion/raw-lake/retention-policy`
+
 ## DEV-00074 Kafka Topic Policy Ops
 
 - Ingestion workspace now includes:

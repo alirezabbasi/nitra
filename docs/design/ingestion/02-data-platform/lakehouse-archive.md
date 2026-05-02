@@ -55,3 +55,14 @@ Archive hot-store bars into immutable Parquet objects in the lakehouse with idem
 - Control-plane mutation endpoints:
   - `POST /api/v1/control-panel/ingestion/raw-lake/retention-policy`
   - `POST /api/v1/control-panel/ingestion/raw-lake/restore-drill`
+
+## Control-Panel Raw Lake Module Consolidation (DEV-00125)
+
+- Raw-lake operator module is delivered as a unified ingestion workspace slice:
+  - partition/object browser,
+  - replay manifest selection/build controls,
+  - retention/tiering controls.
+- This module consolidates runtime contracts from:
+  - `DEV-00071` (partition/object manifest),
+  - `DEV-00072` (replay manifest/index),
+  - `DEV-00073` (retention/tiering policy).
