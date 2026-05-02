@@ -33,6 +33,9 @@ kafka-topics:
 kafka-bootstrap:
 	scripts/kafka/bootstrap-topics.sh
 
+kafka-schema-compat-gate:
+	scripts/kafka/schema_compat_gate.sh
+
 policy-check:
 	scripts/policy/check_technology_enforcement.sh
 	scripts/policy/check_contract_policy.sh
@@ -215,6 +218,9 @@ test-dev-0074:
 
 test-dev-0075:
 	tests/dev-0075/run.sh
+
+test-dev-0076:
+	tests/dev-0076/run.sh
 
 test-dev-0142:
 	tests/dev-0142/run.sh
