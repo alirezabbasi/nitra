@@ -3970,6 +3970,13 @@ def timeframe_bucket_start(ts: datetime, tf_minutes: int) -> datetime:
     return datetime.fromtimestamp(bucket, tz=timezone.utc)
 
 
+def timeframe_bucket_start_seconds(ts: datetime, tf_seconds: int) -> datetime:
+    ts_epoch = int(ts.astimezone(timezone.utc).replace(microsecond=0).timestamp())
+    bucket_seconds = max(1, tf_seconds)
+    bucket = (ts_epoch // bucket_seconds) * bucket_seconds
+    return datetime.fromtimestamp(bucket, tz=timezone.utc)
+
+
 def aggregate_1m_rows(rows: list[tuple], tf_minutes: int) -> list[tuple]:
     if tf_minutes <= 1:
         return rows
@@ -5275,7 +5282,7 @@ def start_ingestion(
 @app.get("/api/v1/markets/available")
 def markets_available(timeframe: str = Query(default=DEFAULT_TIMEFRAME, min_length=1, max_length=16)) -> dict:
     tf = timeframe.strip().lower()
-    tf_minutes = timeframe_minutes(tf)
+    tf_seconds = timeframe_seconds(tf)
     query = """
     WITH bars AS (
       SELECT
@@ -5317,13 +5324,13 @@ def markets_available(timeframe: str = Query(default=DEFAULT_TIMEFRAME, min_leng
 
     markets = []
     for venue, symbol, last_bar_ts, bar_count, ingest_enabled, asset_class in rows:
-        if tf_minutes <= 1:
+        if tf_seconds <= CANONICAL_BAR_SECONDS:
             derived_count = int(bar_count)
             derived_ts = last_bar_ts
         else:
             raw_count = int(bar_count)
-            derived_count = 0 if raw_count <= 0 else max(1, (raw_count + tf_minutes - 1) // tf_minutes)
-            derived_ts = timeframe_bucket_start(last_bar_ts, tf_minutes) if last_bar_ts else None
+            derived_count = 0 if raw_count <= 0 else max(1, (raw_count + tf_seconds - 1) // tf_seconds)
+            derived_ts = timeframe_bucket_start_seconds(last_bar_ts, tf_seconds) if last_bar_ts else None
         markets.append(
             {
                 "venue": venue,
@@ -5347,7 +5354,7 @@ def bars_hot(
     limit: int = Query(default=DEFAULT_LIMIT, ge=10, le=3000),
 ) -> dict:
     tf = timeframe.strip().lower()
-    tf_minutes = timeframe_minutes(tf)
+    tf_seconds = timeframe_seconds(tf)
     base_query = """
     SELECT
       bucket_start,
@@ -5368,15 +5375,16 @@ def bars_hot(
     rows: list[tuple]
     with psycopg.connect(db_url()) as conn:
         with conn.cursor() as cur:
-            if tf_minutes <= 1:
-                cur.execute(base_query, (venue, symbol, "10s", limit))
+            if tf_seconds <= CANONICAL_BAR_SECONDS:
+                cur.execute(base_query, (venue, symbol, CANONICAL_BAR_TIMEFRAME, limit))
                 rows = cur.fetchall()
             else:
-                raw_limit = min(200_000, (limit * tf_minutes) + (tf_minutes * 2))
-                cur.execute(base_query, (venue, symbol, "10s", raw_limit))
+                ratio = max(1, tf_seconds // CANONICAL_BAR_SECONDS)
+                raw_limit = min(300_000, (limit * ratio) + (ratio * 2))
+                cur.execute(base_query, (venue, symbol, CANONICAL_BAR_TIMEFRAME, raw_limit))
                 raw_rows_desc = cur.fetchall()
                 raw_rows_asc = list(reversed(raw_rows_desc))
-                rows = list(reversed(aggregate_1m_rows(raw_rows_asc, tf_minutes)[-limit:]))
+                rows = list(reversed(aggregate_base_rows(raw_rows_asc, tf_seconds)[-limit:]))
 
     bars = _rows_to_bars(rows)
 
@@ -5492,7 +5500,7 @@ def bars_history(
 ) -> dict:
     before_dt = datetime.fromtimestamp(before_s, tz=timezone.utc)
     tf = timeframe.strip().lower()
-    tf_minutes = timeframe_minutes(tf)
+    tf_seconds = timeframe_seconds(tf)
     base_query = """
     SELECT
       bucket_start,
@@ -5515,17 +5523,18 @@ def bars_history(
     has_more: bool
     with psycopg.connect(db_url()) as conn:
         with conn.cursor() as cur:
-            if tf_minutes <= 1:
-                cur.execute(base_query, (venue, symbol, "10s", before_dt, limit + 1))
+            if tf_seconds <= CANONICAL_BAR_SECONDS:
+                cur.execute(base_query, (venue, symbol, CANONICAL_BAR_TIMEFRAME, before_dt, limit + 1))
                 rows = cur.fetchall()
                 has_more = len(rows) > limit
                 rows = rows[:limit]
             else:
-                raw_limit = min(200_000, ((limit + 1) * tf_minutes) + (tf_minutes * 2))
-                cur.execute(base_query, (venue, symbol, "10s", before_dt, raw_limit))
+                ratio = max(1, tf_seconds // CANONICAL_BAR_SECONDS)
+                raw_limit = min(300_000, ((limit + 1) * ratio) + (ratio * 2))
+                cur.execute(base_query, (venue, symbol, CANONICAL_BAR_TIMEFRAME, before_dt, raw_limit))
                 raw_rows_desc = cur.fetchall()
                 raw_rows_asc = list(reversed(raw_rows_desc))
-                aggregated = aggregate_1m_rows(raw_rows_asc, tf_minutes)
+                aggregated = aggregate_base_rows(raw_rows_asc, tf_seconds)
                 has_more = len(aggregated) > limit
                 selected = aggregated[-limit:]
                 rows = list(reversed(selected))

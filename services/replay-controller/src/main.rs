@@ -390,7 +390,7 @@ async fn fetch_coinbase_history_bars(
                     .first()
                     .and_then(|v| v.as_i64())
                     .and_then(|secs| DateTime::from_timestamp(secs, 0))
-                    .map(minute_bucket);
+                    .map(ten_second_bucket);
                 let low = values.get(1).and_then(|v| v.as_f64());
                 let high = values.get(2).and_then(|v| v.as_f64());
                 let open = values.get(3).and_then(|v| v.as_f64());
@@ -474,7 +474,7 @@ async fn fetch_coinbase_history_bars(
             .and_then(|v| v.as_str())
             .and_then(|v| v.parse::<i64>().ok())
             .and_then(|secs| DateTime::from_timestamp(secs, 0))
-            .map(minute_bucket);
+            .map(ten_second_bucket);
         let open = obj
             .get("open")
             .and_then(|v| v.as_str())
