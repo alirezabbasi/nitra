@@ -225,6 +225,9 @@ test-dev-0076:
 test-dev-0077:
 	tests/dev-0077/run.sh
 
+test-dev-0078:
+	tests/dev-0078/run.sh
+
 test-dev-0125:
 	tests/dev-0125/run.sh
 

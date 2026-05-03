@@ -91,3 +91,25 @@
 - Replay-safe re-ingest flow:
   - reingested messages are marked resolved when `headers.quarantine_reingest=true` and normalization succeeds.
   - resolution state transitions to `reingested` with timestamped evidence.
+
+## Sequence/Order Integrity Verifier (DEV-00078)
+
+- `market-normalization` must persist deterministic sequence/order integrity verdicts for every normalized event.
+- Integrity evidence contract:
+  - table: `normalization_sequence_integrity_event`
+  - deterministic key: `(source_topic, source_partition, source_offset)`
+  - source-sequence fields copied from `raw_message_capture`:
+    - `source_sequence_id`
+    - `source_sequence_numeric`
+    - `source_sequence_status`
+    - `source_sequence_gap`
+  - normalized-order fields:
+    - `normalized_event_ts_received`
+    - `previous_normalized_event_ts_received`
+    - `normalized_order_status` (`initial|ordered|same_ts|retrograde`)
+- Integrity verdict contract:
+  - `integrity_status`:
+    - `pass` when source sequence and normalized order are consistent,
+    - `warn` when source sequence is unavailable but normalized order is still tracked,
+    - `fail` on source sequence anomalies (`gap|out_of_order|duplicate`) or retrograde normalized ordering.
+  - `integrity_reason` stores deterministic human-readable verdict rationale per event.

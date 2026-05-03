@@ -2001,3 +2001,27 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap`
 - Next recommended action:
   - execute `DEV-00078` normalization/replay sequence/order integrity verifier.
+
+---
+
+## 2026-05-03 — Session Entry 040
+
+- Objective:
+  - execute `DEV-00078` normalization/replay sequence/order integrity verifier across venue streams and normalized outputs.
+- Work completed:
+  - added deterministic sequence/order integrity contract to `market-normalization` with persisted verifier function `persist_normalization_sequence_integrity_event`.
+  - added evidence table contract `normalization_sequence_integrity_event` with deterministic source identity (`source_topic/source_partition/source_offset`) and per-event verdict fields.
+  - added source-sequence + normalized-order verdict taxonomy:
+    - source anomaly fail: `gap|out_of_order|duplicate`
+    - normalized-order fail: `retrograde`
+    - sequence-unavailable warn and normal pass states.
+  - added schema migration `infra/timescaledb/init/027_normalization_sequence_integrity_event.sql`.
+  - added verification gate `tests/dev-0078/run.sh` and `make test-dev-0078` target.
+  - updated stream reliability docs, ticket status, and execution memory/Kanban focus to next sequence (`DEV-00079`).
+- Verification:
+  - `cargo check --manifest-path services/market-normalization/Cargo.toml`
+  - `make test-dev-0078`
+  - `make enforce-section-5-1`
+  - `make session-bootstrap`
+- Next recommended action:
+  - execute `DEV-00079` normalization/replay 90-day startup-coverage conformance harness.

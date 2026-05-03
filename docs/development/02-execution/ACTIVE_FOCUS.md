@@ -13,5 +13,5 @@ Execute the deterministic-first Section 5 completion plan in strict priority ord
 
 ## Immediate next slices
 
-1. Continue P1 sequence with `DEV-00078`.
-2. Then progress through remaining raw-lake/Kafka tickets with control-panel companions.
+1. Continue P1 sequence with `DEV-00079`.
+2. Then execute `DEV-00144` and `DEV-00145` before `DEV-00127` control-panel companion closeout.

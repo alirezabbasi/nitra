@@ -481,6 +481,56 @@ async fn ensure_normalization_quarantine_table(conn: &Client) -> Result<(), toki
     Ok(())
 }
 
+async fn ensure_normalization_sequence_integrity_table(
+    conn: &Client,
+) -> Result<(), tokio_postgres::Error> {
+    conn.execute(
+        "
+        CREATE TABLE IF NOT EXISTS normalization_sequence_integrity_event (
+          integrity_id UUID PRIMARY KEY,
+          service_name TEXT NOT NULL,
+          source_topic TEXT NOT NULL,
+          source_partition INTEGER NOT NULL,
+          source_offset BIGINT NOT NULL,
+          message_id UUID NOT NULL,
+          venue TEXT NOT NULL,
+          broker_symbol TEXT NOT NULL,
+          canonical_symbol TEXT NOT NULL,
+          source_sequence_id TEXT,
+          source_sequence_numeric BIGINT,
+          source_sequence_status TEXT NOT NULL,
+          source_sequence_gap BIGINT,
+          normalized_event_ts_received TIMESTAMPTZ NOT NULL,
+          previous_normalized_event_ts_received TIMESTAMPTZ,
+          normalized_order_status TEXT NOT NULL,
+          integrity_status TEXT NOT NULL,
+          integrity_reason TEXT NOT NULL,
+          observed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          UNIQUE (source_topic, source_partition, source_offset)
+        )
+        ",
+        &[],
+    )
+    .await?;
+    conn.execute(
+        "
+        CREATE INDEX IF NOT EXISTS idx_norm_seq_integrity_symbol_seen
+          ON normalization_sequence_integrity_event (venue, broker_symbol, observed_at DESC)
+        ",
+        &[],
+    )
+    .await?;
+    conn.execute(
+        "
+        CREATE INDEX IF NOT EXISTS idx_norm_seq_integrity_status_seen
+          ON normalization_sequence_integrity_event (integrity_status, observed_at DESC)
+        ",
+        &[],
+    )
+    .await?;
+    Ok(())
+}
+
 fn quarantine_hash(source_topic: &str, source_partition: i32, source_offset: i64, raw_message: &str) -> String {
     let mut input = String::new();
     let _ = write!(
@@ -710,6 +760,148 @@ async fn persist_raw_message_capture(
     Ok(())
 }
 
+async fn persist_normalization_sequence_integrity_event(
+    conn: &Client,
+    service_name: &str,
+    source_topic: &str,
+    source_partition: i32,
+    source_offset: i64,
+    message_id: Uuid,
+    raw_event: &Value,
+    registry: &HashMap<(String, String), String>,
+) -> Result<(), tokio_postgres::Error> {
+    let venue = raw_event
+        .get("venue")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
+    let broker_symbol = raw_event
+        .get("broker_symbol")
+        .and_then(|v| v.as_str())
+        .unwrap_or("UNKNOWN");
+    let canonical_symbol = canonical_from_registry_or_fallback(registry, venue, broker_symbol);
+    let normalized_event_ts_received =
+        parse_ts(raw_event.get("event_ts_received").and_then(|v| v.as_str()));
+
+    let source_row = conn
+        .query_opt(
+            "
+            SELECT sequence_id, sequence_numeric, sequence_status, sequence_gap
+            FROM raw_message_capture
+            WHERE source_topic = $1
+              AND source_partition = $2
+              AND source_offset = $3
+            ",
+            &[&source_topic, &source_partition, &source_offset],
+        )
+        .await?;
+
+    let source_sequence_id = source_row
+        .as_ref()
+        .and_then(|row| row.get::<usize, Option<String>>(0));
+    let source_sequence_numeric = source_row
+        .as_ref()
+        .and_then(|row| row.get::<usize, Option<i64>>(1));
+    let source_sequence_status = source_row
+        .as_ref()
+        .map(|row| row.get::<usize, String>(2))
+        .unwrap_or_else(|| "unavailable".to_string());
+    let source_sequence_gap = source_row
+        .as_ref()
+        .and_then(|row| row.get::<usize, Option<i64>>(3));
+
+    let previous_normalized_event_ts_received: Option<DateTime<Utc>> = conn
+        .query_opt(
+            "
+            SELECT normalized_event_ts_received
+            FROM normalization_sequence_integrity_event
+            WHERE venue = $1
+              AND broker_symbol = $2
+            ORDER BY observed_at DESC
+            LIMIT 1
+            ",
+            &[&venue, &broker_symbol],
+        )
+        .await?
+        .and_then(|row| row.get::<usize, Option<DateTime<Utc>>>(0));
+
+    let normalized_order_status = match previous_normalized_event_ts_received {
+        Some(prev) if normalized_event_ts_received < prev => "retrograde",
+        Some(prev) if normalized_event_ts_received == prev => "same_ts",
+        Some(_) => "ordered",
+        None => "initial",
+    };
+
+    let (integrity_status, integrity_reason) = if matches!(
+        source_sequence_status.as_str(),
+        "gap" | "out_of_order" | "duplicate"
+    ) {
+        (
+            "fail".to_string(),
+            format!(
+                "source sequence anomaly detected: {}",
+                source_sequence_status
+            ),
+        )
+    } else if normalized_order_status == "retrograde" {
+        (
+            "fail".to_string(),
+            "normalized event_ts_received moved backwards".to_string(),
+        )
+    } else if source_sequence_status == "unavailable" {
+        (
+            "warn".to_string(),
+            "source sequence unavailable; normalized order only".to_string(),
+        )
+    } else {
+        (
+            "pass".to_string(),
+            "source sequence and normalized order are consistent".to_string(),
+        )
+    };
+
+    conn.execute(
+        "
+        INSERT INTO normalization_sequence_integrity_event (
+          integrity_id, service_name, source_topic, source_partition, source_offset,
+          message_id, venue, broker_symbol, canonical_symbol, source_sequence_id,
+          source_sequence_numeric, source_sequence_status, source_sequence_gap,
+          normalized_event_ts_received, previous_normalized_event_ts_received,
+          normalized_order_status, integrity_status, integrity_reason
+        ) VALUES (
+          $1::uuid, $2, $3, $4, $5,
+          $6::uuid, $7, $8, $9, $10,
+          $11, $12, $13,
+          $14, $15,
+          $16, $17, $18
+        )
+        ON CONFLICT (source_topic, source_partition, source_offset) DO NOTHING
+        ",
+        &[
+            &Uuid::new_v4(),
+            &service_name,
+            &source_topic,
+            &source_partition,
+            &source_offset,
+            &message_id,
+            &venue,
+            &broker_symbol,
+            &canonical_symbol,
+            &source_sequence_id,
+            &source_sequence_numeric,
+            &source_sequence_status,
+            &source_sequence_gap,
+            &normalized_event_ts_received,
+            &previous_normalized_event_ts_received,
+            &normalized_order_status,
+            &integrity_status,
+            &integrity_reason,
+        ],
+    )
+    .await?;
+
+    Ok(())
+}
+
 async fn persist_raw_lake_manifest_projection(
     conn: &Client,
     source_topic: &str,
@@ -871,6 +1063,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ensure_raw_capture_tables(&conn).await?;
     ensure_raw_lake_manifest_table(&conn).await?;
     ensure_normalization_quarantine_table(&conn).await?;
+    ensure_normalization_sequence_integrity_table(&conn).await?;
 
     let consumer: StreamConsumer = ClientConfig::new()
         .set("bootstrap.servers", &brokers)
@@ -999,6 +1192,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .await?;
         publish_normalized(&producer, &output_topic, &raw_event, &registry).await?;
+        persist_normalization_sequence_integrity_event(
+            &conn,
+            service_name,
+            &source_topic,
+            source_partition,
+            source_offset,
+            message_id,
+            &raw_event,
+            &registry,
+        )
+        .await?;
         record_message_processed(
             &conn,
             service_name,

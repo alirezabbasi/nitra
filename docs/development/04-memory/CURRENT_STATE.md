@@ -13,6 +13,9 @@ Last updated: 2026-05-03
 
 ### Recent
 
+- Completed `DEV-00078` normalization/replay sequence/order integrity verifier:
+  - persisted per-event source-sequence + normalized-order integrity evidence in `normalization_sequence_integrity_event`,
+  - deterministic verdict taxonomy (`pass|warn|fail`) with explicit anomaly rationale for source-sequence and retrograde-order failures.
 - Completed `DEV-00077` normalization/replay deterministic quarantine pipeline:
   - malformed envelopes/events are persisted to deterministic quarantine evidence table with reason taxonomy,
   - replay-safe re-ingest flow marks quarantined events as `reingested` on successful recovery processing.
