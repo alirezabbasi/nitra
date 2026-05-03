@@ -124,6 +124,8 @@ COINBASE profile:
 - `NORMALIZER_GROUP_ID` default `nitra-market-normalization-v1`
 - `NORMALIZER_SYMBOL_REGISTRY_PATH` default `/app/ingestion/registry.v1.json`
 - `DATABASE_URL` required (compose sets from `POSTGRES_*`)
+- Re-ingest resolution header contract:
+  - `headers.quarantine_reingest=true` marks matching quarantined source event as `reingested` after successful deterministic processing.
 
 ## bar-aggregation
 

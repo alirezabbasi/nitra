@@ -74,3 +74,20 @@
 - Kafka recovery/replay/schema controls are exposed as one operator module in control panel ingestion workspace.
 - Module-level closeout verification target:
   - `make test-dev-0126`.
+
+## Deterministic Quarantine Pipeline (DEV-00077)
+
+- `market-normalization` must quarantine malformed or schema-invalid inbound envelopes/events instead of silently dropping them.
+- Quarantine evidence contract:
+  - table: `normalization_quarantine_event`
+  - deterministic key: `(source_topic, source_partition, source_offset)`
+  - reason taxonomy examples:
+    - `invalid_envelope_json`
+    - `invalid_envelope_payload`
+    - `missing_venue`
+    - `missing_broker_symbol`
+    - `invalid_event_ts_received`
+    - `malformed_market_payload`
+- Replay-safe re-ingest flow:
+  - reingested messages are marked resolved when `headers.quarantine_reingest=true` and normalization succeeds.
+  - resolution state transitions to `reingested` with timestamped evidence.

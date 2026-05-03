@@ -13,6 +13,9 @@ Last updated: 2026-05-03
 
 ### Recent
 
+- Completed `DEV-00077` normalization/replay deterministic quarantine pipeline:
+  - malformed envelopes/events are persisted to deterministic quarantine evidence table with reason taxonomy,
+  - replay-safe re-ingest flow marks quarantined events as `reingested` on successful recovery processing.
 - Completed `DEV-00126` control-panel Kafka module companion scope:
   - consolidated topic SLO/partition-retention controls, lag-recovery controls, dead-letter replay controls, and schema-gate controls under ingestion workspace,
   - formalized unified module contract and dedicated verification gate (`test-dev-0126`).

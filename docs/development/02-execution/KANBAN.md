@@ -15,7 +15,7 @@ Last updated: 2026-05-03
 
 ### Priority 1 — Deterministic Market Data Foundation
 
-- [ ] `DEV-00077` Normalization/Replay - deterministic quarantine pipeline for malformed events with replay-safe re-ingest flow.
+- [x] `DEV-00077` Normalization/Replay - deterministic quarantine pipeline for malformed events with replay-safe re-ingest flow.
 - [ ] `DEV-00078` Normalization/Replay - sequence/order integrity verifier across venue streams and normalized outputs.
 - [ ] `DEV-00079` Normalization/Replay - full 90-day startup-coverage conformance harness with venue-session edge-case fixtures.
 - [ ] `DEV-00144` Normalization/Replay - canonical validation suite (tick/trade/order-book validators and deterministic reject taxonomy).

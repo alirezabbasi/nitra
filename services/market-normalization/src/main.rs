@@ -82,6 +82,17 @@ fn parse_ts(value: Option<&str>) -> DateTime<Utc> {
     Utc::now()
 }
 
+fn try_parse_ts(value: Option<&str>) -> Option<DateTime<Utc>> {
+    let raw = value?;
+    if let Ok(parsed) = DateTime::parse_from_rfc3339(raw) {
+        return Some(parsed.with_timezone(&Utc));
+    }
+    if let Ok(parsed) = DateTime::parse_from_rfc3339(&raw.replace('Z', "+00:00")) {
+        return Some(parsed.with_timezone(&Utc));
+    }
+    None
+}
+
 fn sequence_to_numeric(raw: &str) -> Option<i64> {
     let mut digits = String::new();
     for ch in raw.chars().rev() {
@@ -431,6 +442,182 @@ async fn ensure_raw_lake_manifest_table(conn: &Client) -> Result<(), tokio_postg
     Ok(())
 }
 
+async fn ensure_normalization_quarantine_table(conn: &Client) -> Result<(), tokio_postgres::Error> {
+    conn.execute(
+        "
+        CREATE TABLE IF NOT EXISTS normalization_quarantine_event (
+          quarantine_id UUID PRIMARY KEY,
+          service_name TEXT NOT NULL,
+          source_topic TEXT NOT NULL,
+          source_partition INTEGER NOT NULL,
+          source_offset BIGINT NOT NULL,
+          message_id UUID,
+          reason_code TEXT NOT NULL,
+          reason_detail TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'quarantined',
+          raw_message_text TEXT NOT NULL,
+          raw_message_json JSONB,
+          raw_payload_json JSONB,
+          quarantine_hash TEXT NOT NULL,
+          replay_attempt_count INTEGER NOT NULL DEFAULT 0,
+          first_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          last_seen_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          resolved_at TIMESTAMPTZ,
+          resolution_note TEXT,
+          UNIQUE (source_topic, source_partition, source_offset)
+        )
+        ",
+        &[],
+    )
+    .await?;
+    conn.execute(
+        "
+        CREATE INDEX IF NOT EXISTS idx_normalization_quarantine_status_seen
+          ON normalization_quarantine_event (status, last_seen_at DESC)
+        ",
+        &[],
+    )
+    .await?;
+    Ok(())
+}
+
+fn quarantine_hash(source_topic: &str, source_partition: i32, source_offset: i64, raw_message: &str) -> String {
+    let mut input = String::new();
+    let _ = write!(
+        &mut input,
+        "{}:{}:{}:{}",
+        source_topic, source_partition, source_offset, raw_message
+    );
+    format!("{:x}", md5::compute(input))
+}
+
+async fn persist_quarantine_event(
+    conn: &Client,
+    service_name: &str,
+    source_topic: &str,
+    source_partition: i32,
+    source_offset: i64,
+    message_id: Option<Uuid>,
+    reason_code: &str,
+    reason_detail: &str,
+    raw_message_text: &str,
+    raw_message_json: Option<&Value>,
+    raw_payload_json: Option<&Value>,
+) -> Result<(), tokio_postgres::Error> {
+    let hash = quarantine_hash(source_topic, source_partition, source_offset, raw_message_text);
+    conn.execute(
+        "
+        INSERT INTO normalization_quarantine_event (
+          quarantine_id, service_name, source_topic, source_partition, source_offset,
+          message_id, reason_code, reason_detail, status, raw_message_text, raw_message_json,
+          raw_payload_json, quarantine_hash, replay_attempt_count, first_seen_at, last_seen_at
+        ) VALUES (
+          $1::uuid, $2, $3, $4, $5, $6::uuid, $7, $8, 'quarantined', $9, $10::jsonb, $11::jsonb, $12, 0, now(), now()
+        )
+        ON CONFLICT (source_topic, source_partition, source_offset) DO UPDATE
+        SET reason_code = EXCLUDED.reason_code,
+            reason_detail = EXCLUDED.reason_detail,
+            status = 'quarantined',
+            raw_message_text = EXCLUDED.raw_message_text,
+            raw_message_json = EXCLUDED.raw_message_json,
+            raw_payload_json = EXCLUDED.raw_payload_json,
+            quarantine_hash = EXCLUDED.quarantine_hash,
+            last_seen_at = now(),
+            replay_attempt_count = normalization_quarantine_event.replay_attempt_count + 1
+        ",
+        &[
+            &Uuid::new_v4(),
+            &service_name,
+            &source_topic,
+            &source_partition,
+            &source_offset,
+            &message_id,
+            &reason_code,
+            &reason_detail,
+            &raw_message_text,
+            &raw_message_json.cloned(),
+            &raw_payload_json.cloned(),
+            &hash,
+        ],
+    )
+    .await?;
+    Ok(())
+}
+
+async fn resolve_quarantine_event_if_reingest(
+    conn: &Client,
+    source_topic: &str,
+    source_partition: i32,
+    source_offset: i64,
+    source_headers: Option<&Value>,
+) -> Result<(), tokio_postgres::Error> {
+    let is_reingest = source_headers
+        .and_then(|v| v.get("quarantine_reingest"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if !is_reingest {
+        return Ok(());
+    }
+    conn.execute(
+        "
+        UPDATE normalization_quarantine_event
+        SET status = 'reingested',
+            resolved_at = now(),
+            resolution_note = 're-ingest succeeded via replay-safe path',
+            last_seen_at = now()
+        WHERE source_topic = $1
+          AND source_partition = $2
+          AND source_offset = $3
+        ",
+        &[&source_topic, &source_partition, &source_offset],
+    )
+    .await?;
+    Ok(())
+}
+
+fn validate_raw_event(raw_event: &Value) -> Result<(), (String, String)> {
+    let Some(venue) = raw_event.get("venue").and_then(|v| v.as_str()) else {
+        return Err(("missing_venue".to_string(), "payload.venue is required".to_string()));
+    };
+    if venue.trim().is_empty() {
+        return Err(("missing_venue".to_string(), "payload.venue must be non-empty".to_string()));
+    }
+    let Some(symbol) = raw_event.get("broker_symbol").and_then(|v| v.as_str()) else {
+        return Err((
+            "missing_broker_symbol".to_string(),
+            "payload.broker_symbol is required".to_string(),
+        ));
+    };
+    if symbol.trim().is_empty() {
+        return Err((
+            "missing_broker_symbol".to_string(),
+            "payload.broker_symbol must be non-empty".to_string(),
+        ));
+    }
+    if try_parse_ts(raw_event.get("event_ts_received").and_then(|v| v.as_str())).is_none() {
+        return Err((
+            "invalid_event_ts_received".to_string(),
+            "payload.event_ts_received must be RFC3339".to_string(),
+        ));
+    }
+    let payload = raw_event.get("payload").unwrap_or(&Value::Null);
+    if !payload.is_object() {
+        return Err(("invalid_payload".to_string(), "payload.payload must be object".to_string()));
+    }
+    let recognized = payload.get("bid").is_some()
+        || payload.get("ask").is_some()
+        || (payload.get("price").is_some() && payload.get("size").is_some())
+        || payload.get("best_bid").is_some()
+        || payload.get("best_ask").is_some();
+    if !recognized {
+        return Err((
+            "malformed_market_payload".to_string(),
+            "payload lacks quote/trade/book fields".to_string(),
+        ));
+    }
+    Ok(())
+}
+
 async fn persist_raw_message_capture(
     conn: &Client,
     service_name: &str,
@@ -683,6 +870,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
     ensure_raw_capture_tables(&conn).await?;
     ensure_raw_lake_manifest_table(&conn).await?;
+    ensure_normalization_quarantine_table(&conn).await?;
 
     let consumer: StreamConsumer = ClientConfig::new()
         .set("bootstrap.servers", &brokers)
@@ -714,12 +902,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let source_offset = msg.offset();
 
         let Some((outer_raw, outer)) = message_payload_json(&msg) else {
+            persist_quarantine_event(
+                &conn,
+                service_name,
+                &source_topic,
+                source_partition,
+                source_offset,
+                None,
+                "invalid_envelope_json",
+                "failed to parse kafka payload as json envelope",
+                msg.payload_view::<str>().and_then(|v| v.ok()).unwrap_or("<non-utf8>"),
+                None,
+                None,
+            )
+            .await?;
             consumer.commit_message(&msg, CommitMode::Sync)?;
             continue;
         };
 
         let raw_event = outer.get("payload").cloned().unwrap_or(Value::Null);
         if !raw_event.is_object() {
+            let message_id = outer
+                .get("message_id")
+                .and_then(|v| v.as_str())
+                .and_then(|s| Uuid::parse_str(s).ok());
+            persist_quarantine_event(
+                &conn,
+                service_name,
+                &source_topic,
+                source_partition,
+                source_offset,
+                message_id,
+                "invalid_envelope_payload",
+                "envelope.payload must be object",
+                &outer_raw,
+                Some(&outer),
+                None,
+            )
+            .await?;
             consumer.commit_message(&msg, CommitMode::Sync)?;
             continue;
         }
@@ -729,6 +949,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             .and_then(|v| v.as_str())
             .and_then(|s| Uuid::parse_str(s).ok())
             .unwrap_or_else(Uuid::new_v4);
+
+        if let Err((reason_code, reason_detail)) = validate_raw_event(&raw_event) {
+            persist_quarantine_event(
+                &conn,
+                service_name,
+                &source_topic,
+                source_partition,
+                source_offset,
+                Some(message_id),
+                &reason_code,
+                &reason_detail,
+                &outer_raw,
+                Some(&outer),
+                raw_event.get("payload"),
+            )
+            .await?;
+            consumer.commit_message(&msg, CommitMode::Sync)?;
+            continue;
+        }
 
         if is_message_processed(&conn, service_name, message_id).await? {
             consumer.commit_message(&msg, CommitMode::Sync)?;
@@ -767,6 +1006,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &source_topic,
             source_partition,
             source_offset,
+        )
+        .await?;
+        resolve_quarantine_event_if_reingest(
+            &conn,
+            &source_topic,
+            source_partition,
+            source_offset,
+            outer.get("headers"),
         )
         .await?;
 

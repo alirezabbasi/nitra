@@ -1981,3 +1981,23 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap`
 - Next recommended action:
   - execute `DEV-00077` normalization/replay deterministic quarantine pipeline.
+
+---
+
+## 2026-05-03 — Session Entry 039
+
+- Objective:
+  - execute `DEV-00077` normalization/replay deterministic quarantine pipeline for malformed events with replay-safe re-ingest flow.
+- Work completed:
+  - added deterministic quarantine contract to `market-normalization` for malformed envelopes/events with explicit reason taxonomy.
+  - added persisted evidence table contract `normalization_quarantine_event` with deterministic source-key uniqueness and status lifecycle.
+  - added replay-safe re-ingest resolution behavior (`headers.quarantine_reingest=true` -> status `reingested` on successful processing).
+  - added schema migration `infra/timescaledb/init/026_normalization_quarantine_event.sql`.
+  - added verification gate `tests/dev-0077/run.sh` and `make test-dev-0077` target.
+  - updated stream reliability and ingestion env docs, ticket status, and memory/Kanban focus state.
+- Verification:
+  - `make test-dev-0077`
+  - `make enforce-section-5-1`
+  - `make session-bootstrap`
+- Next recommended action:
+  - execute `DEV-00078` normalization/replay sequence/order integrity verifier.
