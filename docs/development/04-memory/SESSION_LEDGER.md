@@ -2025,3 +2025,26 @@ Append one entry at the end of each substantial session.
   - `make session-bootstrap`
 - Next recommended action:
   - execute `DEV-00079` normalization/replay 90-day startup-coverage conformance harness.
+
+---
+
+## 2026-05-03 — Session Entry 041
+
+- Objective:
+  - execute `DEV-00079` normalization/replay full 90-day startup-coverage conformance harness with venue-session edge-case fixtures.
+- Work completed:
+  - implemented policy-aware missing-range harness in `gap-detection` startup/periodic coverage scans.
+  - added venue-session coverage policy contract for FX weekend closure vs crypto `24/7` expectation.
+  - wired gap-detection scanner to `FX_WEEKEND_*` env policy for deterministic expected-bucket evaluation.
+  - added fixture-backed edge-case tests in `services/gap-detection/src/main.rs`:
+    - `fx_weekend_edge_case_is_excluded_from_gap_expectations`
+    - `crypto_weekend_edge_case_is_still_required_coverage`
+  - added verification gate `tests/dev-0079/run.sh` and `make test-dev-0079` target.
+  - updated stream reliability/env docs plus ticket/Kanban/active-focus/current-state/where-are-we.
+- Verification:
+  - `cargo check --manifest-path services/gap-detection/Cargo.toml`
+  - `make test-dev-0079`
+  - `make enforce-section-5-1`
+  - `make session-bootstrap`
+- Next recommended action:
+  - execute `DEV-00144` normalization/replay canonical validation suite.

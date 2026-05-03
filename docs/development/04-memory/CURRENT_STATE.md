@@ -13,6 +13,9 @@ Last updated: 2026-05-03
 
 ### Recent
 
+- Completed `DEV-00079` normalization/replay 90-day startup-coverage conformance harness:
+  - gap-detection coverage scanner now applies venue-session policy during 90-day expected-bucket evaluation,
+  - fixture-backed edge-case tests enforce FX weekend exclusion vs crypto 24/7 weekend coverage requirements.
 - Completed `DEV-00078` normalization/replay sequence/order integrity verifier:
   - persisted per-event source-sequence + normalized-order integrity evidence in `normalization_sequence_integrity_event`,
   - deterministic verdict taxonomy (`pass|warn|fail`) with explicit anomaly rationale for source-sequence and retrograde-order failures.

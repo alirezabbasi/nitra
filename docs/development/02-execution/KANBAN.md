@@ -10,7 +10,6 @@ Last updated: 2026-05-03
 
 ### Priority 1 — Deterministic Market Data Foundation
 
-- [ ] `DEV-00079` Normalization/Replay - full 90-day startup-coverage conformance harness with venue-session edge-case fixtures.
 - [ ] `DEV-00144` Normalization/Replay - canonical validation suite (tick/trade/order-book validators and deterministic reject taxonomy).
 - [ ] `DEV-00145` Normalization/Replay - deterministic deduplication conformance pack across ingestion/normalization/replay boundaries.
 - [ ] `DEV-00083` Time-Series Storage - continuous aggregate/materialization strategy for operational and research query workloads.
@@ -188,6 +187,7 @@ Last updated: 2026-05-03
 - [x] `DEV-00076` Kafka schema compatibility CI gate delivered for backward/forward validation across runtime topics.
 - [x] `DEV-00077` normalization/replay deterministic quarantine pipeline delivered with replay-safe re-ingest flow (`test-dev-0077`).
 - [x] `DEV-00078` normalization/replay sequence/order integrity verifier delivered across source-stream sequence provenance and normalized output ordering (`test-dev-0078`).
+- [x] `DEV-00079` normalization/replay 90-day startup-coverage conformance harness delivered with venue-session edge-case fixtures (`test-dev-0079`).
 - [x] `DEV-00125` control-panel P0 raw data lake module delivered (partition browser, replay manifest, retention controls).
 - [x] `DEV-00126` control-panel P0 Kafka module delivered (topic SLOs, lag recovery controls, partition/retention management).
 - [x] `DEV-00153` control-panel root routing + chart-tab handoff delivered (`/` now serves control panel, chart launches moved to new-tab flow with instrument-aware/default fallback).

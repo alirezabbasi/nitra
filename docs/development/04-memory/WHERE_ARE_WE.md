@@ -10,6 +10,7 @@ Last updated: 2026-05-03
 
 ## Recent
 
+- Completed `DEV-00079` normalization/replay 90-day startup-coverage conformance harness with venue-session edge-case fixtures.
 - Completed `DEV-00078` normalization/replay sequence/order integrity verifier with persisted source-sequence plus normalized-order verdicts.
 - Completed `DEV-00072` replay manifest/index service with deterministic selection ordering, checksum provenance, and control-panel build workflow.
 - Completed `DEV-00071` raw data lake canonical partition/object-key strategy with manifest-level replay provenance and control-panel ops visibility.
@@ -70,6 +71,7 @@ Last updated: 2026-05-03
 
 ## Current
 
+- `DEV-00079` closed (`test-dev-0079`).
 - `DEV-00078` closed (`test-dev-0078`).
 - `DEV-00077` closed (`test-dev-0077`).
 - `DEV-00126` closed (`test-dev-0126`).
@@ -131,7 +133,7 @@ Last updated: 2026-05-03
 
 ## Next
 
-1. Continue with `DEV-00079` normalization/replay 90-day startup-coverage conformance harness scope.
+1. Continue with `DEV-00144` normalization/replay canonical validation suite scope.
 
 ## Risks/Blocks
 

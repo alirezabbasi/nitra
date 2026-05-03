@@ -113,3 +113,15 @@
     - `warn` when source sequence is unavailable but normalized order is still tracked,
     - `fail` on source sequence anomalies (`gap|out_of_order|duplicate`) or retrograde normalized ordering.
   - `integrity_reason` stores deterministic human-readable verdict rationale per event.
+
+## 90-Day Startup Coverage Conformance Harness (DEV-00079)
+
+- `gap-detection` startup and periodic coverage scans use a deterministic, policy-aware missing-range harness for the rolling 90-day `10s` window.
+- Venue-session edge-case fixture contract:
+  - FX venues (`oanda`, `capital`) exclude configured weekend-closed buckets from expected coverage.
+  - Crypto venues (for example `coinbase`) remain `24/7` and must report weekend missing buckets as true gaps.
+- Session policy env contract consumed by coverage scanner:
+  - `FX_WEEKEND_START_ISO_DOW`
+  - `FX_WEEKEND_START_HOUR_UTC`
+  - `FX_WEEKEND_END_ISO_DOW`
+  - `FX_WEEKEND_END_HOUR_UTC`

@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration as ChronoDuration, Timelike, Utc};
+use chrono::{DateTime, Datelike, Duration as ChronoDuration, Timelike, Utc};
 use futures_util::StreamExt;
 use rdkafka::consumer::{CommitMode, Consumer, StreamConsumer};
 use rdkafka::message::BorrowedMessage;
@@ -24,6 +24,14 @@ struct MarketKey {
 struct GapRange {
     start: DateTime<Utc>,
     end: DateTime<Utc>,
+}
+
+#[derive(Clone, Copy)]
+struct FxSessionPolicy {
+    weekend_start_iso_dow: u32,
+    weekend_start_hour_utc: u32,
+    weekend_end_iso_dow: u32,
+    weekend_end_hour_utc: u32,
 }
 
 fn env_or(name: &str, default: &str) -> String {
@@ -346,6 +354,7 @@ async fn fetch_buckets_in_window(
     Ok(out)
 }
 
+#[cfg(test)]
 fn find_missing_ranges_in_window(
     start: DateTime<Utc>,
     end: DateTime<Utc>,
@@ -383,6 +392,103 @@ fn find_missing_ranges_in_window(
     }
 
     ranges
+}
+
+fn is_fx_venue(venue: &str) -> bool {
+    matches!(venue.to_ascii_lowercase().as_str(), "oanda" | "capital")
+}
+
+fn is_fx_weekend_closed(ts: DateTime<Utc>, policy: FxSessionPolicy) -> bool {
+    let dow = ts.weekday().number_from_monday();
+    let hour = ts.hour();
+    if dow == policy.weekend_start_iso_dow && hour >= policy.weekend_start_hour_utc {
+        return true;
+    }
+    if dow > policy.weekend_start_iso_dow {
+        return true;
+    }
+    if dow < policy.weekend_end_iso_dow {
+        return true;
+    }
+    if dow == policy.weekend_end_iso_dow && hour < policy.weekend_end_hour_utc {
+        return true;
+    }
+    false
+}
+
+fn expected_coverage_bucket(
+    venue: &str,
+    ts: DateTime<Utc>,
+    fx_session_policy: FxSessionPolicy,
+) -> bool {
+    if is_fx_venue(venue) {
+        return !is_fx_weekend_closed(ts, fx_session_policy);
+    }
+    true
+}
+
+fn find_missing_ranges_in_window_with_policy<F>(
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+    buckets: &[DateTime<Utc>],
+    mut is_expected: F,
+) -> Vec<GapRange>
+where
+    F: FnMut(DateTime<Utc>) -> bool,
+{
+    if end < start {
+        return Vec::new();
+    }
+
+    let mut actual = HashSet::new();
+    for bucket in buckets {
+        let b = ten_second_bucket(*bucket);
+        if b >= start && b <= end {
+            actual.insert(b);
+        }
+    }
+
+    let mut ranges = Vec::new();
+    let mut cursor = ten_second_bucket(start);
+    let end = ten_second_bucket(end);
+    let mut gap_start: Option<DateTime<Utc>> = None;
+
+    while cursor <= end {
+        let expected = is_expected(cursor);
+        let present = actual.contains(&cursor);
+        if expected && !present {
+            if gap_start.is_none() {
+                gap_start = Some(cursor);
+            }
+        } else if let Some(start_gap) = gap_start.take() {
+            ranges.push(GapRange {
+                start: start_gap,
+                end: cursor - ChronoDuration::seconds(10),
+            });
+        }
+        cursor += ChronoDuration::seconds(10);
+    }
+
+    if let Some(start_gap) = gap_start {
+        ranges.push(GapRange {
+            start: start_gap,
+            end,
+        });
+    }
+
+    ranges
+}
+
+fn find_missing_ranges_in_window_for_market(
+    venue: &str,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+    buckets: &[DateTime<Utc>],
+    fx_session_policy: FxSessionPolicy,
+) -> Vec<GapRange> {
+    find_missing_ranges_in_window_with_policy(start, end, buckets, |ts| {
+        expected_coverage_bucket(venue, ts, fx_session_policy)
+    })
 }
 
 async fn upsert_coverage_state(
@@ -489,6 +595,7 @@ async fn run_coverage_scan(
     coverage_days: i64,
     db_lookback_hours: i64,
     include_db_discovered_markets: bool,
+    fx_session_policy: FxSessionPolicy,
     max_markets: Option<usize>,
     source: &str,
     reason: &str,
@@ -547,7 +654,13 @@ async fn run_coverage_scan(
             upsert_coverage_state(conn, &market.venue, &market.symbol, last).await?;
         }
 
-        let ranges = find_missing_ranges_in_window(scan_start, scan_end, &buckets);
+        let ranges = find_missing_ranges_in_window_for_market(
+            &market.venue,
+            scan_start,
+            scan_end,
+            &buckets,
+            fx_session_policy,
+        );
         for range in ranges {
             total_gaps += 1;
             insert_and_maybe_emit_gap(
@@ -615,6 +728,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let periodic_scan_markets_per_cycle =
         env_i64_or("GAP_PERIODIC_SCAN_MARKETS_PER_CYCLE", 64).max(1) as usize;
     let include_db_discovered_markets = env_bool_or("GAP_INCLUDE_DB_DISCOVERED_MARKETS", false);
+    let fx_session_policy = FxSessionPolicy {
+        weekend_start_iso_dow: env_i64_or("FX_WEEKEND_START_ISO_DOW", 6).clamp(1, 7) as u32,
+        weekend_start_hour_utc: env_i64_or("FX_WEEKEND_START_HOUR_UTC", 0).clamp(0, 23) as u32,
+        weekend_end_iso_dow: env_i64_or("FX_WEEKEND_END_ISO_DOW", 1).clamp(1, 7) as u32,
+        weekend_end_hour_utc: env_i64_or("FX_WEEKEND_END_HOUR_UTC", 6).clamp(0, 23) as u32,
+    };
 
     let (conn, connection) = tokio_postgres::connect(&db_dsn, NoTls).await?;
     tokio::spawn(async move {
@@ -650,6 +769,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             startup_coverage_days,
             startup_db_lookback_hours,
             include_db_discovered_markets,
+            fx_session_policy,
             None,
             "startup_coverage_scan",
             "startup_90d_missing",
@@ -680,6 +800,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     startup_coverage_days,
                     startup_db_lookback_hours,
                     include_db_discovered_markets,
+                    fx_session_policy,
                     Some(periodic_scan_markets_per_cycle),
                     "periodic_coverage_scan",
                     "periodic_90d_missing",
@@ -846,13 +967,15 @@ mod tests {
         ];
 
         let gaps = find_missing_ranges_in_window(start, end, &buckets);
-        assert_eq!(gaps.len(), 3);
+        assert_eq!(gaps.len(), 4);
         assert_eq!(gaps[0].start.to_rfc3339(), "2026-01-01T00:00:00+00:00");
-        assert_eq!(gaps[0].end.to_rfc3339(), "2026-01-01T00:00:00+00:00");
-        assert_eq!(gaps[1].start.to_rfc3339(), "2026-01-01T00:03:00+00:00");
-        assert_eq!(gaps[1].end.to_rfc3339(), "2026-01-01T00:04:00+00:00");
-        assert_eq!(gaps[2].start.to_rfc3339(), "2026-01-01T00:06:00+00:00");
-        assert_eq!(gaps[2].end.to_rfc3339(), "2026-01-01T00:06:00+00:00");
+        assert_eq!(gaps[0].end.to_rfc3339(), "2026-01-01T00:00:50+00:00");
+        assert_eq!(gaps[1].start.to_rfc3339(), "2026-01-01T00:01:10+00:00");
+        assert_eq!(gaps[1].end.to_rfc3339(), "2026-01-01T00:01:50+00:00");
+        assert_eq!(gaps[2].start.to_rfc3339(), "2026-01-01T00:02:10+00:00");
+        assert_eq!(gaps[2].end.to_rfc3339(), "2026-01-01T00:04:50+00:00");
+        assert_eq!(gaps[3].start.to_rfc3339(), "2026-01-01T00:05:10+00:00");
+        assert_eq!(gaps[3].end.to_rfc3339(), "2026-01-01T00:06:00+00:00");
     }
 
     #[test]
@@ -865,6 +988,46 @@ mod tests {
             .with_timezone(&Utc);
 
         let gaps = find_missing_ranges_in_window(start, end, &[]);
+        assert_eq!(gaps.len(), 1);
+        assert_eq!(gaps[0].start, start);
+        assert_eq!(gaps[0].end, end);
+    }
+
+    #[test]
+    fn fx_weekend_edge_case_is_excluded_from_gap_expectations() {
+        let start = DateTime::parse_from_rfc3339("2026-01-10T00:00:00Z")
+            .expect("start")
+            .with_timezone(&Utc); // Saturday
+        let end = DateTime::parse_from_rfc3339("2026-01-10T00:00:20Z")
+            .expect("end")
+            .with_timezone(&Utc);
+        let policy = FxSessionPolicy {
+            weekend_start_iso_dow: 6,
+            weekend_start_hour_utc: 0,
+            weekend_end_iso_dow: 1,
+            weekend_end_hour_utc: 6,
+        };
+
+        let gaps = find_missing_ranges_in_window_for_market("oanda", start, end, &[], policy);
+        assert!(gaps.is_empty());
+    }
+
+    #[test]
+    fn crypto_weekend_edge_case_is_still_required_coverage() {
+        let start = DateTime::parse_from_rfc3339("2026-01-10T00:00:00Z")
+            .expect("start")
+            .with_timezone(&Utc); // Saturday
+        let end = DateTime::parse_from_rfc3339("2026-01-10T00:00:20Z")
+            .expect("end")
+            .with_timezone(&Utc);
+        let policy = FxSessionPolicy {
+            weekend_start_iso_dow: 6,
+            weekend_start_hour_utc: 0,
+            weekend_end_iso_dow: 1,
+            weekend_end_hour_utc: 6,
+        };
+
+        let gaps = find_missing_ranges_in_window_for_market("coinbase", start, end, &[], policy);
         assert_eq!(gaps.len(), 1);
         assert_eq!(gaps[0].start, start);
         assert_eq!(gaps[0].end, end);

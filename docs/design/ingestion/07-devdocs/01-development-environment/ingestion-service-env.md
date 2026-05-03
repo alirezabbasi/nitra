@@ -102,6 +102,7 @@ Note:
 - Synthetic/mock quote generation is prohibited in runtime ingestion services.
 - `CONNECTOR_MODE=mock` is explicitly rejected by `market-ingestion` (fail-closed startup behavior).
 - FX venues (`oanda`, `capital`) pause symbol fetches during configured weekend close window; Coinbase remains active (`24/7`).
+- Gap-detection coverage scan also honors FX weekend session policy (`FX_WEEKEND_*`) so startup/periodic 90-day conformance excludes expected closed buckets for FX while preserving `24/7` crypto expectations.
 - Active market list source of truth for ingestion runtime control is DB table `venue_market`.
 
 COINBASE profile:

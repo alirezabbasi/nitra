@@ -2,7 +2,7 @@
 
 ## Status
 
-Planned
+Done
 
 ## Goal
 
@@ -41,3 +41,5 @@ A ticket is complete only when all conditions below are true:
 ## Notes
 
 - This ticket file was generated to restore ticket-registry integrity from `KANBAN.md`.
+
+- Delivered with policy-aware 90-day startup coverage conformance harness and venue-session edge-case fixtures; verification target `make test-dev-0079`.
