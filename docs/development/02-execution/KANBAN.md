@@ -6,16 +6,10 @@ Last updated: 2026-05-03
 
 ### Priority 0 — Non-Negotiable Core (Data Acquisition)
 
-- [x] `DEV-00073` Raw Data Lake - retention/tiering/restore runbook with validation evidence for dev/staging/prod.
-- [x] `DEV-00074` Kafka Backbone - topic-level SLO and partition/retention right-sizing policy with enforcement checks.
-- [x] `DEV-00075` Kafka Backbone - consumer lag recovery automation and dead-letter replay workflow hardening.
-- [x] `DEV-00076` Kafka Backbone - schema compatibility CI gate for backward/forward validation across all runtime topics.
-- [x] `DEV-00125` Control Panel (P0) - raw data lake module (partition browser, replay manifest, retention controls).
-- [x] `DEV-00126` Control Panel (P0) - Kafka module (topic SLOs, lag recovery controls, partition/retention management).
+- [ ] (No pending P0 items)
 
 ### Priority 1 — Deterministic Market Data Foundation
 
-- [x] `DEV-00077` Normalization/Replay - deterministic quarantine pipeline for malformed events with replay-safe re-ingest flow.
 - [ ] `DEV-00078` Normalization/Replay - sequence/order integrity verifier across venue streams and normalized outputs.
 - [ ] `DEV-00079` Normalization/Replay - full 90-day startup-coverage conformance harness with venue-session edge-case fixtures.
 - [ ] `DEV-00144` Normalization/Replay - canonical validation suite (tick/trade/order-book validators and deterministic reject taxonomy).
@@ -189,6 +183,13 @@ Last updated: 2026-05-03
 - [x] `DEV-00143` raw message capture conformance delivered (untouched payload persistence + sequence provenance checks + control-panel ops visibility, `test-dev-0143`).
 - [x] `DEV-00071` raw data lake canonical partition/object-key strategy delivered (deterministic parquet key contract + replay-grade manifest provenance + control-panel ops visibility, `test-dev-0071`).
 - [x] `DEV-00072` replay manifest/index service delivered (deterministic range selection index + checksum provenance + control-panel build workflow, `test-dev-0072`).
+- [x] `DEV-00073` raw data lake retention/tiering/restore runbook delivered with validation evidence for dev/staging/prod.
+- [x] `DEV-00074` Kafka topic-level SLO and partition/retention right-sizing policy delivered with enforcement checks.
+- [x] `DEV-00075` Kafka consumer lag recovery automation and dead-letter replay workflow hardening delivered.
+- [x] `DEV-00076` Kafka schema compatibility CI gate delivered for backward/forward validation across runtime topics.
+- [x] `DEV-00077` normalization/replay deterministic quarantine pipeline delivered with replay-safe re-ingest flow (`test-dev-0077`).
+- [x] `DEV-00125` control-panel P0 raw data lake module delivered (partition browser, replay manifest, retention controls).
+- [x] `DEV-00126` control-panel P0 Kafka module delivered (topic SLOs, lag recovery controls, partition/retention management).
 - [x] `DEV-00153` control-panel root routing + chart-tab handoff delivered (`/` now serves control panel, chart launches moved to new-tab flow with instrument-aware/default fallback).
 - [x] `DEV-00154` liquidity-layer backend projection delivered (ontology-derived today+yesterday closed-`M5` API + chart consumption replacing local heuristic overlay path).
 - [x] `DEV-00139` control-panel unified configuration registry super-scope retired (split into `DEV-00151` core + `DEV-00152` adoption rollout).
