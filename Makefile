@@ -1,7 +1,26 @@
 SHELL := /bin/bash
 
+.PHONY: session-bootstrap wiki-index wiki-lint validate-governance wiki-health wrw new-task
+
 session-bootstrap:
 	scripts/session/session-bootstrap.sh
+
+wiki-index:
+	python3 tools/wiki_index.py
+
+wiki-lint:
+	python3 tools/wiki_lint.py
+
+validate-governance:
+	python3 tools/validate_governance.py
+
+wiki-health: wiki-index wiki-lint validate-governance
+
+wrw:
+	python3 tools/wrw.py
+
+new-task:
+	python3 tools/new_task.py
 
 up:
 	docker compose up -d --build

@@ -54,7 +54,23 @@ make logs
 make db
 make enforce-section-5-1
 make session-bootstrap
+make wiki-health
+make wrw
 ```
+
+## Eshel Operating System
+
+NITRA now runs with an Eshel-aligned AI-native development operating model.
+Daily execution is expected to follow:
+
+`idea -> structured knowledge -> task -> implementation -> verification -> bug management -> RCA -> updated knowledge`
+
+Eshel scaffolding in this repository:
+
+- `ruleset.md` (root Eshel-enabled governance baseline)
+- `schema/` (agent behavior and task quality contracts)
+- `wiki/` (persistent project knowledge layer)
+- `tools/` + `make wiki-health` (wiki index/lint/governance gates)
 
 ## Verification and Quality Gates
 

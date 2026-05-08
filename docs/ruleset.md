@@ -144,3 +144,16 @@ All contributors and AI agents must read and follow this file before planning or
   - links to runbook/evidence workflows for operationally sensitive actions.
 - Any feature lacking control-panel integration must remain `incomplete` in execution tracking until the companion UI/management scope is delivered.
 - Control-panel UX/design direction must be maintained as an explicit architecture/value artifact under `docs/design/`.
+
+## Rule 17: Eshel Operating System Alignment Is Mandatory
+
+- NITRA must use Eshel-style AI-native SDLC discipline as the default delivery model.
+- Root `ruleset.md` is now mandatory and defines Eshel governance precedence.
+- Session context loading must include:
+  - `ruleset.md`
+  - `schema/*.md`
+  - `wiki/index.md`
+  - `wiki/project-brief.md`
+  - recent `wiki/log.md`
+- Durable reasoning must be persisted in repository artifacts (`wiki/` and `docs/development/`), not chat-only.
+- Before closing meaningful scope, run and pass `make wiki-health` (index + lint + governance validation).

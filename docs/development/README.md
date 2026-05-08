@@ -23,14 +23,20 @@ This layout prevents context loss and keeps execution aligned with business goal
 Run this command first at every session start:
 
 - `make session-bootstrap`
+- `make wiki-health` (before closing meaningful scope)
 
 1. `docs/README.md`
-2. `docs/ruleset.md`
-3. `docs/design/nitra_system_hld.md`
-4. `docs/design/AI-enabled_trading_decision_platform.md`
-5. `docs/development/04-memory/WHERE_ARE_WE.md`
-6. `docs/development/04-memory/CURRENT_STATE.md`
-7. `docs/development/02-execution/KANBAN.md`
+2. `ruleset.md`
+3. `docs/ruleset.md`
+4. `schema/*.md`
+5. `wiki/index.md`
+6. `wiki/project-brief.md`
+7. `wiki/log.md`
+8. `docs/design/nitra_system_hld.md`
+9. `docs/design/AI-enabled_trading_decision_platform.md`
+10. `docs/development/04-memory/WHERE_ARE_WE.md`
+11. `docs/development/04-memory/CURRENT_STATE.md`
+12. `docs/development/02-execution/KANBAN.md`
 
 ## Existing records preserved
 
@@ -42,8 +48,11 @@ Run this command first at every session start:
 
 This workspace is governed by:
 
+- Root ruleset (Eshel OS baseline): `ruleset.md`
 - Global ruleset: `docs/ruleset.md`
 - Domain ruleset (ingestion scope): `docs/design/ingestion/ruleset.md`
+- Agent workflow schemas: `schema/*.md`
+- Persistent knowledge layer: `wiki/`
 
 All meaningful implementation changes must update the related docs here in the same change set.
 All completed implementation changes must also be committed in-session with an explanatory, scope-accurate commit message (what/why/scope), including after restart/resume.

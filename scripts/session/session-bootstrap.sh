@@ -88,7 +88,17 @@ validate_ticket_dod() {
 printf '[session-bootstrap] validating required context files...\n'
 
 check_file "docs/README.md"
+check_file "ruleset.md"
 check_file "docs/ruleset.md"
+check_file "schema/AGENTS.md"
+check_file "schema/INGEST.md"
+check_file "schema/QUERY.md"
+check_file "schema/LINT.md"
+check_file "schema/TASKS.md"
+check_file "schema/STANDARDS.md"
+check_file "wiki/index.md"
+check_file "wiki/project-brief.md"
+check_file "wiki/log.md"
 check_file "docs/design/nitra_system_hld.md"
 check_file "docs/design/AI-enabled_trading_decision_platform.md"
 check_dir "docs/design/nitra_system_lld"
@@ -147,14 +157,19 @@ printf '[session-bootstrap] context check passed.\n'
 printf '[session-bootstrap] Last updated date: %s (staleness: %s days)\n' "$current_state_date" "$staleness_days"
 printf '[session-bootstrap] Read order:\n'
 printf '1. docs/README.md\n'
-printf '2. docs/ruleset.md\n'
-printf '3. docs/design/nitra_system_hld.md\n'
-printf '4. docs/design/AI-enabled_trading_decision_platform.md\n'
-printf '5. docs/design/nitra_system_lld/00_README.md\n'
-printf '6. docs/design/ingestion/ruleset.md\n'
-printf '7. docs/development/04-memory/WHERE_ARE_WE.md\n'
-printf '8. docs/development/04-memory/CURRENT_STATE.md\n'
-printf '9. docs/development/04-memory/SESSION_LEDGER.md\n'
-printf '10. docs/development/02-execution/KANBAN.md\n'
-printf '11. docs/development/02-execution/ACTIVE_FOCUS.md\n'
+printf '2. ruleset.md\n'
+printf '3. docs/ruleset.md\n'
+printf '4. schema/*.md\n'
+printf '5. wiki/index.md\n'
+printf '6. wiki/project-brief.md\n'
+printf '7. wiki/log.md\n'
+printf '8. docs/design/nitra_system_hld.md\n'
+printf '9. docs/design/AI-enabled_trading_decision_platform.md\n'
+printf '10. docs/design/nitra_system_lld/00_README.md\n'
+printf '11. docs/design/ingestion/ruleset.md\n'
+printf '12. docs/development/04-memory/WHERE_ARE_WE.md\n'
+printf '13. docs/development/04-memory/CURRENT_STATE.md\n'
+printf '14. docs/development/04-memory/SESSION_LEDGER.md\n'
+printf '15. docs/development/02-execution/KANBAN.md\n'
+printf '16. docs/development/02-execution/ACTIVE_FOCUS.md\n'
 printf 'SESSION_BOOTSTRAP_OK\n'

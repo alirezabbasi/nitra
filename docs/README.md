@@ -16,6 +16,7 @@ This is the canonical documentation entrypoint for the full NITRA project.
 - `docs/development/`: delivery operating system (roadmap, execution board, project memory).
 - `docs/design/ingestion/`: ingestion-domain deep docs, contracts, runbooks, and domain bug registry.
 - `docs/knowledgebase/`: cross-session RCA and fix playbooks for recurring issues.
+- `wiki/`: Eshel knowledge layer for persistent linked project intelligence and task context.
 
 ## Control Panel Product Direction
 
